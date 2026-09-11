@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { listMyAppByPage } from '@/api/appController'
 import { getPublishedBlogPostPage } from '@/api/blogPostController'
 import { useLoginUserStore } from '@/stores/loginUser'
+import { useCapabilitiesStore } from '@/stores/capabilities'
 import { siteConfig } from '@/config/site'
 import { CalendarOutlined } from '@ant-design/icons-vue'
 import HomeClock from '@/components/home/HomeClock.vue'
@@ -23,6 +24,9 @@ const uptimeDays = computed(() => {
 
 const router = useRouter()
 const loginUserStore = useLoginUserStore()
+const capabilitiesStore = useCapabilitiesStore()
+const blogEnabled = computed(() => capabilitiesStore.enabled('blog'))
+const labEnabled = computed(() => capabilitiesStore.enabled('app-lab'))
 
 const latestPosts = ref<API.BlogPostVO[]>([])
 const postTotal = ref(0)
@@ -53,9 +57,14 @@ const fetchMyTotal = async () => {
   }
 }
 
-onMounted(() => {
-  fetchLatestPosts()
-  fetchMyTotal()
+onMounted(async () => {
+  await capabilitiesStore.ensureLoaded()
+  if (blogEnabled.value) {
+    fetchLatestPosts()
+  }
+  if (labEnabled.value) {
+    fetchMyTotal()
+  }
 })
 </script>
 
@@ -72,11 +81,11 @@ onMounted(() => {
           </div>
         </div>
         <div class="intro-card__stats">
-          <div class="stat-chip" @click="router.push('/blog')">
+          <div v-if="blogEnabled" class="stat-chip" @click="router.push('/blog')">
             <span class="stat-chip__num">{{ postTotal }}</span>
             <span class="stat-chip__label">{{ siteConfig.statsLabels.posts }}</span>
           </div>
-          <div v-if="loginUserStore.loginUser.id" class="stat-chip" @click="router.push('/lab')">
+          <div v-if="loginUserStore.loginUser.id && labEnabled" class="stat-chip" @click="router.push('/lab')">
             <span class="stat-chip__num">{{ myTotal }}</span>
             <span class="stat-chip__label">{{ siteConfig.statsLabels.experiments }}</span>
           </div>
@@ -96,7 +105,7 @@ onMounted(() => {
       <DailyHitokoto variant="plain" />
     </section>
 
-    <section class="content-section">
+    <section v-if="blogEnabled" class="content-section">
       <div class="content-section__header">
         <span class="content-section__title">{{ siteConfig.sections.latestPosts }}</span>
         <a class="content-section__more" @click="router.push('/blog')">全部随笔 →</a>

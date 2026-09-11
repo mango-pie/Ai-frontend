@@ -58,6 +58,16 @@ declare namespace API {
     updateTime?: string
   }
 
+  type ModuleCapabilitiesVO = {
+    modules?: Record<string, boolean>
+  }
+
+  type BaseResponseModuleCapabilitiesVO = {
+    code?: number
+    data?: ModuleCapabilitiesVO
+    message?: string
+  }
+
   type BaseResponseAppVO = {
     code?: number
     data?: AppVO

@@ -1,9 +1,21 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { siteConfig } from '@/config/site'
+import { useCapabilitiesStore } from '@/stores/capabilities'
+import { getRequiredModuleByPath } from '@/config/modules'
 
 const router = useRouter()
+const capabilitiesStore = useCapabilitiesStore()
 const currentYear = new Date().getFullYear()
+
+const footerLinks = computed(() =>
+  siteConfig.footer.links.filter((link) => {
+    if (!('path' in link) || !link.path) return true
+    const moduleKey = getRequiredModuleByPath(link.path)
+    return !moduleKey || capabilitiesStore.enabled(moduleKey)
+  }),
+)
 
 const navigate = (link: { path?: string; href?: string }) => {
   if (link.path) {
@@ -23,7 +35,7 @@ const navigate = (link: { path?: string; href?: string }) => {
       </div>
       <div class="global-footer__links">
         <a
-          v-for="(link, i) in siteConfig.footer.links"
+          v-for="(link, i) in footerLinks"
           :key="i"
           href="javascript:void(0)"
           class="global-footer__link"

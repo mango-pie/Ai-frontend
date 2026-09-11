@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { siteConfig } from '@/config/site'
 import { useLoginUserStore } from '@/stores/loginUser'
+import { useCapabilitiesStore } from '@/stores/capabilities'
 import { PET_Z_INDEX } from '../constants'
 import { pickRandomLine } from '../petLines'
 import { usePetEngine } from '../composables/usePetEngine'
@@ -75,6 +76,7 @@ const shellStyle = computed(() => ({
 const chatPlacement = computed(() => (position.value.y < 180 ? 'bottom' : 'top'))
 
 const isLoggedIn = computed(() => Boolean(loginUserStore.loginUser.id))
+const chatEnabled = computed(() => useCapabilitiesStore().enabled('chat'))
 
 const renderer = computed(() => cfg.renderer)
 
@@ -83,6 +85,7 @@ function onAnimationComplete(state: PetState) {
 }
 
 function toggleChatPanel() {
+  if (!chatEnabled.value) return
   chatPanelVisible.value = !chatPanelVisible.value
 }
 
@@ -124,6 +127,7 @@ onUnmounted(() => {
       @dblclick="toggleChatPanel"
     >
       <PetChatPanel
+        v-if="chatEnabled"
         :visible="chatPanelVisible"
         :placement="chatPlacement"
         :logged-in="isLoggedIn"

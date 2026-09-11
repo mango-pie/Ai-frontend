@@ -9,6 +9,7 @@ import { useBackgroundSlideshow } from '@/composables/useBackgroundSlideshow'
 import { resolveBlogMenuClickPath } from '@/composables/useBlogLastPost'
 import { resolveDiaryMenuClickPath } from '@/composables/useDiaryNav'
 import { getChatEntryPath } from '@/utils/chatSession'
+import { useCapabilitiesStore } from '@/stores/capabilities'
 
 interface MenuItem {
   key: string
@@ -20,6 +21,7 @@ interface MenuItem {
 const router = useRouter()
 const route = useRoute()
 const loginUserStore = useLoginUserStore()
+const capabilitiesStore = useCapabilitiesStore()
 const isScrolled = ref(false)
 const { layerA, layerB, activeLayer, hasImages, fadeDuration } = useBackgroundSlideshow()
 
@@ -35,7 +37,7 @@ onMounted(() => {
 
 const menuItems = computed<MenuItem[]>(() => {
   const user = loginUserStore.loginUser ?? null
-  return filterMenuItems(MENU_ITEMS, user)
+  return filterMenuItems(MENU_ITEMS, user, (name) => capabilitiesStore.enabled(name))
 })
 
 function getAllPathMap(items: MenuItem[]): Map<string, string> {
