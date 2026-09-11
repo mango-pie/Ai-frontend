@@ -2,8 +2,9 @@
  * 统一权限配置：路由访问权限 + 菜单展示权限
  * 新增页面时：
  * 1. 在 ROUTE_PERMISSIONS 中增加 path -> requiredRole
- * 2. 若需在导航菜单展示，在 MENU_ITEMS 中增加一项（key、label、path、requiredRole）
- * 路由与 access 会根据 ROUTE_PERMISSIONS 校验；布局会根据 MENU_ITEMS + requiredRole 过滤菜单
+ * 2. 若需在导航菜单展示，在 MENU_ITEMS 中增加一项（key、label、path、requiredRole、requireModule）
+ * 路由与 access 会根据 ROUTE_PERMISSIONS 校验；布局会根据 MENU_ITEMS + requiredRole + requireModule 过滤菜单
+ * 3. 业务模块入口需声明 requireModule（与 GET /app/modules 的 key 对齐）
  */
 
 /** 路由所需权限：不设 = 所有人；'user' = 仅登录；'admin' = 仅管理员 */
@@ -35,28 +36,30 @@ export interface MenuItemConfig {
   path?: string
   /** 不设 = 所有人可见；'user' = 仅登录后可见；'admin' = 仅管理员可见 */
   requiredRole?: RequiredRole
+  /** 对应 GET /app/modules 的模块 key；不设 = 平台常驻入口 */
+  requireModule?: string
   children?: MenuItemConfig[]
 }
 
 export const MENU_ITEMS: MenuItemConfig[] = [
   { key: 'home', label: '首页', path: '/' },
-  { key: 'blogHome', label: '随笔', path: '/blog' },
-  { key: 'diary', label: '日记', path: '/diary', requiredRole: 'user' },
-  { key: 'lab', label: '实验室', path: '/lab' },
+  { key: 'blogHome', label: '随笔', path: '/blog', requireModule: 'blog' },
+  { key: 'diary', label: '日记', path: '/diary', requiredRole: 'user', requireModule: 'diary' },
+  { key: 'lab', label: '实验室', path: '/lab', requireModule: 'app-lab' },
   {
     key: 'manage',
     label: '管理',
     requiredRole: 'admin',
     children: [
       { key: 'userManage', label: '用户管理', path: '/admin/userManage', requiredRole: 'admin' },
-      { key: 'appManage', label: '应用管理', path: '/admin/appManage', requiredRole: 'admin' },
-      { key: 'blogManage', label: '博客管理', path: '/admin/blogManage', requiredRole: 'admin' },
+      { key: 'appManage', label: '应用管理', path: '/admin/appManage', requiredRole: 'admin', requireModule: 'app-lab' },
+      { key: 'blogManage', label: '博客管理', path: '/admin/blogManage', requiredRole: 'admin', requireModule: 'blog' },
     ],
   },
   { key: 'about', label: '关于', path: '/about' },
-  { key: 'study', label: '学习', path: '/administrator/study', requiredRole: 'administrator' },
+  { key: 'study', label: '学习', path: '/administrator/study', requiredRole: 'administrator', requireModule: 'study' },
   { key: 'test', label: '测试', path: '/test', requiredRole: 'administrator' },
-  { key: 'chat', label: '对话', path: '/chat', requiredRole: 'user' },
+  { key: 'chat', label: '对话', path: '/chat', requiredRole: 'user', requireModule: 'chat' },
 ]
 
 /** 当前用户是否具备管理员角色 */
@@ -92,10 +95,11 @@ export function canAccessRoute(
   return false
 }
 
-/** 是否应在菜单中展示该项（根据当前用户与 item.requiredRole） */
+/** 是否应在菜单中展示该项（根据当前用户、item.requiredRole 与模块开关） */
 export function canShowMenuItem(
   item: MenuItemConfig,
   user: { id?: number; userRole?: string } | null,
+  moduleEnabled: (name: string) => boolean = () => true,
 ): boolean {
   // 检查当前项是否满足权限
   const currentItemVisible = (() => {
@@ -108,9 +112,13 @@ export function canShowMenuItem(
 
   if (!currentItemVisible) return false
 
+  if (item.requireModule && !moduleEnabled(item.requireModule)) {
+    return false
+  }
+
   // 递归过滤子菜单
   if (item.children) {
-    const visibleChildren = item.children.filter(child => canShowMenuItem(child, user))
+    const visibleChildren = item.children.filter((child) => canShowMenuItem(child, user, moduleEnabled))
     // 如果当前项有子菜单但没有可见的子项，则不显示当前项
     if (!item.path && visibleChildren.length === 0) return false
   }
@@ -122,14 +130,15 @@ export function canShowMenuItem(
 export function filterMenuItems(
   items: MenuItemConfig[],
   user: { id?: number; userRole?: string } | null,
+  moduleEnabled: (name: string) => boolean = () => true,
 ): MenuItemConfig[] {
   return items
-    .filter(item => canShowMenuItem(item, user))
-    .map(item => {
+    .filter((item) => canShowMenuItem(item, user, moduleEnabled))
+    .map((item) => {
       if (item.children) {
         return {
           ...item,
-          children: filterMenuItems(item.children, user),
+          children: filterMenuItems(item.children, user, moduleEnabled),
         }
       }
       return item

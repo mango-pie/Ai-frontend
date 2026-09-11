@@ -3,10 +3,13 @@ import { computed, inject, ref } from 'vue'
 import { SyncOutlined } from '@ant-design/icons-vue'
 import { studyContextKey } from '@/composables/study/useStudyContext'
 import { getViewTitle } from '@/constants/study'
+import { useCapabilitiesStore } from '@/stores/capabilities'
 import StudyQuickAdd from './StudyQuickAdd.vue'
 import StudyTaskItem from './StudyTaskItem.vue'
 
 const ctx = inject(studyContextKey)!
+const capabilitiesStore = useCapabilitiesStore()
+const blogEnabled = computed(() => capabilitiesStore.enabled('blog'))
 
 const viewTitle = computed(() =>
   getViewTitle(ctx.selection.value.view, ctx.selection.value.listName),
@@ -49,7 +52,7 @@ async function onSyncBlog() {
   <main class="study-panel study-panel--main">
     <div class="study-task-toolbar">
       <h2 class="study-task-toolbar__title">{{ viewTitle }}</h2>
-      <a-button size="small" :loading="syncing" @click="onSyncBlog">
+      <a-button v-if="blogEnabled" size="small" :loading="syncing" @click="onSyncBlog">
         <SyncOutlined /> 同步博客草稿
       </a-button>
     </div>

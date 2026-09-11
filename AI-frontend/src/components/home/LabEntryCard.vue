@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
+import { computed } from 'vue'
 import { ExperimentOutlined, ArrowRightOutlined } from '@ant-design/icons-vue'
 import { siteConfig } from '@/config/site'
+import { useCapabilitiesStore } from '@/stores/capabilities'
 
 const router = useRouter()
+const visible = computed(() => useCapabilitiesStore().enabled('app-lab'))
 </script>
 
 <template>
-  <section class="lab-entry" @click="router.push('/lab')">
+  <section v-if="visible" class="lab-entry" @click="router.push('/lab')">
     <div class="lab-entry__icon">
       <ExperimentOutlined />
     </div>

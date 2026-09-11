@@ -38,6 +38,7 @@ import {
   getChatConfigStorageKey,
   saveLastChatConversationId,
 } from '@/utils/chatSession'
+import { useCapabilitiesStore } from '@/stores/capabilities'
 import { marked, Renderer } from 'marked'
 import hljs from 'highlight.js/lib/core'
 import langHtml from 'highlight.js/lib/languages/xml'
@@ -152,6 +153,8 @@ let clientMsgCounter = 0
 let currentTtsAudio: HTMLAudioElement | null = null
 let currentTtsUrl: string | null = null
 const ttsSynthesizing = ref<string | null>(null)
+const capabilitiesStore = useCapabilitiesStore()
+const ttsEnabled = computed(() => capabilitiesStore.enabled('tts'))
 
 function nextClientId(prefix = 'm'): string {
   return `${prefix}-${Date.now()}-${++clientMsgCounter}`
@@ -240,6 +243,7 @@ const stopStreaming = () => {
 
 /** Fire-and-forget preload of reference audio using the backend proxy (current config) */
 function ensureTtsInit() {
+  if (!ttsEnabled.value) return
   if (ttsInitDone) return
   ttsInitDone = true
   const base = import.meta.env.VITE_API_BASE_URL
@@ -1246,7 +1250,7 @@ onUnmounted(() => {
 
             <!-- TTS play button: only for finished AI messages. Uses shared .chat-msg__tts styles -->
             <div
-              v-if="msg.role === 'ai' && !msg.isStreaming && msg.content"
+              v-if="ttsEnabled && msg.role === 'ai' && !msg.isStreaming && msg.content"
               class="chat-msg__tts"
             >
               <a-button

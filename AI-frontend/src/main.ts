@@ -4,6 +4,7 @@ import { permissionDirective } from '@/directives/permission'
 
 import App from './App.vue'
 import router from './router'
+import { useCapabilitiesStore } from '@/stores/capabilities'
 
 import Antd from 'ant-design-vue'
 
@@ -16,10 +17,13 @@ import '@/access'
 
 const app = createApp(App)
 
-app.use(createPinia())
+const pinia = createPinia()
+app.use(pinia)
 app.use(router)
 app.use(Antd)
 
 app.directive('permission', permissionDirective)
+
+useCapabilitiesStore().load()
 
 app.mount('#app')
