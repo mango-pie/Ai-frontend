@@ -18,7 +18,7 @@ import StationRoomShell from '@/components/shared/StationRoomShell.vue'
 const route = useRoute()
 const router = useRouter()
 const loginUserStore = useLoginUserStore()
-const appId = route.params.appId as string
+const appId = Number(route.params.appId) || 0
 
 const appInfo = ref<API.AppVO | null>(null)
 const loading = ref(false)
@@ -30,6 +30,7 @@ const appUx = ref<AppUxSettings>({
   publicHostDisplay: '',
 })
 
+/** 是否管理员：决定拉取 / 更新走哪套接口，以及可编辑字段范围 */
 const isAdmin = computed(() => isAdminRole(loginUserStore.loginUser.userRole))
 
 const form = ref({
@@ -38,6 +39,7 @@ const form = ref({
   priority: 0,
 })
 
+/** 拉取应用详情：管理员走 admin 接口；普通用户访问他人应用时跳回首页 */
 const fetchApp = async () => {
   loading.value = true
   try {
@@ -63,12 +65,14 @@ const fetchApp = async () => {
   }
 }
 
+/** 放弃未保存的修改，恢复为最近拉取到的应用信息 */
 const handleReset = () => {
   form.value.appName = appInfo.value?.appName ?? ''
   form.value.cover = appInfo.value?.cover ?? ''
   form.value.priority = appInfo.value?.priority ?? 0
 }
 
+/** 保存修改：管理员额外提交封面与优先级字段 */
 const handleSubmit = async () => {
   if (!form.value.appName?.trim()) {
     message.warning('请输入应用名称')
@@ -95,6 +99,7 @@ const handleSubmit = async () => {
 
 const goToChat = () => router.push(`/app/chat/${appId}`)
 
+/** 部署后的访问地址（站点设置根地址 + deployKey），未部署返回空串 */
 const deployUrl = computed(() => {
   const key = appInfo.value?.deployKey
   if (!key) return ''
@@ -203,6 +208,7 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+/* 页面布局 */
 .edit-page {
   padding: 32px 24px;
   min-height: calc(100vh - 64px);
@@ -227,6 +233,7 @@ onMounted(async () => {
   flex-shrink: 0;
 }
 
+/* 深度覆盖 antd 卡片 / 表单控件配色，贴合站点主题 */
 .edit-layout :deep(.ant-card) {
   background: var(--color-bg-card);
   border: 1px solid var(--color-border);
@@ -252,6 +259,7 @@ onMounted(async () => {
   color: var(--color-text-primary);
 }
 
+/* 只读字段与封面预览 */
 .readonly-field {
   background: rgba(255, 255, 255, 0.04);
   color: var(--color-text-secondary);

@@ -3,6 +3,7 @@
  * 运维中心 · 业务日统计
  * 路由：/admin/ops/stats
  */
+import AdminRoomShell from '@/components/shared/AdminRoomShell.vue'
 import { computed, onMounted, ref } from 'vue'
 import { message } from 'ant-design-vue'
 import type { Dayjs } from 'dayjs'
@@ -143,27 +144,11 @@ onMounted(async () => {
 </script>
 
 <template>
+  <AdminRoomShell note-label="Station · 运维中心">
+    <template #nav>
+      <OpsCenterNav active-key="业务统计" />
+    </template>
   <div class="ops-center-page admin-theme-page">
-    <a-breadcrumb class="admin-breadcrumb">
-      <a-breadcrumb-item>
-        <router-link to="/">首页</router-link>
-      </a-breadcrumb-item>
-      <a-breadcrumb-item>
-        <router-link to="/admin/ops">运维中心</router-link>
-      </a-breadcrumb-item>
-      <a-breadcrumb-item>业务统计</a-breadcrumb-item>
-    </a-breadcrumb>
-
-    <div class="admin-page-hero">
-      <div class="hero-left">
-        <div class="hero-title">业务统计</div>
-        <div class="hero-subtitle">日聚合指标大盘；点击卡片切换趋势曲线</div>
-      </div>
-    </div>
-
-    <div class="ops-layout">
-      <OpsCenterNav active-key="stats" />
-
       <section class="ops-main">
         <a-alert
           v-if="!switchLoading && !bizStatsEnabled"
@@ -261,8 +246,8 @@ onMounted(async () => {
           </a-spin>
         </a-card>
       </section>
-    </div>
   </div>
+  </AdminRoomShell>
 </template>
 
 <style scoped>

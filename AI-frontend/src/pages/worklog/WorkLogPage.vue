@@ -1,4 +1,10 @@
 <script setup lang="ts">
+/**
+ * 每日工作日志页（路由 /worklog，worklog 模块）
+ * - 左列：四段式编辑器（做了什么/问题/总结/明日计划）+ 分栏 Markdown 预览 + 月度补写日历
+ * - 右列：历史日志归档，支持关键词/年月/类别/标签筛选，右键单篇复制导出
+ * - 本地优先（useWorkLog 管理 IndexedDB）；登录且模块开启时同步云端，并支持 MD/JSON 导入导出与备份提醒
+ */
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import { marked } from 'marked'
@@ -67,6 +73,8 @@ const wl = useWorkLog()
 const loginUserStore = useLoginUserStore()
 const capsStore = useCapabilitiesStore()
 
+// ===== 云端同步 =====
+// 顶栏云端状态提示语（未开启 / 同步中 / 正常 / 异常降级本地）
 const cloudHint = computed(() => {
   if (!wl.cloudEnabled.value) return '仅本机缓存'
   if (wl.cloudStatus.value === 'syncing') return '云端同步中…'
@@ -75,6 +83,7 @@ const cloudHint = computed(() => {
   return '云端待命'
 })
 
+/** 本地全量上传云端后立即回拉一次，保持两侧一致 */
 async function pushLocalToCloud() {
   const res = await wl.pushAllToCloud(true)
   if (!res) {
@@ -91,6 +100,7 @@ async function pullCloudNow() {
   else message.warning('拉取失败，仍显示本地数据')
 }
 
+// ===== 列表筛选与搜索 =====
 /** 月份筛选用 */
 const filterYear = ref(String(new Date().getFullYear()))
 const filterMonth = ref('') // '' = 全部，「YYYY-MM」= 指定月
@@ -108,6 +118,7 @@ const searchKeyword = ref('')
 /** 类别筛选（'' = 全部；点击类别分布条切换） */
 const categoryFilter = ref('')
 
+/** 类别筛选：逐行提取行首 [类别] 标记判断命中 */
 function entryMatchesCategory(e: WorkLogEntry, cat: string): boolean {
   if (!cat) return true
   for (const section of [e.done, e.problem, e.summary, e.plan]) {
@@ -133,6 +144,7 @@ const filteredAll = computed(() => {
     return true
   })
 })
+// 分批渲染：先展示 limit 篇，「加载更多」逐步放大，避免长列表卡顿
 const filteredList = computed(() => filteredAll.value.slice(0, wl.limit.value))
 const filteredHasMore = computed(() => filteredAll.value.length > wl.limit.value)
 
@@ -203,6 +215,7 @@ function openCalDate(date: string) {
 /* ── 编辑区 ─────────────────────────────────────────────── */
 const saving = ref(false)
 const saveState = ref<'idle' | 'dirty' | 'saving' | 'saved'>('idle')
+// 当前编辑的草稿（一篇日志按日期唯一），切换日期时整体回填
 const draft = reactive<WorkLogDraft>({
   date: todayDateString(),
   title: '',
@@ -214,6 +227,7 @@ const draft = reactive<WorkLogDraft>({
 })
 const tagDraft = ref('')
 const draftLoaded = ref(false)
+// 自动保存防抖定时器（卸载/切换日期时需清理）
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 
 const draftExists = computed(() => wl.entries.value.some((e) => e.date === draft.date))
@@ -249,6 +263,7 @@ function insertCategory(category: string) {
   focusField(field)
 }
 
+/** 用选区文本包裹 Markdown 定界符；无选区时插入占位词「文本」并保持焦点 */
 function wrapInline(before: string, after: string) {
   const field = activeField.value
   const el = fieldRefs[field].value
@@ -312,6 +327,7 @@ const draftMarkdown = computed(() => {
   if (draft.plan.trim()) parts.push('## 明日计划', '', draft.plan.trim(), '')
   return parts.join('\n')
 })
+// marked 解析异常时降级为占位段落，避免预览区整块空白
 const previewHtml = computed(() => {
   try {
     return marked.parse(draftMarkdown.value, { async: false }) as string
@@ -375,6 +391,7 @@ async function applyImport(text: string, overwrite: boolean, kind: ImportKind) {
 async function onImportFile(e: Event) {
   const input = e.target as HTMLInputElement
   const file = input.files?.[0]
+  // 清空 value，否则连续两次选择同一文件不会触发 change
   input.value = ''
   if (!file) return
   const text = await file.text()
@@ -400,6 +417,7 @@ async function onImportFile(e: Event) {
   await applyImport(text, true, kind)
 }
 
+// ===== 草稿保存与日期导航 =====
 const saveHint = computed(() => {
   if (saveState.value === 'saving') return '保存中…'
   if (saveState.value === 'saved') return '已保存'
@@ -413,6 +431,7 @@ const lastExportLabel = computed(() => {
   return `上次导出 ${new Date(t).toLocaleString('zh-CN', { hour12: false })}`
 })
 
+/** 按日期加载已有日志到草稿；没有则回填空白模板 */
 async function loadDraft(date: string) {
   const prev = await wl.getByDate(date)
   draft.date = date
@@ -427,6 +446,7 @@ async function loadDraft(date: string) {
   saveState.value = 'idle'
 }
 
+/** 保存当前草稿；manual=true（按钮/Ctrl+S）才弹成功提示，自动保存保持安静 */
 async function doSave(manual = false) {
   if (!draft.date) {
     message.warning('请先选择日期')
@@ -447,6 +467,7 @@ async function doSave(manual = false) {
   }
 }
 
+/** 切换编辑日期：先冲掉待执行的防抖保存并强制落盘，避免草稿串到新日期 */
 async function navigateToDate(date: string) {
   if (saveTimer) {
     clearTimeout(saveTimer)
@@ -462,6 +483,7 @@ async function onPickDate(ev: Event) {
   await navigateToDate(next)
 }
 
+// 草稿任一字段变化 → 标脏并 1.2s 防抖自动保存；draftLoaded 防止回填过程误触发
 watch(
   () => [draft.title, draft.done, draft.problem, draft.summary, draft.plan, draft.tags.join('|')] as const,
   () => {
@@ -501,6 +523,7 @@ async function removeEntry(date: string) {
   refreshBackupBanner()
 }
 
+// ===== 导出与备份提醒 =====
 function exportAllMd() {
   wl.downloadMarkdown()
   refreshBackupBanner()
@@ -525,6 +548,7 @@ function onBackupIntervalChange() {
   refreshBackupBanner()
 }
 
+// ===== 单篇操作（复制 / 导出 / 右键菜单） =====
 async function copyEntry(date: string) {
   const ok = await wl.copyEntryMarkdown(date)
   if (ok) message.success(`已复制 ${date} 的 Markdown`)
@@ -549,6 +573,7 @@ function closeCtxMenu() {
   ctxMenu.value = null
 }
 
+// ===== 列表展示辅助（星期 / 日期徽标 / 字数 / 标签） =====
 function weekLabel(date: string) {
   const days = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
   return days[new Date(`${date}T12:00:00`).getDay()]
@@ -567,9 +592,11 @@ function visibleTags(e: WorkLogEntry) {
   return normalizeTags(e.tags).filter((t) => t !== 'worklog')
 }
 
+// ===== 初始化与全局监听 =====
 onMounted(() => {
   window.addEventListener('keydown', onGlobalKeydown)
   window.addEventListener('click', closeCtxMenu)
+  // 首次进入：登录且 worklog 模块开启才启用云端，否则退化为纯本地 IndexedDB
   void (async () => {
     if (!loginUserStore.loginUser?.id) await loginUserStore.fetchLoginUser()
     if (!capsStore.loaded) await capsStore.load()
@@ -598,173 +625,95 @@ onUnmounted(() => {
 
 <template>
   <StationRoomShell brand-path="/worklog" note-label="Worklog · 每日事务" room="worklog">
-  <div class="worklog-page">
-    <header class="worklog-hero">
-      <div class="worklog-hero-copy">
-        <span class="worklog-eyebrow">WORKLOG / DAILY</span>
-        <h1>每日工作日志</h1>
-        <p>
-          每天一篇，记录做了什么与总结。与「日记」完全独立。登录后可同步到云端；未登录时仅用本机 IndexedDB。
+  <div class="worklog-room">
+    <!-- 左栏：关于 / 打卡章 / 本周洞察 -->
+    <aside class="worklog-room__side">
+      <section class="station-glass room-card">
+        <p class="room-eyebrow">DAILY REPORT</p>
+        <h3 class="room-card__title font-display">关于工作日志</h3>
+        <p class="room-card__text">
+          每天一篇，记录做了什么与总结。与「日记」完全独立：
+          本机 IndexedDB 随写随存，登录后可同步云端。
         </p>
-        <p class="worklog-cloud-line">
-          <component :is="wl.cloudEnabled.value ? Cloud : CloudOff" :size="14" />
-          {{ cloudHint }}
+      </section>
+
+      <section class="station-glass room-card room-card--stamp">
+        <p class="room-eyebrow">PUNCH CARD</p>
+        <div class="stamp-row">
+          <span class="stamp-ring" :class="{ 'is-active': wl.stats.value.streak > 0 }">
+            <b class="font-display">{{ wl.stats.value.streak }}</b>
+            <small>连续天数</small>
+          </span>
+          <dl class="stamp-mini">
+            <div><dt>累计篇数</dt><dd class="font-display">{{ wl.stats.value.total }}</dd></div>
+            <div><dt>本月篇数</dt><dd class="font-display">{{ wl.stats.value.monthCount }}</dd></div>
+            <div><dt>累计字数</dt><dd class="font-display">{{ wl.stats.value.words }}</dd></div>
+          </dl>
+        </div>
+        <p v-if="wl.stats.value.gapHint" class="stamp-gap">
+          {{ wl.stats.value.gapHint }}
+          <button class="text-btn" type="button" @click="goToday">去写今天</button>
         </p>
-      </div>
-      <div class="worklog-hero-actions">
-        <button
-          v-if="wl.cloudEnabled.value"
-          class="antd-btn ghost"
-          type="button"
-          title="从云端拉取"
-          @click="pullCloudNow"
-        >
-          <RefreshCw :size="14" /> 拉取
-        </button>
-        <button
-          v-if="wl.cloudEnabled.value"
-          class="antd-btn ghost"
-          type="button"
-          title="把本地全部上传云端"
-          @click="pushLocalToCloud"
-        >
-          <Cloud :size="14" /> 上传本地
-        </button>
-        <button class="antd-btn ghost" type="button" title="导入 Markdown 或 JSON 同步包" @click="importInput?.click()">
-          <Upload :size="14" /> 导入
-        </button>
-        <input
-          ref="importInput"
-          type="file"
-          accept=".md,.markdown,.json,text/markdown,application/json"
-          hidden
-          @change="onImportFile"
-        />
-        <button class="antd-btn ghost" type="button" title="跨设备同步推荐" @click="exportAllJson">
-          <FileJson :size="14" /> 同步包
-        </button>
-        <button class="antd-btn primary" type="button" @click="exportAllMd">
-          <Download :size="14" /> 导出 MD
-        </button>
-      </div>
-    </header>
+      </section>
 
-    <section v-if="showBackupBanner" class="worklog-backup-banner" role="status">
-      <div>
-        <strong>该备份一下了</strong>
-        <p>
-          建议每 {{ backupInterval }} 天导出一次 JSON 同步包，防止清缓存丢数据。{{ lastExportLabel }}。
-        </p>
-        <label class="worklog-backup-interval">
-          提醒间隔
-          <input
-            v-model.number="backupInterval"
-            type="number"
-            min="1"
-            max="90"
-            @change="onBackupIntervalChange"
-          />
-          天
-        </label>
-      </div>
-      <div class="worklog-import-actions">
-        <button class="antd-btn primary" type="button" @click="onBackupExportNow">立刻导出同步包</button>
-        <button class="antd-btn ghost" type="button" @click="onBackupDismiss">稍后</button>
-      </div>
-    </section>
-
-    <section v-if="importPending" class="worklog-import-banner" role="alertdialog" aria-labelledby="import-conflict-title">
-      <div>
-        <strong id="import-conflict-title">
-          导入 {{ importPending.total }} 篇（{{ importPending.kind === 'json' ? 'JSON' : 'Markdown' }}），其中
-          {{ importPending.conflicted.length }} 篇日期已存在
-        </strong>
-        <p>已存在：{{ importPending.conflicted.join('、') }}。「覆盖导入」会替换这些日期；「仅新增」跳过它们。</p>
-      </div>
-      <div class="worklog-import-actions">
-        <button class="antd-btn primary" type="button" @click="applyImport(importPending!.text, true, importPending!.kind)">
-          覆盖导入
-        </button>
-        <button class="antd-btn" type="button" @click="applyImport(importPending!.text, false, importPending!.kind)">
-          仅新增
-        </button>
-        <button class="antd-btn ghost" type="button" @click="importPending = null">取消</button>
-      </div>
-    </section>
-
-    <section class="worklog-stats" aria-label="日志统计">
-      <div class="worklog-stat"><strong>{{ wl.stats.value.total }}</strong><span>累计篇数</span></div>
-      <div class="worklog-stat"><strong>{{ wl.stats.value.words }}</strong><span>累计字数</span></div>
-      <div class="worklog-stat"><strong>{{ wl.stats.value.monthCount }}</strong><span>本月篇数</span></div>
-      <div class="worklog-stat">
-        <strong>{{ wl.stats.value.streak }}</strong>
-        <span>连续天数</span>
-      </div>
-    </section>
-
-    <section v-if="wl.stats.value.gapHint" class="worklog-gap-hint" role="status">
-      {{ wl.stats.value.gapHint }}
-      <button class="text-btn" type="button" @click="goToday">去写今天</button>
-    </section>
-
-    <section
-      v-if="wl.stats.value.topCategory || wl.stats.value.weekKeywords.length"
-      class="worklog-insights"
-      aria-label="本周洞察"
-    >
-      <div v-if="wl.stats.value.topCategory" class="worklog-insight">
-        <span class="worklog-insight-label">最常写的类别</span>
-        <button
-          class="worklog-category-chip is-static"
-          type="button"
-          :data-cat="wl.stats.value.topCategory!.name"
-          @click="toggleCategoryFilter(wl.stats.value.topCategory!.name)"
-        >
-          {{ wl.stats.value.topCategory!.name }}
-          <em>{{ wl.stats.value.topCategory!.count }}</em>
-        </button>
-      </div>
-      <div v-if="wl.stats.value.weekKeywords.length" class="worklog-insight worklog-insight--grow">
-        <span class="worklog-insight-label">本周高频词</span>
-        <div class="worklog-kw-list">
+      <section
+        v-if="wl.stats.value.topCategory || wl.stats.value.weekKeywords.length"
+        class="station-glass room-card"
+      >
+        <p class="room-eyebrow">THIS WEEK</p>
+        <div v-if="wl.stats.value.topCategory" class="room-insight">
+          <span class="room-insight-label">最常写的类别</span>
           <button
-            v-for="kw in wl.stats.value.weekKeywords"
-            :key="kw.word"
-            class="worklog-kw-chip"
+            class="worklog-category-chip is-static"
             type="button"
-            :title="`搜索「${kw.word}」`"
-            @click="searchKeyword = kw.word"
+            :data-cat="wl.stats.value.topCategory!.name"
+            @click="toggleCategoryFilter(wl.stats.value.topCategory!.name)"
           >
-            {{ kw.word }} <em>{{ kw.count }}</em>
+            {{ wl.stats.value.topCategory!.name }}
+            <em>{{ wl.stats.value.topCategory!.count }}</em>
           </button>
         </div>
-      </div>
-    </section>
+        <div v-if="wl.stats.value.weekKeywords.length" class="room-insight">
+          <span class="room-insight-label">本周高频词</span>
+          <div class="worklog-kw-list">
+            <button
+              v-for="kw in wl.stats.value.weekKeywords"
+              :key="kw.word"
+              class="worklog-kw-chip"
+              type="button"
+              :title="`搜索「${kw.word}」`"
+              @click="searchKeyword = kw.word"
+            >
+              {{ kw.word }} <em>{{ kw.count }}</em>
+            </button>
+          </div>
+        </div>
+      </section>
+    </aside>
 
-    <section v-if="categoryOrder.length" class="worklog-category-strip" aria-label="类别分布">
-      <span class="worklog-category-title">类别分布（{{ categoryFilter ? `筛选：${categoryFilter}` : '全部' }}）</span>
-      <span
-        v-for="cat in categoryOrder"
-        :key="cat"
-        class="worklog-category-chip"
-        :class="{ 'is-active': categoryFilter === cat }"
-        :data-cat="cat"
-        role="button"
-        tabindex="0"
-        :title="categoryFilter === cat ? '取消筛选' : '只看该类'"
-        @click="toggleCategoryFilter(cat)"
-        @keydown.enter.prevent="toggleCategoryFilter(cat)"
-      >
-        {{ cat }}
-        <em>{{ categoryDist[cat] }}</em>
-        <i class="worklog-category-bar" :style="{ width: `calc(${(categoryDist[cat] / maxCategoryCount) * 100}% )` }" />
-      </span>
-      <span v-if="tagFilter" class="worklog-category-title">· 标签：{{ tagFilter }}</span>
-      <button v-if="tagFilter" class="text-btn" type="button" @click="tagFilter = ''">清除标签筛选</button>
-    </section>
+    <!-- 主栏：今日编辑 + 月历 -->
+    <main class="worklog-room__main">
+      <!-- 导入冲突确认横幅：日期已存在时选择覆盖或仅新增 -->
+      <section v-if="importPending" class="station-glass room-banner" role="alertdialog" aria-labelledby="import-conflict-title">
+        <div>
+          <strong id="import-conflict-title">
+            导入 {{ importPending.total }} 篇（{{ importPending.kind === 'json' ? 'JSON' : 'Markdown' }}），其中
+            {{ importPending.conflicted.length }} 篇日期已存在
+          </strong>
+          <p>已存在：{{ importPending.conflicted.join('、') }}。「覆盖导入」会替换这些日期；「仅新增」跳过它们。</p>
+        </div>
+        <div class="worklog-import-actions">
+          <button class="antd-btn primary" type="button" @click="applyImport(importPending!.text, true, importPending!.kind)">
+            覆盖导入
+          </button>
+          <button class="antd-btn" type="button" @click="applyImport(importPending!.text, false, importPending!.kind)">
+            仅新增
+          </button>
+          <button class="antd-btn ghost" type="button" @click="importPending = null">取消</button>
+        </div>
+      </section>
 
-    <div class="worklog-grid">
-      <div class="worklog-col">
+        <!-- 编辑器：日期/标题/标签/类别工具 + 四段正文与分栏预览 -->
         <section class="worklog-panel worklog-editor">
           <header class="worklog-panel-head">
             <span class="worklog-panel-index">EDIT / {{ draftExists ? '已有' : '新建' }}</span>
@@ -946,6 +895,7 @@ onUnmounted(() => {
           </footer>
         </section>
 
+        <!-- 月度日历：点亮已记录日期，点空白日期直接补写 -->
         <section class="worklog-panel worklog-cal">
           <header class="worklog-panel-head">
             <span class="worklog-panel-index">CALENDAR</span>
@@ -972,9 +922,96 @@ onUnmounted(() => {
           </div>
           <p class="worklog-cal-hint"><i class="worklog-cal-dot" aria-hidden="true"></i> 已记录 · 点击空白日期可直接补写</p>
         </section>
-      </div>
+      </main>
 
-      <section class="worklog-panel worklog-history">
+      <!-- 右栏：云端与备份 / 历史归档 -->
+      <aside class="worklog-room__deck">
+        <section class="station-glass room-card room-card--cloud">
+          <p class="room-eyebrow">CLOUD DESK</p>
+          <p class="room-cloud-line">
+            <component :is="wl.cloudEnabled.value ? Cloud : CloudOff" :size="14" />
+            {{ cloudHint }}
+          </p>
+          <div class="room-cloud-actions">
+            <button
+              v-if="wl.cloudEnabled.value"
+              class="antd-btn ghost"
+              type="button"
+              title="从云端拉取"
+              @click="pullCloudNow"
+            >
+              <RefreshCw :size="13" /> 拉取
+            </button>
+            <button
+              v-if="wl.cloudEnabled.value"
+              class="antd-btn ghost"
+              type="button"
+              title="把本地全部上传云端"
+              @click="pushLocalToCloud"
+            >
+              <Cloud :size="13" /> 上传
+            </button>
+            <button class="antd-btn ghost" type="button" title="导入 Markdown 或 JSON 同步包" @click="importInput?.click()">
+              <Upload :size="13" /> 导入
+            </button>
+            <input
+              ref="importInput"
+              type="file"
+              accept=".md,.markdown,.json,text/markdown,application/json"
+              hidden
+              @change="onImportFile"
+            />
+            <button class="antd-btn ghost" type="button" title="跨设备同步推荐" @click="exportAllJson">
+              <FileJson :size="13" /> 同步包
+            </button>
+            <button class="antd-btn primary" type="button" @click="exportAllMd">
+              <Download :size="13" /> 导出 MD
+            </button>
+          </div>
+          <div v-if="showBackupBanner" class="room-backup-note" role="status">
+            <strong>该备份一下了</strong>
+            <p>
+              建议每 {{ backupInterval }} 天导出一次 JSON 同步包。{{ lastExportLabel }}。
+            </p>
+            <label class="worklog-backup-interval">
+              提醒间隔
+              <input
+                v-model.number="backupInterval"
+                type="number"
+                min="1"
+                max="90"
+                @change="onBackupIntervalChange"
+              />
+              天
+            </label>
+            <div class="worklog-import-actions">
+              <button class="antd-btn primary" type="button" @click="onBackupExportNow">立刻导出</button>
+              <button class="antd-btn ghost" type="button" @click="onBackupDismiss">稍后</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- 历史归档：搜索 + 年月筛选 + 分批加载，右键单篇操作 -->
+        <section class="worklog-panel worklog-history">
+          <div v-if="categoryOrder.length || tagFilter" class="worklog-cat-filter">
+            <span
+              v-for="cat in categoryOrder"
+              :key="cat"
+              class="worklog-category-chip"
+              :class="{ 'is-active': categoryFilter === cat }"
+              :data-cat="cat"
+              role="button"
+              tabindex="0"
+              :title="categoryFilter === cat ? '取消筛选' : '只看该类'"
+              @click="toggleCategoryFilter(cat)"
+              @keydown.enter.prevent="toggleCategoryFilter(cat)"
+            >
+              {{ cat }}
+              <em>{{ categoryDist[cat] }}</em>
+            </span>
+            <span v-if="tagFilter" class="worklog-category-title">标签：{{ tagFilter }}</span>
+            <button v-if="tagFilter" class="text-btn" type="button" @click="tagFilter = ''">清除</button>
+          </div>
         <header class="worklog-panel-head">
           <span class="worklog-panel-index">ARCHIVE</span>
           <h2>历史日志</h2>
@@ -1052,8 +1089,9 @@ onUnmounted(() => {
           </button>
         </div>
       </section>
-    </div>
+      </aside>
 
+    <!-- 日志条目右键菜单（复制 / 导出 / 删除单篇） -->
     <div
       v-if="ctxMenu"
       class="worklog-ctx"
@@ -1067,3 +1105,211 @@ onUnmounted(() => {
   </div>
   </StationRoomShell>
 </template>
+
+<style scoped>
+/* ── 房间布局：side 248 | main 1fr | deck 300，站内薄荷 token 重映射 ── */
+.worklog-room {
+  /* worklog.css 的旧 token 全部映射到站内变量 */
+  --worklog-accent: var(--room);
+  --worklog-accent-soft: color-mix(in srgb, var(--room) 16%, #fff);
+  --color-bg-card: var(--craft-glass);
+  --color-bg-surface: rgba(255, 255, 255, 0.65);
+  --color-surface-hover: #fff;
+  --color-border: color-mix(in srgb, var(--room) 24%, transparent);
+  --color-border-hover: color-mix(in srgb, var(--room) 48%, transparent);
+  --color-text-primary: var(--ink, #38304a);
+  --color-text-secondary: var(--ink-soft, #6c6580);
+  --color-text-muted: var(--ink-faint, #9a94ad);
+
+  display: grid;
+  grid-template-columns: 248px minmax(0, 1fr) 300px;
+  gap: 22px;
+  align-items: start;
+  min-height: 100%;
+}
+
+.room-eyebrow {
+  margin: 0 0 6px;
+  font-size: 11px;
+  letter-spacing: 2.5px;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--room) 78%, #4f6158);
+}
+
+.room-card {
+  position: relative;
+  padding: 18px 18px 16px;
+}
+.room-card__title {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+.room-card__text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--ink-soft, #5f6b64);
+}
+.station-glass .worklog-category-chip {
+  background: rgba(255, 255, 255, 0.7);
+}
+.station-glass .worklog-kw-chip {
+  background: rgba(255, 255, 255, 0.7);
+}
+
+/* 打卡章 */
+.stamp-row {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+.stamp-ring {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 86px;
+  height: 86px;
+  flex-shrink: 0;
+  border: 2.5px dashed color-mix(in srgb, var(--room) 55%, transparent);
+  border-radius: 50%;
+  color: var(--ink-faint, #9a94ad);
+  transform: rotate(-6deg);
+  transition: transform 0.3s var(--ease-out), color 0.3s, border-color 0.3s;
+}
+.stamp-ring.is-active {
+  color: color-mix(in srgb, var(--room) 82%, #35544a);
+  border-color: color-mix(in srgb, var(--room) 75%, transparent);
+  background: color-mix(in srgb, var(--room) 10%, transparent);
+}
+.stamp-ring.is-active:hover {
+  transform: rotate(-2deg) scale(1.04);
+}
+.stamp-ring b {
+  font-size: 26px;
+  line-height: 1.1;
+}
+.stamp-ring small {
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+.stamp-mini {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  min-width: 0;
+}
+.stamp-mini > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.stamp-mini dt {
+  font-size: 11.5px;
+  color: var(--ink-faint, #9a94ad);
+}
+.stamp-mini dd {
+  margin: 0;
+  font-size: 16px;
+  color: color-mix(in srgb, var(--room) 80%, #35544a);
+}
+.stamp-gap {
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: var(--ink-soft, #5f6b64);
+}
+.room-insight {
+  margin-bottom: 10px;
+}
+.room-insight:last-child {
+  margin-bottom: 0;
+}
+.room-insight-label {
+  display: block;
+  font-size: 11.5px;
+  color: var(--ink-faint, #9a94ad);
+  margin-bottom: 6px;
+}
+
+/* 云端台 */
+.room-cloud-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 10px;
+  font-size: 12.5px;
+  color: var(--ink-soft, #5f6b64);
+}
+.room-cloud-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.room-backup-note {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--room) 10%, #fff);
+  border: 1px dashed color-mix(in srgb, var(--room) 45%, transparent);
+}
+.room-backup-note strong {
+  font-size: 13px;
+  color: var(--ink, #38304a);
+}
+.room-backup-note p {
+  margin: 4px 0 8px;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--ink-soft, #5f6b64);
+}
+
+/* 主栏内部：横条避免通栏 */
+.worklog-room__main {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.worklog-room__main .worklog-panel {
+  border-radius: 20px;
+}
+.worklog-room__main .worklog-split.is-split .worklog-fields {
+  max-width: 520px;
+}
+.worklog-cat-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 0 10px;
+}
+.worklog-room__deck {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.worklog-room__deck .worklog-history {
+  border-radius: 20px;
+}
+
+/* 右栏较窄：面板头允许换行，标题不逐字竖排 */
+.worklog-room__deck .worklog-panel-head {
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+.worklog-room__deck .worklog-panel-head h2 {
+  white-space: nowrap;
+  margin-right: auto;
+}
+.worklog-room__deck .worklog-history-search {
+  min-width: 100%;
+}
+
+@media (max-width: 1500px) {
+  .worklog-room {
+    grid-template-columns: 220px minmax(0, 1fr) 270px;
+  }
+}
+</style>

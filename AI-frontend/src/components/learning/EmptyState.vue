@@ -38,6 +38,7 @@ defineEmits<{
 <template>
   <div class="ld-empty">
     <div class="ld-empty__illustration">
+      <!-- 未传自定义 icon 时回退到默认的 BookOpen 书本图标 -->
       <BookOpen
         v-if="!icon"
         :size="iconSize"
@@ -57,6 +58,7 @@ defineEmits<{
 
     <p v-if="description" class="ld-empty__desc">{{ description }}</p>
 
+    <!-- 主/次按钮按需渲染：只有传入对应 label 才显示，点击事件直接透传给父组件 -->
     <div class="ld-empty__actions">
       <IconAction
         v-if="primaryLabel"

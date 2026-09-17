@@ -1,4 +1,9 @@
 <script setup lang="ts">
+/**
+ * 知识库任务页（旧路由兼容）：
+ * 原独立的“任务进度”页面已合并进知识摄取工作台，
+ * 访问本路由时立即重定向，保持旧链接可用。
+ */
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 

@@ -16,6 +16,7 @@ import { getTagCloud } from '@/api/blogTagController'
 import { loadBlogSettings, markBlogLikeDisabled } from '@/utils/blogSettings'
 import { siteConfig } from '@/config/site'
 
+// 列表页内部使用的文章视图模型（由后端 VO 映射而来，附带派生展示字段）
 type JournalPost = {
   id: number
   title: string
@@ -33,15 +34,18 @@ type JournalPost = {
 const router = useRouter()
 
 /* ---------- 数据 ---------- */
+// 服务端数据与加载态；blogUx 缓存站点开关（如是否允许点赞）
 const posts = ref<JournalPost[]>([])
 const categories = ref<API.BlogCategoryVO[]>([])
 const tagCloud = ref<API.BlogTagVO[]>([])
 const loading = ref(true)
 const blogUx = ref({ allowLike: true })
 
+// 截取 YYYY-MM-DD 格式的日期
 function fmtDate(raw?: string): string {
   return (raw || '').slice(0, 10)
 }
+// 把日期归整为 "YYYY · M月" 形式，用于时间线按月分组；非法日期归入"更早"
 function fmtMonth(raw?: string): string {
   const d = (raw || '').slice(0, 7)
   if (!/^\d{4}-\d{2}$/.test(d)) return '更早'
@@ -49,6 +53,7 @@ function fmtMonth(raw?: string): string {
   return `${d.slice(0, 4)} · ${String(Number(m))}月`
 }
 
+// 并发拉取文章分页、全部分类、标签云三份基础数据
 async function loadAll() {
   loading.value = true
   try {
@@ -58,6 +63,7 @@ async function loadAll() {
       getTagCloud(),
     ])
     const records = postRes.data?.data?.records ?? []
+    // 映射为视图模型：cover 为无封面时的兜底配色编号（1~3 轮换）
     posts.value = records.map((p, i) => ({
       id: Number(p.id),
       title: p.title || '未命名',
@@ -81,15 +87,18 @@ async function loadAll() {
 }
 
 /* ---------- 视图状态 ---------- */
+// 搜索词 / 排序 / 布局 / 分页等纯前端视图状态；筛选均为页内过滤
 const q = ref('')
 const sortMode = ref<'latest' | 'popular'>('latest')
 const layout = ref<'card' | 'timeline'>('card')
 const page = ref(1)
 const PAGE_SIZE = 7
+// 点赞为乐观 UI：本地记录已赞状态，不依赖后端登录态
 const likedMap = ref<Record<number, boolean>>({})
 const activeCat = ref('')
 const activeTag = ref('')
 
+// 分类清单（含"全部"项）；接口未返回计数时回退为按当前列表统计
 const catItems = computed(() => {
   const all = { name: '全部', count: posts.value.length }
   const rest = categories.value.map((c) => ({
@@ -99,6 +108,7 @@ const catItems = computed(() => {
   return [all, ...rest]
 })
 
+// 标签清单，按文章数从多到少排序展示
 const tagItems = computed(() =>
   (tagCloud.value.length
     ? tagCloud.value.map((t) => ({ name: t.name || '', count: t.count ?? 0 }))
@@ -106,6 +116,7 @@ const tagItems = computed(() =>
   ).sort((a, b) => b.count - a.count),
 )
 
+// 组合筛选：关键词（标题）+ 分类 + 标签，再按最新或热门（浏览+点赞）排序
 const filtered = computed(() => {
   let list = posts.value.slice()
   if (q.value) list = list.filter((p) => p.title.includes(q.value))
@@ -117,11 +128,13 @@ const filtered = computed(() => {
 })
 
 const totalPages = computed(() => Math.max(1, Math.ceil(filtered.value.length / PAGE_SIZE)))
+// 当前页应展示的卡片切片
 const pageItems = computed(() => {
   const start = (page.value - 1) * PAGE_SIZE
   return filtered.value.slice(start, start + PAGE_SIZE)
 })
 
+// 时间线布局：把筛选结果按"年 · 月"分组，保持列表原顺序
 const monthGroups = computed(() => {
   const by = new Map<string, JournalPost[]>()
   for (const p of filtered.value) {
@@ -132,6 +145,7 @@ const monthGroups = computed(() => {
   return [...by.entries()].map(([month, items]) => ({ month, items }))
 })
 
+// 任何筛选条件变化后都应回到第一页，避免停留在越界页码
 function resetToFirstPage() {
   page.value = 1
 }
@@ -147,6 +161,7 @@ function setSort(mode: 'latest' | 'popular') {
 function setLayout(mode: 'card' | 'timeline') {
   layout.value = mode
 }
+// 选择分类；再次点击同一分类视为取消，"全部"会同时清空标签筛选
 function pickCat(name: string) {
   if (name === '全部') {
     activeCat.value = ''
@@ -156,10 +171,12 @@ function pickCat(name: string) {
   }
   resetToFirstPage()
 }
+// 选择标签（支持与分类叠加），再次点击同一标签视为取消
 function pickTag(name: string) {
   activeTag.value = activeTag.value === name ? '' : name
   resetToFirstPage()
 }
+// 空状态里"清除条件"按钮：重置搜索词与分类/标签
 function clearFilters() {
   activeCat.value = ''
   activeTag.value = ''
@@ -167,6 +184,7 @@ function clearFilters() {
 }
 
 /* ---------- 点赞 ---------- */
+// 切换点赞：首次点赞才请求后端；若接口失败则记下"点赞已关闭"，避免重复无效请求
 async function toggleLike(p: JournalPost) {
   if (!likedMap.value[p.id]) {
     if (!blogUx.value.allowLike) {
@@ -183,9 +201,11 @@ async function toggleLike(p: JournalPost) {
   message.success(likedMap.value[p.id] ? '已喜欢' : '已取消')
 }
 
+// 展示计数 = 后端计数 + 本地已赞加一（乐观 UI）
 function likeCount(p: JournalPost): number {
   return p.likes + (likedMap.value[p.id] ? 1 : 0)
 }
+// 浏览数超过 999 时缩写为 x.xk
 function viewLabel(n: number): string {
   return n > 999 ? `${(n / 1000).toFixed(1)}k` : String(n)
 }
@@ -194,6 +214,7 @@ function openPost(id: number) {
 }
 
 /* ---------- 杂志架 ---------- */
+// 右侧"杂志架"：取筛选结果前 6 篇做成期刊堆，主题色按序轮换
 const THEMES = ['t-sakura', 't-mint', 't-violet', 't-sun']
 const shelf = computed(() =>
   filtered.value.slice(0, 6).map((p, i) => ({
@@ -204,6 +225,7 @@ const shelf = computed(() =>
   })),
 )
 const shelfIdx = ref(0)
+// 翻页动画状态：记录出场/入场类名，动画期间锁住再次触发
 const flipFx = ref<{ exitCls: string; enterCls: string } | null>(null)
 let flipTimer: number | undefined
 
@@ -215,11 +237,13 @@ interface ShelfBook {
   cls: string
 }
 
+// 计算当前应渲染的三本书（前/中/后）以及翻页过程中临时加入的"入场书"
 const shelfDisplay = computed<ShelfBook[]>(() => {
   const n = shelf.value.length
   if (!n) return []
   const at = (i: number): ShelfBook =>
     shelf.value[(shelfIdx.value + i + n) % n] as ShelfBook
+  // 静止状态：只展示按 shelfIdx 旋转后的三本叠放书
   if (!flipFx.value) {
     return [
       { ...at(2), cls: 'is-back' },
@@ -227,6 +251,7 @@ const shelfDisplay = computed<ShelfBook[]>(() => {
       { ...at(0), cls: 'is-front' },
     ]
   }
+  // 动画状态：前三本压暗（fx-dim），最前本播放出场动画，同时补一本入场书
   const exitCls = flipFx.value.exitCls
   const enterCls = flipFx.value.enterCls
   const out: ShelfBook[] = [
@@ -239,8 +264,10 @@ const shelfDisplay = computed<ShelfBook[]>(() => {
   return out
 })
 
+// 当前最前面的书，双击/点击底部条时打开它
 const shelfFront = computed(() => shelf.value[shelfIdx.value])
 
+// 翻页：dir=1 下一本（向前飞出），dir=-1 上一本（向下退出）；600ms 后切换索引并清除动画态
 function flipShelf(dir: 1 | -1, side: 'left' | 'right') {
   if (flipFx.value || shelf.value.length < 2) return
   const exitCls =
@@ -255,6 +282,7 @@ function flipShelf(dir: 1 | -1, side: 'left' | 'right') {
   }, 600)
 }
 
+// 手工实现"双击"检测：320ms 内两次点击最前书则打开文章
 let lastTap = 0
 function onShelfTap(e: PointerEvent) {
   const target = e.target as HTMLElement
@@ -268,6 +296,7 @@ function onShelfTap(e: PointerEvent) {
 }
 
 /* ---------- 时钟 ---------- */
+// 顶栏时钟与右侧日历牌数据源：每秒刷新 now，其余用 computed 派生
 const now = ref(new Date())
 let clockTimer: number | undefined
 const clockTime = computed(() => {
@@ -287,6 +316,7 @@ const deckDay = computed(() => now.value.getDate())
 const deckWeek = computed(() => '周' + ['日', '一', '二', '三', '四', '五', '六'][now.value.getDay()])
 
 /* ---------- 时段主题 ---------- */
+// 按当前小时自动选择晨/午/昏/夜主题，用户也可在 Tweaks 面板手动切换
 function autoTheme(): 'morning' | 'noon' | 'dusk' | 'night' {
   const h = new Date().getHours()
   if (h >= 6 && h < 11) return 'morning'
@@ -300,14 +330,17 @@ function setTheme(name: 'morning' | 'noon' | 'dusk' | 'night') {
 }
 
 /* ---------- 舞台缩放 ---------- */
+// 1920×1080 固定舞台按窗口等比缩放：缩放舞台本身，外层包裹元素同步设为缩放后的实际尺寸以便居中
 const stageWrap = ref<HTMLElement | null>(null)
 const stageEl = ref<HTMLElement | null>(null)
 const navBlogBtn = ref<HTMLElement | null>(null)
+// 导航胶囊指示条的位置样式，跟随"随笔"按钮对齐
 const pillStyle = ref<{ left: string; width: string; opacity: string }>({
   left: '0px',
   width: '0px',
   opacity: '0',
 })
+// 读取"随笔"按钮的实际位置，驱动导航下的胶囊指示条
 function movePill() {
   const btn = navBlogBtn.value
   if (!btn) return
@@ -317,6 +350,7 @@ function movePill() {
     opacity: '1',
   }
 }
+// 设计稿舞台基准尺寸；缩放上限 1.15 防止大屏过度放大
 const STAGE_W = 1920
 const STAGE_H = 1080
 function fit() {
@@ -330,6 +364,7 @@ function fit() {
 }
 
 /* ---------- 键盘 ---------- */
+// 左右方向键快捷翻杂志架
 function onKeydown(e: KeyboardEvent) {
   if (e.key === 'ArrowLeft') flipShelf(-1, 'left')
   if (e.key === 'ArrowRight') flipShelf(1, 'right')
@@ -368,6 +403,7 @@ onUnmounted(() => {
         <div class="deco" style="left: 980px; top: 96px; animation: floaty 6s ease-in-out infinite">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 2l2.2 6.6L21 11l-6.8 2.4L12 20l-2.2-6.6L3 11l6.8-2.4L12 2z" fill="#ffcf6e" /></svg>
         </div>
+        <!-- 三枚漂浮装饰贴纸，纯视觉元素 -->
         <div class="deco" style="left: 70px; top: 920px; animation: floaty 7s ease-in-out infinite; animation-delay: -3s">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2l2.2 6.6L21 11l-6.8 2.4L12 20l-2.2-6.6L3 11l6.8-2.4L12 2z" fill="#f490ad" opacity=".75" /></svg>
         </div>
@@ -375,6 +411,7 @@ onUnmounted(() => {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8" stroke="#9b8ce8" stroke-width="3" opacity=".5" /></svg>
         </div>
 
+        <!-- 顶栏：品牌（回首页）、主导航（胶囊指示条）、时钟与头像 -->
         <header id="topbar" class="anim">
           <button type="button" class="brand" title="回到站点首页" @click="router.push('/')">
             <div class="brand-mark"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2l2.2 6.6L21 11l-6.8 2.4L12 20l-2.2-6.6L3 11l6.8-2.4L12 2z" fill="#fff" /></svg></div>
@@ -479,7 +516,9 @@ onUnmounted(() => {
               <div v-if="loading" class="empty-state show" style="display: block">
                 <div class="t font-display">正在装订期刊…</div>
               </div>
+              <!-- 加载完成后：卡片与时间线两种布局同时渲染，由 data-layout 控制显示哪种 -->
               <template v-else>
+                <!-- 卡片布局：每页 PAGE_SIZE 张，第一张放大为 featured -->
                 <div class="bento" style="opacity: 1">
                   <article
                     v-for="(p, i) in pageItems"
@@ -512,6 +551,7 @@ onUnmounted(() => {
                     </div>
                   </article>
                 </div>
+                <!-- 时间线布局：按月份分组展示筛选后的全部文章 -->
                 <div class="timeline-wrap">
                   <div class="tl-scroll">
                     <div class="tl-line"></div>
@@ -527,6 +567,7 @@ onUnmounted(() => {
                     </template>
                   </div>
                 </div>
+                <!-- 空状态：筛选无结果时提示并提供清除条件入口 -->
                 <div v-if="!pageItems.length" class="empty-state show">
                   <div class="t font-display">没有找到相关随笔</div>
                   <button type="button" class="chip-btn" style="margin-top: 10px" @click="clearFilters">清除条件</button>
@@ -550,6 +591,7 @@ onUnmounted(() => {
               </div>
             </div>
 
+            <!-- 右侧栏：印章、日历牌与杂志架（三本书堆叠，可翻页/双击打开） -->
             <aside class="deck anim" style="animation-delay: 0.3s">
               <div class="deck-seal" title="本期印章">樱</div>
               <div class="deck-cal">
@@ -600,6 +642,7 @@ onUnmounted(() => {
       </div>
     </div>
 
+    <!-- 右下角 Tweaks 调试面板：切换列表布局与时段主题（常驻展示） -->
     <div id="tweaks">
       <div class="panel">
         <h4>TWEAKS</h4>

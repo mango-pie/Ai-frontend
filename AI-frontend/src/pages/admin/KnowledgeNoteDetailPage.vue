@@ -1,4 +1,10 @@
 <script setup lang="ts">
+/**
+ * 精读笔记审阅页：
+ * 左编辑（Markdown 工具条 + Ctrl+S 保存 + 多 tab 冲突检测）右预览（目录 TOC 联动滚动），
+ * 右侧操作面板支持重新蒸馏、发布/同步博客、加入/重建知识库索引；
+ * 原文链接失效时降级展示采集时缓存的 raw_text 快照。
+ */
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
@@ -40,12 +46,14 @@ const detail = ref<API.KnowledgeNoteDetailVO | null>(null)
 /** 加载/保存时的服务端 updateTime，用于多 tab 冲突检测 */
 const loadedUpdateTime = ref<string | null>(null)
 
+// 可编辑表单：标题 / 标签 / 蒸馏后的 Markdown 正文
 const form = reactive({
   title: '',
   tags: '',
   distilledMd: '',
 })
 
+// Markdown 渲染为 HTML 预览；TOC 与滚动高亮均基于该渲染结果
 const previewHtml = computed(() => renderBlogMarkdown(form.distilledMd || ''))
 
 const note = computed(() => detail.value?.note)

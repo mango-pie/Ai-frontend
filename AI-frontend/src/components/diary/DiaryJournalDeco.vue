@@ -1,4 +1,9 @@
 <script setup lang="ts">
+/**
+ * 日记页的手账装饰组件：书签、翻页本、压花、日期章、票根、火漆、心情点等一页小物
+ * - 纯展示 + 点击小动效（popCraftAnim）与轻提示，不承担日记编辑逻辑
+ * - 由 DiaryHomePage 引用，根据所选日期与当日日记渲染氛围
+ */
 import { computed, ref } from 'vue'
 import { message } from 'ant-design-vue'
 import {
@@ -11,11 +16,13 @@ import {
 } from '@/utils/diaryCraft'
 import { MOOD_OPTIONS, todayDateString } from '@/utils/diaryFormat'
 
+/** date：当前展示日期（YYYY-MM-DD）；entry：该日日记，null 表示尚未落笔的空白日 */
 const props = defineProps<{
   date: string
   entry: API.DiaryEntryVO | null
 }>()
 
+// 四季书签选项（id 与 seasonOfMonth 的季节编号一致）
 const SEASONS = [
   { id: 0, label: '春' },
   { id: 1, label: '夏' },
@@ -23,8 +30,10 @@ const SEASONS = [
   { id: 3, label: '冬' },
 ] as const
 
+// 手动覆盖季节（点击书签后生效），null 时跟随日期的自然季节
 const overrideSeason = ref<number | null>(null)
 
+// 用当天 12:00 构造 Date，避免时区边界把日期算偏到前后一天
 const dt = computed(() => new Date(`${props.date}T12:00:00`))
 const naturalSeason = computed(() => seasonOfMonth(dt.value.getMonth()))
 const activeSeason = computed(() => (overrideSeason.value != null ? overrideSeason.value : naturalSeason.value))
@@ -33,12 +42,14 @@ const stampM = computed(() => MO_SHORT[dt.value.getMonth()])
 const stampD = computed(() => String(dt.value.getDate()).padStart(2, '0'))
 const stampY = computed(() => String(dt.value.getFullYear()))
 
+// 票根文案：有标题用标题，否则显示「月.日 · 空白票根」
 const ticketText = computed(() => {
   if (props.entry?.title?.trim()) return props.entry.title.trim()
   const md = `${String(dt.value.getMonth() + 1).padStart(2, '0')}.${stampD.value}`
   return `${md} · 空白票根`
 })
 
+// 心情派生量：主题色、标签、火漆首字与点亮的点数（moodLitDots 折算为 1~5 格）
 const mood = computed(() => props.entry?.mood)
 const moodHex = computed(() => (mood.value ? MOOD_HEX[mood.value] : ''))
 const moodLabel = computed(() => MOOD_OPTIONS.find((x) => x.value === mood.value)?.label ?? '')
@@ -55,21 +66,25 @@ const waxStyle = computed(() => {
     transform: 'rotate(12deg) scale(1.05)',
   }
 })
+// 两枚标签：A 显示心情名（空白日为「空白页」）；B 提示落笔状态（今天可写 / 过往可补记）
 const labelA = computed(() => moodLabel.value || '空白页')
 const labelB = computed(() => {
   if (props.entry) return '已落笔'
   return props.date === todayDateString() ? '写今日' : '可补记'
 })
 
+/** 轻提示（1.2s 自动消失），用于各小物的点击反馈 */
 function toast(text: string) {
   message.info({ content: text, duration: 1.2 })
 }
 
+// 切换季节书签并念出该季节的一句台词
 function onSeason(id: number) {
   overrideSeason.value = id
-  toast(SEASON_LINE[id] || SEASONS[id].label)
+  toast(SEASON_LINE[id] || SEASONS[id]?.label || '')
 }
 
+/** 在点击目标上触发一次小动效：cls 为动画类名，ms 毫秒后由 popCraftAnim 自动移除；可附带 toast 文案 */
 function bump(e: Event, cls: string, ms: number, msg?: string) {
   popCraftAnim(e.currentTarget as HTMLElement, cls, ms)
   if (msg) toast(msg)
@@ -81,6 +96,7 @@ function bump(e: Event, cls: string, ms: number, msg?: string) {
     <span class="tape sakura" />
     <h3>手账页</h3>
 
+    <!-- 季节书签：点击覆盖当前季节主题 -->
     <div class="jd-bookmarks">
       <button
         v-for="s in SEASONS"
@@ -95,6 +111,7 @@ function bump(e: Event, cls: string, ms: number, msg?: string) {
       </button>
     </div>
 
+    <!-- 手工互动区：翻页本 / 压花 / 日期章 -->
     <div class="jd-craft-row">
       <div
         class="jd-open-book craft-hit"
@@ -132,6 +149,7 @@ function bump(e: Event, cls: string, ms: number, msg?: string) {
       </div>
     </div>
 
+    <!-- 票根 + 火漆：样式随当日心情着色 -->
     <div class="jd-row">
       <div
         class="jd-ticket craft-hit"
@@ -157,6 +175,7 @@ function bump(e: Event, cls: string, ms: number, msg?: string) {
       </div>
     </div>
 
+    <!-- 心情点条：按情绪值点亮 1~5 格 -->
     <div
       class="jd-mood-ribbon craft-hit"
       role="button"
@@ -181,6 +200,7 @@ function bump(e: Event, cls: string, ms: number, msg?: string) {
       </span>
     </div>
 
+    <!-- 状态标签：心情名 + 落笔状态 -->
     <div class="jd-labels">
       <button
         type="button"
@@ -198,6 +218,7 @@ function bump(e: Event, cls: string, ms: number, msg?: string) {
       </button>
     </div>
 
+    <!-- 和纸胶带 + 文具（回形针、钢笔） -->
     <div class="jd-washi" />
     <div class="jd-tools">
       <div

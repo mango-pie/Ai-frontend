@@ -38,7 +38,7 @@ const handleSubmit = async (values: API.UserLoginRequest) => {
 </script>
 
 <template>
-  <StationRoomShell brand-path="/" note-label="Station · 入站" room="auth" escape-to="/">
+  <StationRoomShell brand-path="/" room="auth" escape-to="/">
     <div class="auth-stage">
       <div class="auth-welcome">
         <p class="auth-kana">{{ siteConfig.brandKana }}</p>
@@ -46,6 +46,7 @@ const handleSubmit = async (values: API.UserLoginRequest) => {
         <p>{{ siteConfig.siteSubtitle }}</p>
       </div>
       <div id="userLoginPage" class="auth-card station-glass">
+        <span class="auth-card__tape font-display" aria-hidden="true">Station · 入站</span>
         <h2 class="title font-display">{{ siteConfig.siteName }} · 登录</h2>
         <p class="desc">用同一套导航走进日记、实验室和对话</p>
         <a-form :model="formState" name="basic" autocomplete="off" @finish="handleSubmit">

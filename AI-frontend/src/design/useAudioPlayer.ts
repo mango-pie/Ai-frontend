@@ -23,10 +23,12 @@ const state = ref<PlayerState>({
   seekingProgress: null,
 });
 
-// 音频元素
+// 音频元素（模块级单例，全站共享同一个 Audio 实例）
 let audioElement: HTMLAudioElement | null = null;
+// 播放请求自增序号：切歌会产生新的 play() 异步调用，用于丢弃旧请求的过期结果，防止竞态
 let playRequestId = 0;
 
+/** AbortError 是"play() 被后续操作打断"的正常现象（如快速切歌），不算真正失败，无需提示用户 */
 function isIgnorablePlayError(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'AbortError';
 }
@@ -80,7 +82,7 @@ function handleLoadedMetadata() {
 }
 
 /**
- * 播放结束处理
+ * 播放结束处理：按播放模式决定下一首行为；顺序模式播完最后一首则停下
  */
 function handleEnded() {
   switch (state.value.playMode) {
@@ -137,6 +139,7 @@ async function playCurrent() {
   }
 
   const audio = initAudio();
+  // 记录本次请求序号；await 之后若序号已变，说明期间又切了歌，本次结果作废
   const requestId = ++playRequestId;
   state.value.playError = '';
   state.value.isBuffering = true;
@@ -307,6 +310,7 @@ function seekTo(time: number) {
   }
 }
 
+/** 拖动进度条过程中持续调用：只更新 UI 上的临时进度，不真正 seek 音频，避免拖动时频繁跳针 */
 function setSeekingProgress(progress: number) {
   const clampedProgress = Math.max(0, Math.min(1, progress));
   state.value.isSeeking = true;
@@ -315,6 +319,7 @@ function setSeekingProgress(progress: number) {
   state.value.currentTime = (state.value.duration || 0) * clampedProgress;
 }
 
+/** 松手提交：把拖动结束时的进度真正写入 audio.currentTime */
 function commitSeekingProgress(progress?: number) {
   if (typeof progress === 'number') {
     setSeekingProgress(progress);
@@ -324,6 +329,7 @@ function commitSeekingProgress(progress?: number) {
   seekTo(targetTime);
 }
 
+/** 取消拖动（如点击弹层关闭）：丢弃临时进度，回滚到音频真实播放位置 */
 function cancelSeekingProgress() {
   state.value.isSeeking = false;
   state.value.seekingProgress = null;
@@ -425,6 +431,7 @@ function removeFromPlaylist(index: number) {
   // 如果移除的是当前播放的歌曲
   if (index === state.value.currentIndex) {
     if (state.value.playlist.length > 0) {
+      // 播放被删歌曲的下一首（删掉末尾时退回新的最后一首）
       const newIndex = Math.min(index, state.value.playlist.length - 1);
       playAtIndex(newIndex);
     } else {
@@ -433,6 +440,7 @@ function removeFromPlaylist(index: number) {
       pause();
     }
   } else if (index < state.value.currentIndex) {
+    // 删除的是当前歌曲之前的歌，当前下标前移一位即可
     state.value.currentIndex--;
   }
 }
@@ -456,7 +464,7 @@ function replacePlaylist(songs: Song[]) {
 }
 
 /**
- * 获取当前歌词
+ * 获取当前歌词：倒序找到最后一行时间 <= 当前播放时间的歌词，实现歌词滚动同步
  */
 function getCurrentLyric() {
   if (!state.value.currentSong?.lyrics) return null;
@@ -472,7 +480,7 @@ function getCurrentLyric() {
 }
 
 /**
- * 键盘事件处理
+ * 键盘事件处理：空格播放/暂停、左右切歌、上下调音量、M 静音
  */
 function handleKeydown(e: KeyboardEvent) {
   // 如果焦点在输入框中，不处理快捷键

@@ -154,9 +154,17 @@ export default defineConfig(({ mode }) => {
     }),
   ].filter(Boolean),
   resolve: {
-    alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url))
-    },
+    alias: standaloneMusic
+      ? { '@': fileURLToPath(new URL('./src', import.meta.url)) }
+      : [
+          { find: '@', replacement: fileURLToPath(new URL('./src', import.meta.url)) },
+          // 主站模式兜底：/music 在 dev 会命中根目录 music.html（独立播放器入口），
+          // 其 virtual:pwa-register 由替身实现，避免整页编译报错；standalone 构建不受影响。
+          {
+            find: 'virtual:pwa-register',
+            replacement: fileURLToPath(new URL('./src/pwa-register-stub.ts', import.meta.url)),
+          },
+        ],
   },
   server: {
     host: '0.0.0.0',

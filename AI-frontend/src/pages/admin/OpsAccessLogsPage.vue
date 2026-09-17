@@ -3,6 +3,7 @@
  * 运维中心 · HTTP 访问日志
  * 路由：/admin/ops/access-logs
  */
+import AdminRoomShell from '@/components/shared/AdminRoomShell.vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { message } from 'ant-design-vue'
 import type { Dayjs } from 'dayjs'
@@ -157,27 +158,11 @@ onMounted(async () => {
 </script>
 
 <template>
+  <AdminRoomShell note-label="Station · 运维中心">
+    <template #nav>
+      <OpsCenterNav active-key="访问日志" />
+    </template>
   <div class="ops-center-page admin-theme-page">
-    <a-breadcrumb class="admin-breadcrumb">
-      <a-breadcrumb-item>
-        <router-link to="/">首页</router-link>
-      </a-breadcrumb-item>
-      <a-breadcrumb-item>
-        <router-link to="/admin/ops">运维中心</router-link>
-      </a-breadcrumb-item>
-      <a-breadcrumb-item>访问日志</a-breadcrumb-item>
-    </a-breadcrumb>
-
-    <div class="admin-page-hero">
-      <div class="hero-left">
-        <div class="hero-title">访问日志</div>
-        <div class="hero-subtitle">HTTP 错误 / 慢请求采样（不含 Cookie、Authorization、请求体）</div>
-      </div>
-    </div>
-
-    <div class="ops-layout">
-      <OpsCenterNav active-key="access" />
-
       <section class="ops-main">
         <a-alert
           v-if="!switchLoading && !httpLogEnabled"
@@ -296,8 +281,8 @@ onMounted(async () => {
           </a-table>
         </a-card>
       </section>
-    </div>
   </div>
+  </AdminRoomShell>
 </template>
 
 <style scoped>

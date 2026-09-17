@@ -18,12 +18,14 @@ const props = withDefaults(
   },
 )
 
+/** 三段固定流水线：采集 → AI 精读 → 生成笔记 */
 const STEPS = [
   { key: 'collect', label: '采集网页', icon: Globe },
   { key: 'distill', label: 'AI 精读', icon: Brain },
   { key: 'index', label: '生成笔记', icon: Database },
 ] as const
 
+/** 由外部 phase + 百分比进度推断当前激活到哪一步（-1 表示尚未开始） */
 const activeIndex = computed(() => {
   if (props.phase === 'preview' || props.phase === 'idle') return -1
   if (props.phase === 'ingest') return 0
@@ -32,6 +34,7 @@ const activeIndex = computed(() => {
   return 1
 })
 
+/** 底部状态文案：按阶段给用户不同的等待提示 */
 const statusText = computed(() => {
   if (props.phase === 'ingest') return '正在提交网页进行采集…'
   if (props.phase === 'job') return 'AI 正在精读内容，预计需要 20-40 秒…'
@@ -40,7 +43,9 @@ const statusText = computed(() => {
 </script>
 
 <template>
+  <!-- 空闲/预览阶段不渲染进度条，只在正式采集与生成流程中显示 -->
   <div v-if="phase !== 'idle' && phase !== 'preview'" class="ld-progress">
+    <!-- 节点间用横条连接；已完成节点换成勾号图标，激活节点带呼吸动效 -->
     <div class="ld-progress__steps" role="progressbar" :aria-valuenow="activeIndex + 1" :aria-valuemax="STEPS.length">
       <template v-for="(step, i) in STEPS" :key="step.key">
         <div

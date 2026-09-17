@@ -1,6 +1,11 @@
+/**
+ * 知识库对话 API — 接口前缀 /kb
+ * 管理知识库问答的会话与消息记录；正式问答走 SSE 流式（见页面层），
+ * 此处保留同步问答接口作为联调备用。
+ */
 import request from '@/request'
 
-/** GET /kb/conversations */
+/** GET /kb/conversations — 查询会话列表（可按知识库过滤） */
 export async function listKnowledgeConversations(
   params?: { knowledgeBaseId?: number | string },
   options?: { [key: string]: unknown },
@@ -12,7 +17,7 @@ export async function listKnowledgeConversations(
   })
 }
 
-/** DELETE /kb/conversations/{id} */
+/** DELETE /kb/conversations/{id} — 删除会话 */
 export async function deleteKnowledgeConversation(
   id: number | string,
   options?: { [key: string]: unknown },
@@ -23,7 +28,7 @@ export async function deleteKnowledgeConversation(
   })
 }
 
-/** GET /kb/conversations/{id}/messages */
+/** GET /kb/conversations/{id}/messages — 分页查询会话消息（默认第 1 页、每页 50 条） */
 export async function listKnowledgeMessages(
   conversationId: number | string,
   params?: { pageNum?: number; pageSize?: number },

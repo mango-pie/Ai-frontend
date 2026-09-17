@@ -1,4 +1,11 @@
 <script setup lang="ts">
+/**
+ * PublicHeader 公开场页顶栏
+ * 职责：面向未进入工作台的公开页面（首页/博客/实验室等）的响应式导航头。
+ * - 导航项来自 PUBLIC_NAV 配置，按登录用户与系统能力开关动态过滤
+ * - 桌面端横向导航 + 头像下拉；移动端汉堡按钮展开抽屉导航
+ * - 点击"博客"时会恢复用户上次浏览的文章（resolveBlogMenuClickPath）
+ */
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
@@ -18,6 +25,7 @@ const capsStore = useCapabilitiesStore()
 const logoSrc = new URL('../assets/logo.svg', import.meta.url).href
 const mobileOpen = ref(false)
 
+// 按登录用户与能力开关过滤出当前可见的导航项
 const navItems = computed(() =>
   filterWorkspaceNav(PUBLIC_NAV, loginUserStore.loginUser ?? null, {
     loaded: capsStore.loaded,
@@ -26,6 +34,7 @@ const navItems = computed(() =>
 )
 
 
+// 导航跳转：博客入口特殊处理为"上次浏览的文章"；跳转前收起移动端抽屉，重复路由不重复跳转
 const go = (path: string) => {
   let target = path
   if (path === '/blog') {
@@ -42,6 +51,7 @@ const goLogin = () => {
   }
 }
 
+// 头像下拉菜单：个人中心跳转；退出登录调后端接口并复位本地登录态
 const handleAvatarClick = async (key: string) => {
   if (key === 'profile') {
     await router.push('/user/profile')
@@ -62,6 +72,7 @@ const handleAvatarClick = async (key: string) => {
 
 <template>
   <header class="public-header">
+    <!-- 品牌区：点击回首页 -->
     <div class="public-header__brand" @click="go('/')">
       <img class="public-header__logo" :src="logoSrc" alt="Logo" />
       <div class="public-header__titles">
@@ -70,6 +81,7 @@ const handleAvatarClick = async (key: string) => {
       </div>
     </div>
 
+    <!-- 桌面端横向导航（移动端由媒体规则隐藏） -->
     <nav class="public-header__nav" aria-label="公开导航">
       <button
         v-for="item in navItems"
@@ -85,6 +97,7 @@ const handleAvatarClick = async (key: string) => {
     </nav>
 
     <div class="public-header__actions">
+      <!-- 已登录：头像 + 个人信息/退出下拉 -->
       <template v-if="loginUserStore.loginUser.id">
         <a-dropdown placement="bottomRight" :trigger="['click']">
           <button type="button" class="public-header__user">
@@ -106,6 +119,7 @@ const handleAvatarClick = async (key: string) => {
           </template>
         </a-dropdown>
       </template>
+      <!-- 未登录：展示登录按钮 -->
       <IconAction
         v-else
         :icon="LogIn"
@@ -115,6 +129,7 @@ const handleAvatarClick = async (key: string) => {
         @click="goLogin"
       />
 
+      <!-- 移动端汉堡按钮：切换抽屉导航开合，图标随状态切换 -->
       <button
         type="button"
         class="public-header__burger"
@@ -126,6 +141,7 @@ const handleAvatarClick = async (key: string) => {
       </button>
     </div>
 
+    <!-- 移动端抽屉导航：仅汉堡按钮展开时渲染 -->
     <div v-if="mobileOpen" class="public-header__drawer">
       <button
         v-for="item in navItems"

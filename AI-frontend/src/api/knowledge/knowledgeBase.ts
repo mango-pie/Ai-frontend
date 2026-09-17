@@ -1,6 +1,10 @@
+/**
+ * 知识库管理 API — 接口前缀 /kb/knowledge-bases
+ * 提供知识库的创建与增删改查，是知识库模块的顶层资源。
+ */
 import request from '@/request'
 
-/** GET /kb/knowledge-bases */
+/** GET /kb/knowledge-bases — 分页查询知识库列表 */
 export async function listKnowledgeBases(
   params?: API.KnowledgeBaseQueryRequest,
   options?: { [key: string]: unknown },
@@ -12,7 +16,7 @@ export async function listKnowledgeBases(
   })
 }
 
-/** POST /kb/knowledge-bases */
+/** POST /kb/knowledge-bases — 创建知识库 */
 export async function createKnowledgeBase(
   body: API.KnowledgeBaseCreateRequest,
   options?: { [key: string]: unknown },
@@ -25,7 +29,7 @@ export async function createKnowledgeBase(
   })
 }
 
-/** GET /kb/knowledge-bases/{id} */
+/** GET /kb/knowledge-bases/{id} — 获取知识库详情 */
 export async function getKnowledgeBase(id: number | string, options?: { [key: string]: unknown }) {
   return request<API.BaseResponseKnowledgeBaseVO>(`/kb/knowledge-bases/${id}`, {
     method: 'GET',
@@ -33,7 +37,7 @@ export async function getKnowledgeBase(id: number | string, options?: { [key: st
   })
 }
 
-/** PUT /kb/knowledge-bases/{id} */
+/** PUT /kb/knowledge-bases/{id} — 更新知识库信息 */
 export async function updateKnowledgeBase(
   id: number | string,
   body: API.KnowledgeBaseUpdateRequest,
@@ -47,7 +51,7 @@ export async function updateKnowledgeBase(
   })
 }
 
-/** DELETE /kb/knowledge-bases/{id} */
+/** DELETE /kb/knowledge-bases/{id} — 删除知识库 */
 export async function deleteKnowledgeBase(id: number | string, options?: { [key: string]: unknown }) {
   return request<API.BaseResponseBoolean>(`/kb/knowledge-bases/${id}`, {
     method: 'DELETE',

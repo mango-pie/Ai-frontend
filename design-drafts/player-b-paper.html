@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Player B — Paper radio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,400&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --paper: #EFEAE2;
+      --ink: #1A1916;
+      --rule: #7A4623;
+      --muted: #6F6A62;
+    }
+    [data-paper="bone"] { --paper: #F7F3EA; }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      background: var(--paper);
+      color: var(--ink);
+      font-family: "Newsreader", Georgia, serif;
+      font-size: 17px;
+      overflow: hidden;
+      text-wrap: pretty;
+    }
+    .app {
+      height: 100vh;
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      grid-template-rows: 1fr 88px;
+      grid-template-areas: "rail stage" "rail player";
+    }
+    .rail {
+      grid-area: rail;
+      border-right: 1px solid color-mix(in srgb, var(--ink) 12%, var(--paper));
+      padding: 28px 20px;
+      display: flex;
+      flex-direction: column;
+    }
+    .mark {
+      font-family: "IBM Plex Sans", sans-serif;
+      font-size: 11px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      text-decoration: none;
+      color: inherit;
+    }
+    nav { margin-top: 40px; display: grid; gap: 14px; }
+    nav button {
+      font-family: "IBM Plex Sans", sans-serif;
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      background: none;
+      border: 0;
+      color: var(--muted);
+      text-align: left;
+      cursor: pointer;
+      padding: 0;
+    }
+    nav button.is-on, nav button:hover, nav button:focus-visible {
+      color: var(--ink);
+      outline: none;
+    }
+    .stage {
+      grid-area: stage;
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 56px;
+      padding: 48px 56px 24px;
+      align-items: start;
+    }
+    .cover {
+      aspect-ratio: 1;
+      background: #E4DDD2;
+      border: 1px solid var(--ink);
+      display: grid;
+      place-items: center;
+      font-family: "IBM Plex Sans", sans-serif;
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    h1 {
+      font-weight: 400;
+      font-size: clamp(36px, 5vw, 64px);
+      line-height: 1.05;
+      margin: 8px 0 12px;
+    }
+    .kicker {
+      font-family: "IBM Plex Sans", sans-serif;
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--rule);
+    }
+    .lede { font-style: italic; color: var(--muted); max-width: 22em; }
+    .lyric { margin-top: 32px; line-height: 1.7; }
+    .lyric span { display: block; color: color-mix(in srgb, var(--ink) 28%, var(--paper)); }
+    .lyric .now { color: var(--ink); }
+    .player {
+      grid-area: player;
+      border-top: 1px solid var(--ink);
+      display: grid;
+      grid-template-columns: 1.2fr 1.3fr 0.8fr;
+      align-items: center;
+      padding: 0 28px;
+    }
+    .now strong { display: block; font-style: italic; }
+    .now small { font-family: "IBM Plex Sans", sans-serif; font-size: 11px; letter-spacing: 0.08em; color: var(--muted); }
+    .transport { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+    .keys { display: flex; gap: 12px; }
+    button.icon {
+      background: none; border: 0; cursor: pointer; color: var(--ink);
+      width: 36px; height: 36px; display: grid; place-items: center;
+    }
+    button.play { border: 1px solid var(--ink); }
+    button.icon:focus-visible { outline: 1px solid var(--rule); outline-offset: 3px; }
+    .bar { width: min(100%, 340px); height: 1px; background: color-mix(in srgb, var(--ink) 18%, var(--paper)); position: relative; }
+    .bar::after { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 38%; background: var(--ink); }
+    .tools { justify-self: end; font-family: "IBM Plex Sans", sans-serif; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; }
+    .tweaks-toggle, .tweaks { position: fixed; bottom: 20px; right: 20px; z-index: 9; font-family: "IBM Plex Sans", sans-serif; }
+    .tweaks-toggle {
+      background: var(--paper); border: 1px solid var(--ink); padding: 8px 12px;
+      font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; cursor: pointer;
+    }
+    .tweaks { width: 230px; border: 1px solid var(--ink); background: var(--paper); padding: 16px; display: none; }
+    .tweaks.is-open { display: block; }
+    .tweaks h2 { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 400; margin-bottom: 8px; }
+    .tweaks select { width: 100%; border: 1px solid var(--ink); background: var(--paper); padding: 8px; }
+    .tweaks-close { margin-top: 10px; background: none; border: 0; border-bottom: 1px solid var(--rule); cursor: pointer; font: inherit; font-size: 11px; }
+    @media (max-width: 860px) {
+      .app { grid-template-columns: 1fr; grid-template-areas: "stage" "player"; }
+      .rail { display: none; }
+      .stage { grid-template-columns: 1fr; padding: 24px; gap: 24px; }
+    }
+  </style>
+</head>
+<body data-paper="chamois">
+  <div class="app">
+    <aside class="rail">
+      <a class="mark" href="index.html">Listen</a>
+      <nav>
+        <button class="is-on" type="button">Now</button>
+        <button type="button">Find</button>
+        <button type="button">Library</button>
+        <button type="button">Set</button>
+      </nav>
+    </aside>
+    <main class="stage">
+      <div class="cover" role="img" aria-label="封面占位，1 比 1">1:1 still</div>
+      <div>
+        <p class="kicker">A sitting hour</p>
+        <h1>Specimen track</h1>
+        <p class="lede">Artist pending. 纸面、直角、一句歌词。封面是静物，不是光源特效。</p>
+        <div class="lyric">
+          <span>The previous line recedes.</span>
+          <span class="now">This is the sentence that is happening.</span>
+          <span>The next line waits.</span>
+        </div>
+      </div>
+    </main>
+    <footer class="player">
+      <div class="now">
+        <strong>Specimen track</strong>
+        <small>ARTIST PENDING</small>
+      </div>
+      <div class="transport">
+        <div class="keys">
+          <button class="icon" type="button" aria-label="上一首"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h2v12H3zm3.2 6L13 2v12z"/></svg></button>
+          <button class="icon play" type="button" aria-label="播放"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M4 2l11 6-11 6z"/></svg></button>
+          <button class="icon" type="button" aria-label="下一首"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M11 2h2v12h-2zM3 2l6.8 6L3 14z"/></svg></button>
+        </div>
+        <div class="bar" aria-hidden="true"></div>
+      </div>
+      <div class="tools">Queue</div>
+    </footer>
+  </div>
+  <button class="tweaks-toggle" type="button" id="tweaksOpen">Tweaks</button>
+  <aside class="tweaks" id="tweaks" hidden>
+    <h2>Tweaks</h2>
+    <label for="paper">Paper</label>
+    <select id="paper">
+      <option value="chamois">Chamois</option>
+      <option value="bone">Bone</option>
+    </select>
+    <button class="tweaks-close" type="button" id="tweaksClose">Close</button>
+  </aside>
+  <script>
+    const root = document.body, panel = document.getElementById("tweaks");
+    const openBtn = document.getElementById("tweaksOpen"), closeBtn = document.getElementById("tweaksClose");
+    function setOpen(o){ panel.hidden=!o; panel.classList.toggle("is-open",o); openBtn.hidden=o; }
+    openBtn.onclick=()=>setOpen(true); closeBtn.onclick=()=>setOpen(false);
+    document.getElementById("paper").onchange=e=>root.setAttribute("data-paper", e.target.value);
+  </script>
+</body>
+</html>

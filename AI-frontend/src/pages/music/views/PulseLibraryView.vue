@@ -1,4 +1,10 @@
 <script setup lang="ts">
+/**
+ * 我的曲库视图：收藏 / 缓存 / 本地曲目的统一浏览入口。
+ * 支持「曲目 / 专辑 / 歌手」三种分组浏览：曲目为平铺列表，
+ * 专辑、歌手先展示卡片墙，点击卡片进入组内详情。
+ * 本组件只做展示与交互，数据与播放能力全部来自播放器单例（props.p）。
+ */
 import { computed } from 'vue'
 import {
   ChevronLeft,
@@ -22,11 +28,13 @@ const groupTabs: { id: LibraryTab; label: string }[] = [
   { id: 'artists', label: '歌手' },
 ]
 
+/** 分组切换：切换 tab 并退出可能打开的组内详情 */
 function setGroup(id: LibraryTab) {
   p.libraryTab.value = id
   p.closeLibraryGroup()
 }
 
+/** 曲目来源缩写徽标：本地 LOC / QQ / 酷狗 KG / 网易云 NET / 直播 LIVE */
 function sourceChip(track: PulseTrack) {
   if (track.source === '本地' || track.file || track.localPath) return 'LOC'
   if (track.source === 'QQ音乐') return 'QQ'
@@ -37,11 +45,13 @@ function sourceChip(track: PulseTrack) {
 
 const stats = computed(() => p.libraryStats.value)
 
+/** 组内详情封面：取该组第一张可用封面 */
 const focusCover = computed(() => {
   const track = p.libraryFocusTracks.value.find((t) => t.coverUrl)
   return toCoverDisplayUrl(track?.coverUrl)
 })
 
+/** 组内详情副标题：专辑显示歌手，歌手显示专辑数量 */
 const focusMeta = computed(() => {
   const focus = p.libraryFocus.value
   if (!focus) return ''

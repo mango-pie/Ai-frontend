@@ -43,9 +43,11 @@ const emit = defineEmits<{
 }>()
 
 // ── question input ──
+/** 用户输入的学习问题（也是 AI 搜索的 goal 来源之一） */
 const question = ref('')
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 
+/** 供父组件聚焦输入框（如门闩失败后引导用户重新提问） */
 async function focusInput() {
   await nextTick()
   textareaRef.value?.focus()
@@ -53,6 +55,7 @@ async function focusInput() {
 
 defineExpose({ focusInput })
 
+/** 计算搜索目标：优先用用户输入，其次拼"领域+空枝标题"（补学场景），兜底领域名 */
 function getGoal(): string {
   const q = question.value.trim()
   if (q) return q
@@ -64,16 +67,19 @@ function getGoal(): string {
   return props.domainName || '学习主题'
 }
 
+/** 是否允许提交：非判定中、问题非空且已选领域 */
 function canSubmit() {
   return !props.gateLoading && question.value.trim().length > 0 && props.domainId != null
 }
 
+/** 提交问题给父组件做门闩判定 */
 function handleSubmit() {
   const q = question.value.trim()
   if (!q || !canSubmit()) return
   emit('gate-submit', q)
 }
 
+/** Enter 提交、Shift+Enter 换行 */
 function handleKeydown(e: KeyboardEvent) {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault()
@@ -82,10 +88,16 @@ function handleKeydown(e: KeyboardEvent) {
 }
 
 // ── V2 preview (moved from GatePanel) ──
+/** 搜索预览状态：加载中 / 候选文章列表 / 已勾选待精读的 URL */
 const previewLoading = ref(false)
 const previewCandidates = ref<API.KnowledgeSearchCandidate[]>([])
 const selectedUrls = ref<string[]>([])
 
+/**
+ * 拉取搜索候选（预览阶段）：
+ * 按来源附带不同的上下文——空枝补学带 skipGate+branchId，正常流程带 gatePassId，
+ * 后端据此免门闩/复用判定结果。
+ */
 async function runPreview() {
   if (!props.domainId) return
   if (props.searchBlocked) return
@@ -120,6 +132,7 @@ async function runPreview() {
   }
 }
 
+/** 勾选/取消勾选候选 URL（用 Set 去重后回写数组） */
 function toggleUrl(url: string, checked: boolean) {
   const set = new Set(selectedUrls.value)
   if (checked) set.add(url)
@@ -127,6 +140,7 @@ function toggleUrl(url: string, checked: boolean) {
   selectedUrls.value = [...set]
 }
 
+/** 提交勾选的文章进入批量精读（生成笔记）流程 */
 function submitBatch() {
   const urls = selectedUrls.value
   if (!urls.length) {
@@ -136,11 +150,13 @@ function submitBatch() {
   emit('batch-url-submit', { urls, goal: getGoal() })
 }
 
+/** 进入预览阶段时自动拉取候选 */
 watch(
   () => props.v2Phase,
   (v) => { if (v === 'preview') void runPreview() },
 )
 
+/** 切换领域时清空上一次的候选与勾选，避免跨领域残留 */
 watch(
   () => props.domainId,
   () => {

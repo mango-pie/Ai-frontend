@@ -11,8 +11,10 @@ const props = defineProps<{
 
 const router = useRouter()
 
+// 侧栏导航链接：覆盖 AI 用量、日志与审计等运维页面；activeKey 由父页面传入用于高亮
 const links = [
   { key: 'usage', label: 'AI 用量', path: '/admin/ops/usage' },
+  { key: 'logs', label: '实时日志', path: '/admin/ops/logs' },
   { key: 'audit', label: '操作审计', path: '/admin/ops/audit' },
   { key: 'stats', label: '业务统计', path: '/admin/ops/stats' },
   { key: 'access', label: '访问日志', path: '/admin/ops/access-logs' },
@@ -21,12 +23,14 @@ const links = [
 ] as const
 
 function go(path: string, key: string) {
+  // 当前页对应的链接不再重复跳转
   if (key === props.activeKey) return
   router.push(path)
 }
 </script>
 
 <template>
+  <!-- 运维中心侧栏：桌面端垂直吸附，窄屏下转为可换行的横向按钮组 -->
   <aside class="ops-nav">
     <div class="nav-section-title">运维中心</div>
     <button

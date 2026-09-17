@@ -34,6 +34,7 @@ export const ROUTE_PERMISSIONS: Record<string, RequiredRole | undefined> = {
   '/diary': 'user',
   '/worklog': 'user',
   '/knowledge': 'user',
+  '/library': 'user',
 }
 
 /**
@@ -67,6 +68,7 @@ export const MENU_ITEMS: MenuItemConfig[] = [
   { key: 'home', label: '首页', path: '/' },
   { key: 'blogHome', label: '随笔', path: '/blog', requireModule: 'blog' },
   { key: 'knowledge', label: '知识库', path: '/knowledge', requiredRole: 'user', requireModule: 'knowledge' },
+  { key: 'library', label: '资料库', path: '/library', requiredRole: 'user', requireModule: 'library' },
   { key: 'diary', label: '日记', path: '/diary', requiredRole: 'user', requireModule: 'diary' },
   /** 工作日志独立模块（与 diary 分离） */
   { key: 'worklog', label: '工作日志', path: '/worklog', requiredRole: 'user', requireModule: 'worklog' },
@@ -104,6 +106,7 @@ export function isAdminRole(userRole: string | undefined): boolean {
   return !!userRole && ADMIN_ROLES.includes(userRole as (typeof ADMIN_ROLES)[number])
 }
 
+/** 判断是否为高级管理角色（administrator，比 admin 更高一级） */
 export function isAdministrator(userRole: string | undefined): boolean {
   return !!userRole && AdministratorRoles.includes(userRole as (typeof AdministratorRoles)[number])
 }
@@ -117,6 +120,7 @@ export function getRequiredRole(path: string): RequiredRole | undefined {
   if (path === '/diary' || path.startsWith('/diary/')) return 'user'
   if (path === '/worklog' || path.startsWith('/worklog/')) return 'user'
   if (path === '/knowledge' || path.startsWith('/knowledge/')) return 'user'
+  if (path === '/library' || path.startsWith('/library/')) return 'user'
   return undefined
 }
 

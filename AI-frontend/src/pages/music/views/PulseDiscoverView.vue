@@ -1,4 +1,10 @@
 <script setup lang="ts">
+/**
+ * 发现视图：音乐内容的聚合首页，包含我的歌单、每日推荐、歌单补给站、
+ * 场景电台（Meting 多平台搜索一键成队）、QQ/酷狗热门榜单、网易云榜单、
+ * DJ 电台与新碟速递；点击卡片进入详情页（歌单/专辑/歌手）浏览曲目。
+ * 推荐数据来自 discover（usePulseDiscover），播放能力来自播放器单例 p。
+ */
 import { ref } from 'vue'
 import { ChevronLeft, Download, Play, RefreshCw, Search, TrendingUp, Coffee, BookOpen, Moon, Wind } from 'lucide-vue-next'
 import { applyCoverFallback, toCoverDisplayUrl } from '@/utils/musicCover'
@@ -21,8 +27,10 @@ const scenes: Array<{ label: string; desc: string; icon: typeof Coffee; server: 
   { label: '放松入眠', desc: '助眠 · 舒缓', icon: Moon, server: 'qq', query: '助眠 舒缓 钢琴曲' },
   { label: '周末咖啡', desc: '沙发 · 爵士', icon: Coffee, server: 'kugou', query: '爵士 咖啡馆 轻音乐' },
 ]
+/** 正在加载的场景电台 label（同一时间只允许一个场景请求） */
 const sceneBusy = ref('')
 
+/** Meting 聚合搜索结果 -> 播放器曲目：id 带 source 前缀避免跨平台撞 id */
 function metingToPulse(s: MetingSong): PulseTrack {
   return {
     id: `${s.source}-scene-${s.id}`,
@@ -40,6 +48,7 @@ function metingToPulse(s: MetingSong): PulseTrack {
   }
 }
 
+/** 播放场景电台：按氛围关键词在指定平台搜索，取前 30 首整队入列并跳转舞台 */
 async function playScene(scene: (typeof scenes)[number]) {
   if (sceneBusy.value) return
   sceneBusy.value = scene.label
@@ -61,6 +70,7 @@ async function playScene(scene: (typeof scenes)[number]) {
   }
 }
 
+/** 整榜播放：榜单全部曲目入列后从第一首播起 */
 function playChartAll(index: number) {
   const chart = discover.charts.value[index]
   if (!chart?.songs.length) return
@@ -69,6 +79,7 @@ function playChartAll(index: number) {
   p.switchView('stage')
 }
 
+/** 榜单单曲播放：仅入列该曲并播放，同时跳到舞台视图 */
 function playChartTrack(index: number, trackIndex: number) {
   const chart = discover.charts.value[index]
   const track = chart?.songs[trackIndex]
@@ -78,6 +89,7 @@ function playChartTrack(index: number, trackIndex: number) {
   p.switchView('stage')
 }
 
+/** 批量下载详情页全部曲目：先登记曲目再弹出下载确认框 */
 function downloadDiscoverPage() {
   const songs = discover.detailSongs.value
   if (!songs.length) return

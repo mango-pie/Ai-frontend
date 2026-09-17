@@ -1,4 +1,10 @@
+/**
+ * 站内房间（station-room）公共主题样式表
+ * 作用于工作日志 / 实验室 / 聊天 / 登录 / 站点设置等房间页面，
+ * 配合 HomeTopbar 与 1920×1080 固定舞台，按 data-room 切换主题色并统一玻璃拟态控件外观
+ */
 /* Shared station chrome for worklog / lab / chat / auth (HomeTopbar + 1920×1080 stage) */
+/* ===== 房间主题变量：各房间通过 data-room 覆盖 --room / --room-soft 配色 ===== */
 .station-room-root {
   --room: #9b8ce8;
   --room-soft: #e4dffd;
@@ -14,6 +20,10 @@
   --room: #c79ae0;
   --room-soft: #f0e4fa;
 }
+.station-room-root[data-room='library'] {
+  --room: #6aaee8;
+  --room-soft: #d8ebfb;
+}
 .station-room-root[data-room='chat'] {
   --room: #9b8ce8;
   --room-soft: #e4dffd;
@@ -26,13 +36,19 @@
   --room: #7a83a0;
   --room-soft: #e8ebf4;
 }
+.station-room-root[data-room='about'] {
+  --room: #f490ad;
+  --room-soft: #fde4ec;
+}
 
+/* ===== 站内舞台模式：锁定 html/body 滚动，滚动交给页面内容区处理 ===== */
 html.station-room-lock,
 body.station-room-lock {
   overflow: hidden;
   min-height: 100%;
 }
 
+/* ===== 舞台 / 顶栏微调：舞台透明背景与顶栏尺寸 ===== */
 .station-room-root #stage {
   background: transparent;
 }
@@ -49,11 +65,13 @@ body.station-room-lock {
   font-size: 14px;
 }
 
+/* ===== 左上角房间说明便签（虚线胶囊） ===== */
 .station-room-root .note-chip {
   position: absolute;
   z-index: 6;
   top: 90px;
-  left: 48px;
+  /* 让出左侧固定 rail（屏幕 12~64px，stage 缩放折算后取 96px 起） */
+  left: 96px;
   font-size: 11px;
   letter-spacing: 2px;
   color: var(--ink-faint);
@@ -64,6 +82,7 @@ body.station-room-lock {
   max-width: 820px;
 }
 
+/* ===== 页面内容区：入场动画与 frame 填充模式 ===== */
 .station-room-root .station-page {
   position: relative;
   z-index: 4;
@@ -101,6 +120,7 @@ body.station-room-lock {
   }
 }
 
+/* ===== Antd 控件站内化：按钮 / 输入框 / 卡片统一玻璃拟态外观 ===== */
 /* Restore controls that home-v3 resets (`button { background:none }`) */
 .station-room-root button.antd-btn,
 .station-room-root .ant-btn {
@@ -200,8 +220,36 @@ body.station-room-lock {
   margin: 0;
   max-width: 36ch;
 }
+/* 引导线：把视线从欢迎语引向右侧登车卡 */
+.station-room-root .auth-welcome {
+  position: relative;
+}
+.station-room-root .auth-welcome::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: -44px;
+  width: 44px;
+  border-top: 2px dashed color-mix(in srgb, var(--room) 45%, transparent);
+}
 .station-room-root .auth-card {
+  position: relative;
   padding: 36px 32px 28px;
+}
+/* 站点胶带：贴在登车卡上沿的斜角标签 */
+.station-room-root .auth-card__tape {
+  position: absolute;
+  top: -13px;
+  left: 26px;
+  padding: 4px 14px;
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--room) 34%, #fff);
+  opacity: 0.9;
+  transform: rotate(-3deg);
+  border-radius: 3px;
+  box-shadow: 0 2px 6px rgba(70, 55, 90, 0.2);
 }
 .station-room-root .auth-card .title {
   font-size: 22px;
@@ -287,89 +335,17 @@ body.station-room-lock {
   border: 1px solid color-mix(in srgb, var(--room) 28%, transparent);
 }
 
-/* ── Lab ── */
-.station-room-root #labPage {
-  max-width: none;
-  margin: 0;
-  padding: 4px 0 20px;
-}
-.station-room-root .lab-page__header {
-  margin: 0 0 22px;
-  text-align: left;
-}
-.station-room-root .lab-page__title {
-  font-family: 'ZCOOL KuaiLe', 'PingFang SC', sans-serif;
-  font-size: 40px;
-  letter-spacing: 2px;
-  background: none;
-  -webkit-text-fill-color: var(--ink);
-  color: var(--ink);
-}
-.station-room-root .lab-page__subtitle,
-.station-room-root .lab-page__section-title,
-.station-room-root .lab-page__section-count,
-.station-room-root .app-card__name,
-.station-room-root .app-card__time {
-  color: var(--ink-soft);
-}
-.station-room-root .lab-page__section-title {
-  font-size: 18px;
-  letter-spacing: 2px;
-  color: var(--ink);
-}
-.station-room-root .lab-page__create,
-.station-room-root .lab-page__login-hint,
-.station-room-root .lab-create__input-wrap,
-.station-room-root .app-card {
-  background: var(--craft-glass);
-  border: 1.5px solid rgba(255, 255, 255, 0.95);
-  box-shadow: var(--shadow-1);
+/* ── Lab：三栏实验台布局见 LabPage.vue scoped 样式；仅保留创建面板的站内化 ── */
+.station-room-root .lab-create__input-wrap {
+  background: rgba(255, 255, 255, 0.72) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.95) !important;
+  box-shadow: none;
 }
 .station-room-root .lab-create__textarea {
   color: var(--ink) !important;
 }
-.station-room-root .app-card {
-  overflow: hidden;
-  border-radius: 20px;
-}
-.station-room-root .app-card:hover {
-  box-shadow: var(--shadow-2);
-  border-color: color-mix(in srgb, var(--room) 40%, white);
-}
-.station-room-root .lab-page__icon {
-  color: var(--room);
-}
 
-/* ── Chat home ── */
-.station-room-root #chatHomePage {
-  max-width: 720px;
-  margin: 48px auto 0;
-  padding: 0;
-  min-height: 0;
-}
-.station-room-root #chatHomePage .hero__title {
-  font-family: 'ZCOOL KuaiLe', 'PingFang SC', sans-serif;
-  font-size: 42px;
-  letter-spacing: 2px;
-  background: none;
-  -webkit-text-fill-color: var(--ink);
-  color: var(--ink);
-}
-.station-room-root #chatHomePage .hero__desc {
-  color: var(--ink-soft);
-}
-.station-room-root #chatHomePage .hero__icon {
-  color: var(--room);
-  background: var(--room-soft);
-}
-.station-room-root #chatHomePage .hero__input-wrap {
-  background: var(--craft-glass);
-  border: 1.5px solid rgba(255, 255, 255, 0.95);
-  box-shadow: var(--shadow-1);
-}
-.station-room-root #chatHomePage .hero__textarea {
-  color: var(--ink) !important;
-}
+/* ── Chat home：三栏话务室布局见 ChatHomePage.vue scoped 样式 ── */
 
 /* ── Chat / lab codegen conversation ── */
 .station-room-root .chat-page,
@@ -493,38 +469,53 @@ body.station-room-lock {
 .station-room-root[data-room='settings'] .health-card.ok {
   border-color: color-mix(in srgb, #5fc4a5 45%, white);
 }
-.station-room-root[data-room='settings'] .admin-theme-page :deep(.ant-form),
-.station-room-root[data-room='settings'] .admin-theme-page .ant-form {
+.station-room-root .admin-theme-page :deep(.ant-form),
+.station-room-root .admin-theme-page .ant-form {
   background: transparent;
   border: none;
   padding: 0;
 }
-.station-room-root[data-room='settings'] .admin-theme-page .ant-input,
-.station-room-root[data-room='settings'] .admin-theme-page .ant-input-affix-wrapper,
-.station-room-root[data-room='settings'] .admin-theme-page .ant-select-selector,
-.station-room-root[data-room='settings'] .admin-theme-page .ant-input-number,
-.station-room-root[data-room='settings'] .admin-theme-page .ant-input-number-input,
-.station-room-root[data-room='settings'] .admin-theme-page textarea.ant-input {
+.station-room-root .admin-theme-page .ant-input,
+.station-room-root .admin-theme-page .ant-input-affix-wrapper,
+.station-room-root .admin-theme-page .ant-select-selector,
+.station-room-root .admin-theme-page .ant-input-number,
+.station-room-root .admin-theme-page .ant-input-number-input,
+.station-room-root .admin-theme-page textarea.ant-input {
   background: rgba(255, 255, 255, 0.92) !important;
   color: var(--ink) !important;
   border-color: color-mix(in srgb, var(--room) 28%, transparent) !important;
 }
-.station-room-root[data-room='settings'] .admin-theme-page .ant-form-item-label > label {
+.station-room-root .admin-theme-page .ant-form-item-label > label {
   color: var(--ink-soft) !important;
 }
-.station-room-root[data-room='settings'] .admin-theme-page .ant-pagination-item,
-.station-room-root[data-room='settings'] .admin-theme-page .ant-pagination-prev .ant-pagination-item-link,
-.station-room-root[data-room='settings'] .admin-theme-page .ant-pagination-next .ant-pagination-item-link {
+.station-room-root .admin-theme-page .ant-pagination-item,
+.station-room-root .admin-theme-page .ant-pagination-prev .ant-pagination-item-link,
+.station-room-root .admin-theme-page .ant-pagination-next .ant-pagination-item-link {
   background: rgba(255, 255, 255, 0.78) !important;
   border-color: color-mix(in srgb, var(--room) 22%, transparent) !important;
   color: var(--ink) !important;
 }
-.station-room-root[data-room='settings'] .admin-theme-page .ant-btn-primary {
+.station-room-root .admin-theme-page .ant-btn-primary {
   background: var(--room) !important;
   border: none !important;
   color: #fff !important;
 }
 
+/* ── 管理台令牌 remap：admin/ops 页面迁入站点房间后自动融入玻璃语言 ── */
+.station-room-root .admin-theme-page {
+  --color-text-primary: var(--ink);
+  --color-text-secondary: var(--ink-soft);
+  --color-text-muted: var(--ink-faint);
+  --color-bg-card: var(--craft-glass);
+  --color-border: color-mix(in srgb, var(--room, #9b8ce8) 24%, rgba(255, 255, 255, 0.9));
+  --color-border-hover: color-mix(in srgb, var(--room, #9b8ce8) 45%, transparent);
+  --color-primary-08: color-mix(in srgb, var(--room, #9b8ce8) 8%, transparent);
+  --color-primary-12: color-mix(in srgb, var(--room, #9b8ce8) 13%, transparent);
+  --color-primary-20: color-mix(in srgb, var(--room, #9b8ce8) 20%, transparent);
+  --color-primary-light: var(--room, #9b8ce8);
+}
+
+/* ===== 响应式：窄屏下登录页降为单列 ===== */
 @media (max-width: 1100px) {
   .station-room-root .auth-stage {
     grid-template-columns: 1fr;

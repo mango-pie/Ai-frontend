@@ -1,4 +1,9 @@
 <script setup lang="ts">
+/**
+ * 知识库问答页 - /knowledge/:kbId/chat
+ * 左栏：会话票根（点选切换 / 右键删除）；中栏：SSE 流式问答；右栏：最近一条 AI 回复的引用切片
+ * 数据来源：knowledge API（库 / 会话 / 消息）+ streamKnowledgeChat 流式问答接口
+ */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
@@ -14,6 +19,7 @@ import { streamKnowledgeChat } from '@/utils/knowledgeSseStream'
 
 marked.setOptions({ breaks: true, gfm: true })
 
+/** 将 AI 回复渲染为 Markdown HTML，解析失败时回退原文 */
 function renderMarkdown(text: string): string {
   if (!text) return ''
   try {
@@ -23,6 +29,7 @@ function renderMarkdown(text: string): string {
   }
 }
 
+/** 消息 UI 模型：在接口消息之上附加流式中 / 出错等展示态 */
 type UiMessage = {
   id?: string | number
   role: 'USER' | 'ASSISTANT' | 'SYSTEM' | string
@@ -53,6 +60,7 @@ const activeConversation = computed(() =>
 
 const sessionTitle = computed(() => activeConversation.value?.title || (messages.value.length ? '进行中' : '新会话'))
 
+/** 取最近一条带引用的 AI 回复的引用切片，供右栏索书条展示 */
 const latestRefs = computed(() => {
   for (let i = messages.value.length - 1; i >= 0; i--) {
     const m = messages.value[i]
@@ -89,6 +97,7 @@ const scrollBottom = async () => {
   if (scrollEl.value) scrollEl.value.scrollTop = scrollEl.value.scrollHeight
 }
 
+/** 加载知识库基本信息；不存在则提示并退回列表页 */
 const loadKb = async () => {
   const res = await getKnowledgeBase(kbId.value)
   if (res.data.code === 0 && res.data.data) kb.value = res.data.data
@@ -98,6 +107,7 @@ const loadKb = async () => {
   }
 }
 
+/** 拉取当前库的会话列表（最新在前） */
 const loadConversations = async () => {
   listLoading.value = true
   try {
@@ -108,6 +118,7 @@ const loadConversations = async () => {
   }
 }
 
+/** 拉取某会话的历史消息并滚动到底部 */
 const loadMessages = async (conversationId: string | number) => {
   const res = await listKnowledgeMessages(conversationId, { pageNum: 1, pageSize: 100 })
   if (res.data.code === 0 && res.data.data) {
@@ -116,7 +127,7 @@ const loadMessages = async (conversationId: string | number) => {
       role: m.role || 'USER',
       content: m.content || '',
       references: m.references,
-      time: m.createTime || m.updateTime,
+      time: m.createTime,
     }))
     await scrollBottom()
   }
@@ -132,6 +143,7 @@ const startNewChat = () => {
   messages.value = []
 }
 
+/** 右键票根：二次确认后删除会话；删除的是当前会话则重置聊天区 */
 const removeConversation = (c: API.KnowledgeConversationVO) => {
   if (c.id == null) return
   Modal.confirm({
@@ -149,12 +161,14 @@ const removeConversation = (c: API.KnowledgeConversationVO) => {
   })
 }
 
+/** 中断进行中的 SSE 流并复位发送状态 */
 const stopStream = () => {
   abortRef.value?.abort()
   abortRef.value = null
   sending.value = false
 }
 
+/** 发送提问：先本地插入用户消息与占位 AI 消息，再走 SSE 流式接收回复 */
 const send = async () => {
   const question = input.value.trim()
   if (!question || sending.value) return
@@ -178,10 +192,12 @@ const send = async () => {
         mode: 'knowledgeBase',
       },
       {
+        // 分片到达：追加到占位 AI 消息并保持滚动在底部
         onMessage: (chunk) => {
           assistant.content += chunk
           scrollBottom()
         },
+        // 流结束：回灌会话列表与消息，补齐后端生成的消息 id / 引用 / 时间
         onDone: async () => {
           assistant.streaming = false
           assistant.time = new Date().toISOString()
@@ -201,12 +217,13 @@ const send = async () => {
                 role: m.role || 'USER',
                 content: m.content || '',
                 references: m.references,
-                time: m.createTime || m.updateTime,
+                time: m.createTime,
               }))
             }
           }
           await scrollBottom()
         },
+        // 流内错误：把该条 AI 消息标记为出错
         onError: (msg) => {
           assistant.streaming = false
           assistant.error = true
@@ -218,6 +235,7 @@ const send = async () => {
       ac.signal,
     )
   } catch (e) {
+    // AbortError 是用户主动停止，静默处理；其余才按请求失败提示
     if ((e as Error)?.name !== 'AbortError') {
       assistant.streaming = false
       assistant.error = true
@@ -238,6 +256,7 @@ const onKeydown = (e: KeyboardEvent) => {
   }
 }
 
+// 同页路由切换库（kbId 变化）时重置会话并重新加载
 watch(kbId, async () => {
   startNewChat()
   await loadKb()
@@ -249,12 +268,14 @@ onMounted(async () => {
   await loadConversations()
 })
 
+// 离开页面前中断未完成的流
 onBeforeUnmount(stopStream)
 </script>
 
 <template>
   <KnowledgeRoomShell :note-label="`Knowledge · ${kb?.name || '问答'}`">
     <div class="shell">
+      <!-- 左栏：会话票根（切换 / 删除会话） -->
       <aside class="side side-stack anim" style="animation-delay: 0.08s">
         <button class="back-chip" type="button" @click="router.push(`/knowledge/${kbId}`)">
           ← 返回馆藏 · Esc
@@ -285,6 +306,7 @@ onBeforeUnmount(stopStream)
         </div>
       </aside>
 
+      <!-- 中栏：库内问答主区 -->
       <main class="main room-col anim" style="animation-delay: 0.16s">
         <div class="room-head">
           <div>
@@ -343,6 +365,7 @@ onBeforeUnmount(stopStream)
         </div>
       </main>
 
+      <!-- 右栏：本轮引用出处（索书条） -->
       <aside class="deck anim" style="animation-delay: 0.24s">
         <div class="panel glass">
           <span class="tape sun" />
@@ -355,7 +378,7 @@ onBeforeUnmount(stopStream)
         <div class="panel glass" style="flex: 1; overflow: auto; min-height: 0">
           <div v-for="(r, i) in latestRefs" :key="i" class="cite-card">
             <div class="src">
-              {{ r.documentName || r.fileName || '文档' }}
+              {{ r.documentName || '文档' }}
               <template v-if="r.chunkIndex != null"> · #{{ r.chunkIndex }}</template>
             </div>
             <div class="ex">「{{ (r.content || '').slice(0, 120) }}{{ (r.content || '').length > 120 ? '…' : '' }}」</div>
@@ -375,6 +398,7 @@ onBeforeUnmount(stopStream)
 </template>
 
 <style scoped>
+/* AI 回复中 Markdown 元素的样式（:deep 穿透 scoped） */
 .chat-stream :deep(pre) {
   overflow: auto;
   padding: 8px 10px;

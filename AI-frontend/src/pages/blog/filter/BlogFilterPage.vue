@@ -1,4 +1,11 @@
 <script setup lang="ts">
+/**
+ * 博客筛选页
+ * 职责：按分类 + 标签组合筛选文章，筛选条件以 URL query（cats/tags 的 id 列表）持久化，
+ * 便于分享与后退。筛选模式由 resolveServerFilter 决定：
+ * 单分类或单标签可走服务端过滤；多选组合则拉较多数据后在前端取交集。
+ * 全部条件取消时自动回到博客列表页。
+ */
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
@@ -20,6 +27,7 @@ import BlogRoomShell from '@/components/blog/BlogRoomShell.vue'
 import BlogPostCard from '@/components/blog/BlogPostCard.vue'
 import BlogFilterChips from '@/components/blog/BlogFilterChips.vue'
 
+// 已选条件的"胶囊"模型，用于顶部展示与单个移除
 type FilterChip = {
   key: string
   label: string
@@ -30,6 +38,7 @@ type FilterChip = {
 const route = useRoute()
 const router = useRouter()
 
+// 站点 UX 配置（点赞开关等），挂载时加载
 const blogUx = ref<BlogUxSettings>({
   pageSizeDefault: 10,
   summaryMaxLength: 200,
@@ -40,17 +49,20 @@ const blogUx = ref<BlogUxSettings>({
 })
 
 const loading = ref(false)
+// 元数据（分类/标签）与原始文章列表；已选 id 均来自 URL
 const categories = ref<API.BlogCategoryVO[]>([])
 const tags = ref<API.BlogTagVO[]>([])
 const rawPosts = ref<API.BlogPostVO[]>([])
 const selectedCats = ref<number[]>([])
 const selectedTags = ref<number[]>([])
 
+// 把 URL 中的 cats/tags 解析为已选 id 列表
 const syncFromRoute = () => {
   selectedCats.value = parseIdList(route.query.cats)
   selectedTags.value = parseIdList(route.query.tags)
 }
 
+// 把筛选状态写回 URL（replace 不产生历史记录）；条件为空时直接回列表页
 const pushQuery = (cats: number[], tagsIds: number[]) => {
   if (cats.length === 0 && tagsIds.length === 0) {
     router.replace('/blog')
@@ -59,6 +71,7 @@ const pushQuery = (cats: number[], tagsIds: number[]) => {
   router.replace({ path: '/blog/filter', query: buildFilterQuery(cats, tagsIds) })
 }
 
+// 当前已选条件的胶囊列表（分类名找不到时回退显示 id）
 const chips = computed<FilterChip[]>(() => {
   const list: FilterChip[] = []
   for (const id of selectedCats.value) {
@@ -82,6 +95,7 @@ const chips = computed<FilterChip[]>(() => {
   return list
 })
 
+// 最终展示列表：服务端过滤模式直接用返回值；客户端模式（多条件）在本地取交集
 const displayPosts = computed(() => {
   const srv = resolveServerFilter(selectedCats.value, selectedTags.value)
   if (srv.mode === 'client') {
@@ -94,6 +108,7 @@ const displayPosts = computed(() => {
 
 const selectedCount = computed(() => selectedCats.value.length + selectedTags.value.length)
 
+// 右侧期刊牌上的条件摘要，过长时截断
 const filterBadge = computed(() => {
   if (!chips.value.length) return '—'
   return chips.value.map((c) => c.label).join(' · ').slice(0, 18)
@@ -102,6 +117,7 @@ const filterBadge = computed(() => {
 const isCatOn = (id?: number) => id != null && selectedCats.value.includes(Number(id))
 const isTagOn = (id?: number) => id != null && selectedTags.value.includes(Number(id))
 
+// 切换分类/标签选中态后统一走 pushQuery，让 URL 成为唯一数据源
 const toggleCat = (id?: number) => {
   if (id == null) return
   const nid = Number(id)
@@ -120,6 +136,7 @@ const toggleTag = (id?: number) => {
   pushQuery(selectedCats.value, next)
 }
 
+// 移除单个胶囊：按类型从对应数组剔除后重写 URL
 const removeChip = (chip: FilterChip) => {
   if (chip.kind === 'cat') {
     pushQuery(
@@ -138,9 +155,11 @@ const clearAll = () => router.push('/blog')
 
 const goPost = (id: number) => router.push(`/blog/${id}`)
 
+// 从卡片上的标签/分类点击进入筛选：替换为对应的单一条件
 const goCardTag = (id: number) => pushQuery(selectedCats.value, [id])
 const goCardCat = (id: number) => pushQuery([id], selectedTags.value)
 
+// 并发拉取分类与标签云（用于侧栏勾选列表与胶囊命名）
 const fetchMeta = async () => {
   const [cRes, tRes] = await Promise.all([getAllCategories(), getTagCloud()])
   if (cRes.data.code === 0 && cRes.data.data) {
@@ -151,6 +170,7 @@ const fetchMeta = async () => {
   }
 }
 
+// 拉取文章：服务端模式按单条件查询；客户端模式需要拉更多数据（pageSize 100）再本地过滤
 const fetchPosts = async () => {
   loading.value = true
   try {
@@ -177,6 +197,7 @@ const fetchPosts = async () => {
   }
 }
 
+// 点赞成功后本地 +1；若后端提示"已关闭"，则同步关闭本页点赞能力
 const handleLike = async (post: API.BlogPostVO) => {
   if (!post.id || !blogUx.value.allowLike) return
   try {
@@ -201,6 +222,7 @@ const handleLike = async (post: API.BlogPostVO) => {
 
 onMounted(async () => {
   blogUx.value = await loadBlogSettings()
+  // 直接访问 /blog/filter 且无任何条件时，重定向回列表页
   syncFromRoute()
   if (selectedCats.value.length === 0 && selectedTags.value.length === 0) {
     await router.replace('/blog')
@@ -210,6 +232,7 @@ onMounted(async () => {
   await fetchPosts()
 })
 
+// 监听 URL 变化（侧栏勾选/后退/分享链接都会触发），重新同步条件并拉数据
 watch(
   () => [route.query.cats, route.query.tags] as const,
   async () => {
@@ -226,6 +249,7 @@ watch(
 <template>
   <BlogRoomShell>
     <div class="sub-shell">
+      <!-- 左侧栏：分类/标签多选勾选列表，选中态由 URL 派生 -->
       <aside class="detail-rail">
         <button type="button" class="back-chip" @click="clearAll">← 全部随笔</button>
         <div class="side-card glass">
@@ -292,6 +316,7 @@ watch(
             清空回列表
           </button>
         </div>
+        <!-- 结果区：卡片网格；加载完且无匹配时展示空状态 -->
         <div class="sub-grid">
           <BlogPostCard
             v-for="post in displayPosts"

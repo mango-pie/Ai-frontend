@@ -14,10 +14,13 @@ import {
   type WorkLogApiEntry,
 } from '@/api/worklogController'
 
+// ===== 常量、类别与备份提醒键 =====
+/** IndexedDB 库名 / 对象仓（以 date 为主键）；PAGE_SIZE 即「加载更多」步长 */
 export const WORKLOG_DB = 'worklog-db-v1'
 export const WORKLOG_STORE = 'entries'
 export const WORKLOG_PAGE_SIZE = 60
 
+/** 备份提醒用的 localStorage 键：上次导出时间 / 提醒间隔天数 / 「稍后再提醒」截止时刻 */
 export const WORKLOG_BACKUP_AT_KEY = 'worklog-last-export-at'
 export const WORKLOG_BACKUP_INTERVAL_KEY = 'worklog-backup-interval-days'
 export const WORKLOG_BACKUP_DISMISS_KEY = 'worklog-backup-dismiss-until'
@@ -39,6 +42,7 @@ export type WorkLogCategory = (typeof WORKLOG_CATEGORIES)[number]
 /** 行内类别标记，如 `- [新增] 完成搜索接口` */
 const CATEGORY_LINE_RE = /^\s*(?:[-*]\s*)?\[([^\]]{1,10})\]\s*/
 
+/** 关键词统计的停用词：高频虚词、日志套话与类别名，避免污染周热词 */
 const STOP_WORDS = new Set([
   '的',
   '了',
@@ -90,6 +94,7 @@ const STOP_WORDS = new Set([
   ...WORKLOG_CATEGORIES,
 ])
 
+/** 提取行首 `[类别]` 标记；没有标记返回空串 */
 export function extractLineCategory(line: string): string {
   const m = line.match(CATEGORY_LINE_RE)
   return m?.[1]?.trim() ?? ''
@@ -143,12 +148,14 @@ export type WorkLogDraft = Pick<
   'date' | 'title' | 'done' | 'problem' | 'summary' | 'plan' | 'tags'
 >
 
+/** JSON 导入导出包（downloadJson / importJson 的载体） */
 export interface WorkLogJsonBundle {
   version: 1
   exportedAt: string
   entries: WorkLogEntry[]
 }
 
+/** 本地时区的今天（YYYY-MM-DD） */
 export function todayDateString(): string {
   const d = new Date()
   const m = String(d.getMonth() + 1).padStart(2, '0')
@@ -156,14 +163,17 @@ export function todayDateString(): string {
   return `${d.getFullYear()}-${m}-${day}`
 }
 
+/** 未填标题时的默认标题「工作日志 · 日期」 */
 export function defaultWorkLogTitle(date: string): string {
   return `工作日志 · ${date}`
 }
 
+/** 四段正文去掉空白后的总字数 */
 export function wordCount(entry: Pick<WorkLogEntry, 'done' | 'problem' | 'summary' | 'plan'>): number {
   return (entry.done + entry.problem + entry.summary + entry.plan).replace(/\s/g, '').length
 }
 
+/** 标签清洗：去 # 前缀、去空去重，并始终保留内置标签 worklog */
 export function normalizeTags(tags: string[] | undefined | null): string[] {
   const seen = new Set<string>()
   const out: string[] = []
@@ -177,6 +187,7 @@ export function normalizeTags(tags: string[] | undefined | null): string[] {
   return out
 }
 
+/** 把逗号 / 顿号 / 分号 / 空白分隔的输入拆成标签数组 */
 export function parseTagInput(text: string): string[] {
   return text
     .split(/[,，、;\s]+/)
@@ -198,6 +209,7 @@ export function workLogExcerpt(entry: WorkLogEntry, max = 56): string {
   return stripped.length > max ? `${stripped.slice(0, max)}…` : stripped
 }
 
+/** 分词：连续中文 2~8 字或英文/数字词；先剔除类别标记与 Markdown 符号 */
 function tokenizeForKeywords(text: string): string[] {
   const cleaned = text
     .replace(CATEGORY_LINE_RE, ' ')
@@ -236,6 +248,7 @@ export function weekKeywordStats(
     .slice(0, topN)
 }
 
+/** 条数最多的类别；无任何标记时返回 null */
 export function topCategoryOf(entries: WorkLogEntry[]): { name: string; count: number } | null {
   const dist = categorySummary(entries)
   let best: { name: string; count: number } | null = null
@@ -245,6 +258,7 @@ export function topCategoryOf(entries: WorkLogEntry[]): { name: string; count: n
   return best
 }
 
+/** 日期加减天数；固定取正午 12 点构造 Date，避免时区偏移把日期推到前一天/后一天 */
 function shiftIsoDate(date: string, days: number): string {
   const d = new Date(`${date}T12:00:00`)
   d.setDate(d.getDate() + days)
@@ -260,15 +274,18 @@ export function streakGapHint(entries: WorkLogEntry[], today = todayDateString()
   return `昨天（${yesterday}）已写，今天还没补 —— 连续打卡可能断掉`
 }
 
+/** 读取提醒间隔天数（钳制 1~90，非法回退默认 7 天） */
 export function getBackupIntervalDays(): number {
   const n = Number(localStorage.getItem(WORKLOG_BACKUP_INTERVAL_KEY) || WORKLOG_DEFAULT_BACKUP_DAYS)
   return Number.isFinite(n) && n >= 1 ? Math.min(90, Math.floor(n)) : WORKLOG_DEFAULT_BACKUP_DAYS
 }
 
+/** 写入提醒间隔天数（钳制 1~90） */
 export function setBackupIntervalDays(days: number): void {
   localStorage.setItem(WORKLOG_BACKUP_INTERVAL_KEY, String(Math.max(1, Math.min(90, days))))
 }
 
+/** 上次导出时间戳；从未导出返回 null */
 export function getLastExportAt(): number | null {
   const raw = localStorage.getItem(WORKLOG_BACKUP_AT_KEY)
   if (!raw) return null
@@ -276,15 +293,18 @@ export function getLastExportAt(): number | null {
   return Number.isFinite(n) ? n : null
 }
 
+/** 导出成功后记录时间，并清掉「稍后再提醒」 */
 export function markExportedNow(): void {
   localStorage.setItem(WORKLOG_BACKUP_AT_KEY, String(Date.now()))
   localStorage.removeItem(WORKLOG_BACKUP_DISMISS_KEY)
 }
 
+/** 「稍后再提醒」：hours 小时内不再弹备份提醒 */
 export function dismissBackupReminder(hours = 24): void {
   localStorage.setItem(WORKLOG_BACKUP_DISMISS_KEY, String(Date.now() + hours * 3600_000))
 }
 
+/** 是否弹备份提醒：有内容、未被暂缓、且距上次导出已超过设定间隔 */
 export function shouldShowBackupReminder(hasEntries: boolean): boolean {
   if (!hasEntries) return false
   const dismissUntil = Number(localStorage.getItem(WORKLOG_BACKUP_DISMISS_KEY) || 0)
@@ -295,6 +315,8 @@ export function shouldShowBackupReminder(hasEntries: boolean): boolean {
   return Date.now() - last >= days * 86400_000
 }
 
+// ===== IndexedDB 本地缓存（离线可用；云端开启时作为回写缓存） =====
+/** 打开 / 升级 worklog 库（v1：仅建 entries 表，主键 date） */
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(WORKLOG_DB, 1)
@@ -309,6 +331,7 @@ function openDb(): Promise<IDBDatabase> {
   })
 }
 
+/** IDB 的 Promise 封装：下面四个函数分别对应全量读 / 按主键读 / 写 / 删 */
 async function idbGetAll(): Promise<WorkLogEntry[]> {
   const db = await openDb()
   return new Promise((resolve, reject) => {
@@ -349,6 +372,8 @@ async function idbDelete(date: string): Promise<void> {
   })
 }
 
+// ===== Markdown / JSON 导入导出 =====
+/** 截取 `## 标题` 到下一个二级标题之间的正文，并去掉代码围栏 */
 function grabSection(block: string, heading: string): string {
   const idx = block.indexOf(`## ${heading}`)
   if (idx < 0) return ''
@@ -358,6 +383,7 @@ function grabSection(block: string, heading: string): string {
   return seg.replace(/^```\w*\s*\n?|\n?```$/g, '').trim()
 }
 
+/** 从引用行 `> 标签：…` 解析标签；没有则仅返回内置 worklog */
 function extractTagsFromBlock(block: string): string[] {
   const m = block.match(/>\s*标签[：:]\s*(.+)$/m)
   if (!m?.[1]) return ['worklog']
@@ -423,6 +449,7 @@ export function parseWorkLogMarkdown(text: string): WorkLogEntry[] {
   return out
 }
 
+/** 解析 JSON 导入（兼容 {entries} 包与裸数组两种形态），字段缺失时逐项兜底 */
 export function parseWorkLogJson(text: string): WorkLogEntry[] {
   const data = JSON.parse(text) as WorkLogJsonBundle | WorkLogEntry[]
   const list = Array.isArray(data) ? data : data?.entries
@@ -442,6 +469,7 @@ export function parseWorkLogJson(text: string): WorkLogEntry[] {
     }))
 }
 
+/** 触发浏览器下载：临时 <a> + revoke，避免残留 blob 引用 */
 function downloadBlob(content: string, filename: string, mime: string) {
   const blob = new Blob([content], { type: mime })
   const url = URL.createObjectURL(blob)
@@ -452,6 +480,8 @@ function downloadBlob(content: string, filename: string, mime: string) {
   URL.revokeObjectURL(url)
 }
 
+// ===== 云端 API 字段映射 =====
+/** 云端记录 → 本地结构（workDate 归一为 date）；日期非法返回 null 供调用方过滤 */
 function fromApiEntry(e: WorkLogApiEntry): WorkLogEntry | null {
   const date = (e.date || e.workDate || '').slice(0, 10)
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null
@@ -468,6 +498,7 @@ function fromApiEntry(e: WorkLogApiEntry): WorkLogEntry | null {
   }
 }
 
+/** 本地结构 → 云端保存 / 导入接口请求体（date 映射为 workDate） */
 function toApiBody(e: WorkLogEntry) {
   return {
     workDate: e.date,
@@ -493,6 +524,7 @@ export function useWorkLog() {
   /** 列表展示条数（「加载更多」逐步扩大） */
   const limit = ref(WORKLOG_PAGE_SIZE)
 
+  /** 全量条目按日期倒序 */
   const sorted = computed(() =>
     [...entries.value].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)),
   )
@@ -512,16 +544,19 @@ export function useWorkLog() {
     limit.value = WORKLOG_PAGE_SIZE
   }
 
+  /** 页面按登录态与模块开关切换云端能力；关闭时状态复位 offline */
   function setCloudEnabled(on: boolean) {
     cloudEnabled.value = on
     if (!on) cloudStatus.value = 'offline'
   }
 
+  /** 统计面板：总篇数 / 字数 / 本月篇数 / 连续打卡 / 周热词 / 最高频类别 / 断卡提示 */
   const stats = computed(() => {
     const words = entries.value.reduce((acc, e) => acc + wordCount(e), 0)
     const month = today.slice(0, 7)
     const monthCount = entries.value.filter((e) => e.date.startsWith(month)).length
     const dates = new Set(sorted.value.map((e) => e.date))
+    // 连续打卡：今天没写则从昨天起算，向前数到第一个断档
     let streak = 0
     const cursor = new Date(`${today}T12:00:00`)
     if (!dates.has(today)) cursor.setDate(cursor.getDate() - 1)
@@ -534,6 +569,12 @@ export function useWorkLog() {
     const gapHint = streakGapHint(entries.value, today)
     return { total: entries.value.length, words, monthCount, streak, weekKeywords, topCategory, gapHint }
   })
+
+  /** 只从 IndexedDB 重载列表（云端路径失败时的兜底） */
+  /** 云端端点缺失（404 = 功能未部署）按「待命」处理，不算异常 */
+  function isCloudMissing(e: unknown): boolean {
+    return (e as { response?: { status?: number } } | null)?.response?.status === 404
+  }
 
   async function reloadLocalOnly(): Promise<void> {
     entries.value = (await idbGetAll()).sort((a, b) => (a.date < b.date ? 1 : -1))
@@ -567,8 +608,10 @@ export function useWorkLog() {
       }
       cloudStatus.value = 'ok'
       return true
-    } catch {
-      cloudStatus.value = 'error'
+    } catch (e) {
+      // 云端能力未部署（404）视为待命而非异常，页面保持本地模式
+      const status = (e as { response?: { status?: number } } | null)?.response?.status
+      cloudStatus.value = status === 404 ? 'offline' : 'error'
       return false
     }
   }
@@ -589,12 +632,14 @@ export function useWorkLog() {
         imported: res.data.data?.imported ?? 0,
         skipped: res.data.data?.skipped ?? 0,
       }
-    } catch {
-      cloudStatus.value = 'error'
+    } catch (e) {
+      const status = (e as { response?: { status?: number } } | null)?.response?.status
+      cloudStatus.value = status === 404 ? 'offline' : 'error'
       return null
     }
   }
 
+  /** 对外统一加载入口：云端开启则先拉云端，失败回退本地 */
   async function reload(): Promise<void> {
     loading.value = true
     error.value = ''
@@ -612,6 +657,7 @@ export function useWorkLog() {
     }
   }
 
+  /** 取某天日志：云端命中则回写本地缓存，未开启或失败时用本地 */
   async function getByDate(date: string): Promise<WorkLogEntry | undefined> {
     const local = await idbGet(date)
     if (!cloudEnabled.value) return local
@@ -650,21 +696,22 @@ export function useWorkLog() {
       try {
         const res = await saveWorkLog(toApiBody(entry))
         cloudStatus.value = res.data?.code === 0 ? 'ok' : 'error'
-      } catch {
-        cloudStatus.value = 'error'
+      } catch (e) {
+        cloudStatus.value = isCloudMissing(e) ? 'offline' : 'error'
       }
     }
     await reloadLocalOnly()
   }
 
+  /** 删除某天：本地必删，云端开启时同步删并刷新状态 */
   async function remove(date: string): Promise<void> {
     await idbDelete(date)
     if (cloudEnabled.value) {
       try {
         await deleteWorkLog(date)
         cloudStatus.value = 'ok'
-      } catch {
-        cloudStatus.value = 'error'
+      } catch (e) {
+        cloudStatus.value = isCloudMissing(e) ? 'offline' : 'error'
       }
     }
     await reloadLocalOnly()
@@ -682,6 +729,7 @@ export function useWorkLog() {
     return `${head}\n${body}\n`
   }
 
+  /** 跨设备同步包（保留 tags / 时间戳，配合 downloadJson 导出） */
   function toJsonBundle(): WorkLogJsonBundle {
     return {
       version: 1,
@@ -702,6 +750,7 @@ export function useWorkLog() {
     markExportedNow()
   }
 
+  /** 导出单篇 Markdown；当天不存在返回 false */
   function downloadEntryMarkdown(date: string): boolean {
     const e = entries.value.find((x) => x.date === date)
     if (!e) return false
@@ -709,6 +758,7 @@ export function useWorkLog() {
     return true
   }
 
+  /** 复制单篇 Markdown 到剪贴板；环境不支持 clipboard API 返回 false */
   async function copyEntryMarkdown(date: string): Promise<boolean> {
     const e = entries.value.find((x) => x.date === date) ?? (await idbGet(date))
     if (!e) return false
@@ -720,6 +770,7 @@ export function useWorkLog() {
     return false
   }
 
+  /** 批量写入导入条目（本地 + 云端）；返回导入数、跳过数与冲突日期列表 */
   async function importEntries(
     parsed: WorkLogEntry[],
     opts?: { overwrite?: boolean },
@@ -743,8 +794,8 @@ export function useWorkLog() {
       try {
         await importWorkLogs(accepted.map(toApiBody), opts?.overwrite !== false)
         cloudStatus.value = 'ok'
-      } catch {
-        cloudStatus.value = 'error'
+      } catch (e) {
+        cloudStatus.value = isCloudMissing(e) ? 'offline' : 'error'
       }
     }
     await reloadLocalOnly()
@@ -759,6 +810,7 @@ export function useWorkLog() {
     return importEntries(parseWorkLogMarkdown(text), opts)
   }
 
+  /** 从 JSON 同步包导入（行为同 importMarkdown） */
   async function importJson(
     text: string,
     opts?: { overwrite?: boolean },
@@ -800,4 +852,5 @@ export function useWorkLog() {
   }
 }
 
+/** useWorkLog 的返回类型，供组件变量标注复用 */
 export type WorkLogApi = ReturnType<typeof useWorkLog>

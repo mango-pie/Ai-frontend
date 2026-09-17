@@ -13,9 +13,11 @@ import type {
 } from '@/api/learning.types'
 import * as learningApi from '@/api/learning'
 
+// localStorage 持久化键：当前选中领域 ID、各领域下上次选中的枝 ID 映射
 const DOMAIN_STORAGE_KEY = 'ld-current-domain-id'
 const BRANCH_STORAGE_KEY = 'ld-branch-selections'
 
+/** 读取本地保存的领域 ID（隐私模式下读取失败时返回 null） */
 function loadSavedDomainId(): string | null {
   try {
     return localStorage.getItem(DOMAIN_STORAGE_KEY)
@@ -24,6 +26,7 @@ function loadSavedDomainId(): string | null {
   }
 }
 
+/** 持久化当前领域 ID；传 null 表示清除记录 */
 function saveDomainId(id: number | string | null) {
   try {
     if (id != null) localStorage.setItem(DOMAIN_STORAGE_KEY, String(id))
@@ -31,6 +34,7 @@ function saveDomainId(id: number | string | null) {
   } catch { /* private mode */ }
 }
 
+/** 读取某领域下上次选中的枝 ID（按领域分别记忆） */
 function loadSavedBranchId(domainId: number | string): string | null {
   try {
     const raw = localStorage.getItem(BRANCH_STORAGE_KEY)
@@ -42,6 +46,7 @@ function loadSavedBranchId(domainId: number | string): string | null {
   }
 }
 
+/** 写入某领域下选中的枝 ID；branchId 为空则删除该领域的记录 */
 function saveBranchId(domainId: number | string, branchId: number | string | null) {
   try {
     const raw = localStorage.getItem(BRANCH_STORAGE_KEY)
@@ -52,11 +57,11 @@ function saveBranchId(domainId: number | string, branchId: number | string | nul
   } catch { /* private mode */ }
 }
 
-// V2 workflow state session persistence
+// V2 工作流状态的 sessionStorage 键（用于刷新后恢复门闩通过凭证，25 分钟内有效）
 const V2_SESSION_KEY = 'ld-v2-workflow'
 
 export const useLearningWorkbenchStore = defineStore('learningWorkbench', () => {
-  // ── State ──
+  // ── State：领域 / 树快照 / 选中枝及其叶 / 门闩结果 / V2 链路阶段 / 挂叶确认弹层 ──
   const domains = ref<LearningDomain[]>([])
   const currentDomainId = ref<number | string | null>(null)
 
@@ -81,6 +86,7 @@ export const useLearningWorkbenchStore = defineStore('learningWorkbench', () => 
   const pendingAttach = ref<{ noteId: number | string; title: string; summary?: string }>({ noteId: 0, title: '' })
 
   // ── Getters ──
+  // 用 String() 比较：兼容后端把数字 ID 序列化为字符串的情况
   const currentDomain = computed(() =>
     domains.value.find((d) => String(d.id) === String(currentDomainId.value)) || null,
   )
@@ -103,6 +109,7 @@ export const useLearningWorkbenchStore = defineStore('learningWorkbench', () => 
   })
 
   // ── Actions ──
+  /** 加载领域列表，并优先恢复本地保存的选中领域，否则默认选中第一个 */
   async function loadDomains() {
     const res = await learningApi.getDomains()
     if (res.data.code === 0 && res.data.data) {
@@ -135,6 +142,7 @@ export const useLearningWorkbenchStore = defineStore('learningWorkbench', () => 
     return created
   }
 
+  /** 加载某领域的知识树快照，并恢复/清理该领域下选中的枝 */
   async function loadTree(domainId: number | string) {
     treeLoading.value = true
     try {
@@ -160,6 +168,7 @@ export const useLearningWorkbenchStore = defineStore('learningWorkbench', () => 
     }
   }
 
+  /** 加载选中枝下的叶（挂载的精读文章）列表 */
   async function loadLeaves(branchId: number | string) {
     leavesLoading.value = true
     try {
@@ -172,6 +181,7 @@ export const useLearningWorkbenchStore = defineStore('learningWorkbench', () => 
     }
   }
 
+  /** 提交问题给 AI 门闩判定：相关且 intent=LEAF 时进入 V2 preview 阶段并记录 gatePassId */
   async function submitGate(question: string) {
     if (!currentDomainId.value) return
     gateLoading.value = true
@@ -202,6 +212,7 @@ export const useLearningWorkbenchStore = defineStore('learningWorkbench', () => 
     }
   }
 
+  /** 确认建枝（AI 判定为新方向时人工确认标题与父枝），成功后刷新树并清空门闩结果 */
   async function confirmBranch(payload: { title: string; parentBranchId: number | string }) {
     if (!currentDomainId.value) return
     const parentRaw = payload.parentBranchId
@@ -219,6 +230,7 @@ export const useLearningWorkbenchStore = defineStore('learningWorkbench', () => 
     gateResult.value = null
   }
 
+  /** 将精读文章挂到选中枝（attachLeaf），成功后关闭弹层并刷新树与叶列表 */
   async function attachLeaf(payload: AttachRequest) {
     attachSubmitting.value = true
     try {
@@ -240,6 +252,7 @@ export const useLearningWorkbenchStore = defineStore('learningWorkbench', () => 
     }
   }
 
+  /** 取消叶挂载并刷新 */
   async function detachLeaf(noteId: number | string) {
     const res = await learningApi.detachLeaf(noteId)
     if (res.data.code !== 0) throw new Error(res.data.message || '取消挂载失败')
@@ -250,6 +263,7 @@ export const useLearningWorkbenchStore = defineStore('learningWorkbench', () => 
     }
   }
 
+  /** 将叶移动到另一枝并刷新 */
   async function moveLeaf(noteId: number | string, targetBranchId: number | string) {
     const res = await learningApi.moveLeaf({ noteId, targetBranchId })
     if (res.data.code !== 0) throw new Error(res.data.message || '移叶失败')
@@ -259,6 +273,7 @@ export const useLearningWorkbenchStore = defineStore('learningWorkbench', () => 
     }
   }
 
+  /** 枝改名 */
   async function renameBranch(branchId: number | string, title: string) {
     const trimmed = title.trim()
     if (!trimmed) throw new Error('枝名不能为空')
@@ -267,6 +282,7 @@ export const useLearningWorkbenchStore = defineStore('learningWorkbench', () => 
     if (currentDomainId.value) await loadTree(currentDomainId.value)
   }
 
+  /** 删除枝（有叶的枝后端会拒绝）；删除的是当前选中枝时同步清空选中态 */
   async function deleteBranch(branchId: number | string) {
     const res = await learningApi.deleteBranch(branchId)
     if (res.data.code !== 0) throw new Error(res.data.message || '删除失败（有叶枝不可删）')
@@ -277,6 +293,7 @@ export const useLearningWorkbenchStore = defineStore('learningWorkbench', () => 
     if (currentDomainId.value) await loadTree(currentDomainId.value)
   }
 
+  /** 将源枝合并进目标枝；若删除的是当前选中枝则把选中切到目标枝 */
   async function mergeBranch(sourceId: number | string, targetBranchId: number | string) {
     const res = await learningApi.mergeBranch(sourceId, { targetBranchId })
     if (res.data.code !== 0) throw new Error(res.data.message || '合并失败')
@@ -289,11 +306,13 @@ export const useLearningWorkbenchStore = defineStore('learningWorkbench', () => 
     }
   }
 
+  /** 打开“挂叶确认”弹层，暂存待挂载的文章信息 */
   function openAttachConfirm(noteId: number | string, title: string, summary?: string) {
     pendingAttach.value = { noteId, title, summary }
     attachVisible.value = true
   }
 
+  /** 重置门闩与 V2 链路状态，回到初始态 */
   function resetGate() {
     gateResult.value = null
     gateError.value = ''
@@ -302,18 +321,20 @@ export const useLearningWorkbenchStore = defineStore('learningWorkbench', () => 
     skipGateContext.value = null
   }
 
+  /** 空枝补学场景：跳过门闩直接进入 V2 preview 阶段 */
   function setSkipGateContext(branchId: number | string, branchTitle: string) {
     skipGateContext.value = { branchId, branchTitle }
     v2Phase.value = 'preview'
     gateResult.value = null
   }
 
+  /** 切换当前领域并持久化 */
   function setCurrentDomainId(id: number | string | null) {
     currentDomainId.value = id
     saveDomainId(id)
   }
 
-  // V2 workflow state session persistence
+  // V2 工作流状态写入 sessionStorage，供刷新后恢复
   function saveV2Workflow() {
     try {
       if (currentDomainId.value && gatePassId.value) {
@@ -327,6 +348,7 @@ export const useLearningWorkbenchStore = defineStore('learningWorkbench', () => 
     } catch { /* private mode */ }
   }
 
+  /** 尝试恢复 V2 工作流；超过 25 分钟或领域不匹配则丢弃，返回是否恢复成功 */
   function loadV2Workflow(): boolean {
     try {
       const raw = sessionStorage.getItem(V2_SESSION_KEY)

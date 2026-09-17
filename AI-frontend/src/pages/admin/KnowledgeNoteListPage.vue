@@ -1,4 +1,9 @@
 <script setup lang="ts">
+/**
+ * 精读笔记列表页（我的文章）：
+ * 三栏布局——左侧概况统计、中部文章列表（含进行中/失败的合蒸任务）+ 自绘分页、
+ * 右侧状态筛选与批量操作入口；任务与统计通过定时轮询保持新鲜。
+ */
 import { onMounted, onBeforeUnmount, reactive, ref, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
@@ -24,9 +29,11 @@ import {
 const router = useRouter()
 const route = useRoute()
 const loading = ref(false)
+// 文章分页数据与当前选中行（单击选中，双击进详情）
 const dataSource = ref<API.KnowledgeNoteVO[]>([])
 const total = ref(0)
 const selectedId = ref<string | number | null>(null)
+// 快捷筛选 tab：全部 / 已发博客 / 已入库
 const filterKey = ref<'all' | 'published' | 'saved'>('all')
 /** 点搜索后即可在此看到的进行中 / 失败任务 */
 const pipelineJobs = ref<API.KnowledgeReadingJobVO[]>([])
@@ -42,6 +49,7 @@ const {
   syncTotalFromPage,
 } = useKnowledgeNoteStats()
 
+// 列表查询条件：关键词 + 来源类型 + 发布状态 + 入库状态
 const query = reactive<API.KnowledgeNoteQueryRequest>({
   pageNum: 1,
   pageSize: 12,
@@ -55,11 +63,13 @@ const hasActiveFilters = computed(
   () => !!(query.keyword || query.sourceType || query.publishStatus || query.indexStatus),
 )
 
+// 当前选中行：未显式选中时默认取第一行，保证右侧操作面板始终可用
 const selected = computed(() => {
   if (selectedId.value == null) return dataSource.value[0] ?? null
   return dataSource.value.find((x) => String(x.id) === String(selectedId.value)) ?? dataSource.value[0] ?? null
 })
 
+// 自绘分页：只展示以当前页为中心的最多 3 个页码
 const totalPages = computed(() => Math.max(1, Math.ceil((total.value || 0) / (query.pageSize || 12))))
 
 const pageButtons = computed(() => {
@@ -71,6 +81,7 @@ const pageButtons = computed(() => {
   return pages
 })
 
+// 标签云统计：拆分每行标签（每篇最多取 6 个），聚合计数取前 10
 const tagStats = computed(() => {
   const map = new Map<string, number>()
   for (const row of dataSource.value) {
@@ -99,6 +110,7 @@ function applyRouteSourceFilter() {
   if (typeof st === 'string' && st.trim()) query.sourceType = st.trim().toUpperCase()
 }
 
+/** 快捷筛选：全部 / 已发博客(PUBLISHED) / 已入库(INDEXED)，切换后回到第一页 */
 const applyFilter = (key: 'all' | 'published' | 'saved') => {
   filterKey.value = key
   if (key === 'all') {
@@ -192,6 +204,7 @@ const idxChip = (row: API.KnowledgeNoteVO) => {
   return { text: '未入库', cls: 'none' }
 }
 
+/** 拉取文章分页列表；无筛选时同步全局统计总数 */
 const fetchData = async () => {
   loading.value = true
   try {
@@ -210,6 +223,7 @@ const fetchData = async () => {
   }
 }
 
+/** 任务是否仍展示在列表：成功且已生成笔记的任务视为“已变成文章”，从任务区移除 */
 const isJobVisibleInArticles = (job: API.KnowledgeReadingJobVO) => {
   const status = String(job.status || '').toUpperCase()
   if (status === 'SUCCESS' && job.noteId != null) return false
@@ -237,6 +251,7 @@ const fetchPipelineJobs = async () => {
   }
 }
 
+/** 轮询任务区：刷新进行中任务快照；有任务转成文章时联动刷新列表与统计 */
 const pollPipelineJobs = async () => {
   const active = pipelineJobs.value.filter((j) => isReadingJobInProgress(j))
   if (!active.length) {
@@ -266,6 +281,7 @@ const pollPipelineJobs = async () => {
   }
 }
 
+/** 点击任务行：已成功的直接进笔记详情，否则跳回采集台继续跟踪 */
 const openJob = (job: API.KnowledgeReadingJobVO) => {
   const status = String(job.status || '').toUpperCase()
   if (status === 'SUCCESS' && job.noteId != null) {
@@ -291,6 +307,7 @@ const runRedistill = async (row: API.KnowledgeNoteVO) => {
   } else message.error(res.data.message || '重新蒸馏失败')
 }
 
+/** 再蒸馏（带确认开关）：按站点 UX 设置决定是否弹确认，然后覆盖生成新 Markdown */
 const handleRedistill = async (row: API.KnowledgeNoteVO) => {
   const ux = await loadReadingUxSettings()
   if (!ux.redistillConfirmRequired) {
@@ -322,6 +339,7 @@ const handleDelete = (row: API.KnowledgeNoteVO) => {
   })
 }
 
+// 两个轮询：统计每 5s、任务区每 2s，离开页面时统一清理
 let runningTimer: ReturnType<typeof setInterval> | null = null
 
 onMounted(() => {
@@ -357,6 +375,7 @@ watch(
       </div>
 
       <div class="layout-3">
+        <!-- 左栏：精读概况 KPI + 去采集入口 -->
         <aside class="side" aria-label="笔记侧栏">
           <div class="side-card glass">
             <span class="tape" />
@@ -380,6 +399,7 @@ watch(
           </div>
         </aside>
 
+        <!-- 中栏：搜索 + 快捷筛选 tab + 任务区（进行中/失败）+ 文章列表 + 自绘分页 -->
         <main class="mid-bay" aria-label="文章列表">
           <div class="notes-toolbar">
             <div class="search-wrap">
@@ -398,6 +418,7 @@ watch(
           </div>
 
           <div class="note-list-rows">
+            <!-- 合蒸任务行：成功生成笔记后自动从该区消失，出现在下方文章列表 -->
             <div
               v-for="job in pipelineJobs"
               :key="`job-${job.jobId}`"
@@ -465,6 +486,7 @@ watch(
           </div>
         </main>
 
+        <!-- 右栏：状态下拉筛选 + 标签/来源统计云 + 选中文章操作（详情/再蒸馏/删除） -->
         <aside class="deck" aria-label="笔记筛选栏">
           <div class="deck-panel glass">
             <span class="tape alt" />

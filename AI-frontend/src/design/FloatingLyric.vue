@@ -1,4 +1,11 @@
 <script setup lang="ts">
+/**
+ * 悬浮歌词窗口：
+ * 1. 可拖拽（标题栏按下、document 级移动监听，兼容鼠标与触摸）；
+ * 2. 歌词随播放进度自动滚动居中，用户手动滚动时暂停自动滚动，停止操作 1.6s 后恢复；
+ * 3. 点击任意歌词行可跳转播放进度（seekLyric），并给出短暂的高亮反馈。
+ * 数据来源于全局单例 usePulsePlayer。
+ */
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { usePulsePlayer } from '@/composables/usePulsePlayer';
 
@@ -12,12 +19,16 @@ const emit = defineEmits<{
 
 const p = usePulsePlayer();
 
+// ---- 拖拽状态：窗口左上角坐标 + 按下时的指针偏移 ----
 const position = ref({ x: 100, y: 100 });
 const isDragging = ref(false);
 const dragOffset = ref({ x: 0, y: 0 });
 
+// ---- 歌词滚动 / 点击反馈状态 ----
 const lyricsContainer = ref<HTMLElement | null>(null);
+// 用户正在手动滚动歌词时为 true，此时屏蔽自动滚动定位
 const isUserScrolling = ref(false);
+// 被点击 seek 的歌词行下标，短暂高亮后复位为 -1
 const seekFeedbackIndex = ref(-1);
 let scrollTimeout: number | null = null;
 let seekTimeout: number | null = null;
@@ -26,9 +37,10 @@ const lyrics = computed(() => p.lyricDisplayLines.value);
 const currentLyricIndex = computed(() => p.lyricIndex.value);
 const songTitle = computed(() => p.currentTrack.value?.title || '歌词');
 
+/** 把当前演唱行滚动到容器中央；用户手动滚动期间不干预 */
 const scrollToCurrentLyric = () => {
   if (isUserScrolling.value || !lyricsContainer.value) return;
-  
+
   const currentIndex = currentLyricIndex.value;
   if (currentIndex >= 0) {
     const lyricElement = lyricsContainer.value.children[currentIndex] as HTMLElement;
@@ -36,6 +48,7 @@ const scrollToCurrentLyric = () => {
   }
 };
 
+/** 用户滚动时标记"手动模式"，停手 1.6s 后自动恢复滚动跟随 */
 const handleScroll = () => {
   isUserScrolling.value = true;
   if (scrollTimeout) clearTimeout(scrollTimeout);
@@ -45,6 +58,7 @@ const handleScroll = () => {
   }, 1600);
 };
 
+/** 点击歌词行：跳转播放进度到该行时间点，并短暂高亮反馈 */
 const handleLyricClick = (_time: number, index: number) => {
   p.seekLyric(index);
   seekFeedbackIndex.value = index;
@@ -54,6 +68,7 @@ const handleLyricClick = (_time: number, index: number) => {
   }, 520);
 };
 
+/** 拖拽开始：记录指针位置与窗口左上角的偏移，兼容触摸事件 */
 const handleDragStart = (e: MouseEvent | TouchEvent) => {
   isDragging.value = true;
   const touch = 'touches' in e ? e.touches.item(0) : null;
@@ -66,6 +81,7 @@ const handleDragStart = (e: MouseEvent | TouchEvent) => {
   e.preventDefault();
 };
 
+/** 拖拽移动：按指针位置换算新坐标，并夹在视口范围内（保留 340x390 的窗口尺寸余量） */
 const handleDragMove = (e: MouseEvent | TouchEvent) => {
   if (!isDragging.value) return;
   const touch = 'touches' in e ? e.touches.item(0) : null;
@@ -85,12 +101,14 @@ const handleDragEnd = () => {
   isDragging.value = false;
 };
 
+// 当前行变化时自动滚动跟随（用户手动滚动时让位）
 watch(currentLyricIndex, () => {
   if (!isUserScrolling.value && lyrics.value.length > 0) {
     scrollToCurrentLyric();
   }
 });
 
+// 窗口重新打开时立即定位到当前演唱行
 watch(
   () => props.visible,
   (newVal) => {
@@ -98,6 +116,7 @@ watch(
   },
 );
 
+// 拖拽的移动/抬起事件挂在 document 上，保证鼠标移出窗口仍能继续拖
 onMounted(() => {
   document.addEventListener('mousemove', handleDragMove);
   document.addEventListener('mouseup', handleDragEnd);
@@ -116,6 +135,7 @@ onUnmounted(() => {
 </script>
 
 <template>
+  <!-- 淡入淡出的悬浮歌词窗：无歌词或隐藏时不渲染 -->
   <Transition name="fade">
     <div 
       v-if="visible && lyrics.length > 0"
@@ -123,12 +143,14 @@ onUnmounted(() => {
       :style="{ left: `${position.x}px`, top: `${position.y}px` }"
       :class="{ 'is-dragging': isDragging }"
     >
+      <!-- 标题栏：按下可拖动整个窗口 -->
       <div class="lyric-header" @mousedown="handleDragStart" @touchstart="handleDragStart">
         <span class="lyric-title">{{ songTitle }}</span>
         <button class="close-btn" @click.stop="emit('close')" title="关闭歌词窗">✕</button>
       </div>
-      
-      <div 
+
+      <!-- 歌词滚动区：当前行高亮，被点击 seek 的行有额外高亮反馈 -->
+      <div
         ref="lyricsContainer" 
         class="lyrics-container"
         :class="{ 'is-user-scrolling': isUserScrolling }"

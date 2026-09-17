@@ -1,3 +1,8 @@
+/**
+ * API 汇总出口（openapi 自动生成并维护）
+ * 将各业务 Controller 模块聚合成命名空间对象默认导出，
+ * 页面代码可通过 `api.xxxController.yyy()` 的方式统一调用后端接口。
+ */
 // @ts-ignore
 /* eslint-disable */
 // API 更新时间：

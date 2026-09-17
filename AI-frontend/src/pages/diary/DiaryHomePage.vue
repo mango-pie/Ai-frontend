@@ -1,4 +1,10 @@
 <script setup lang="ts">
+/**
+ * 日记主页
+ * 职责：按月历浏览日记 —— 左侧"关于/写今日"卡片，中间月历 + 当日内容预览，
+ * 右侧日期徽章、通用草稿本（localStorage 自动保存）与编辑入口。
+ * 支持键盘快捷键：← → 换日、Enter 编辑、T 回今日、Ctrl+S 保存草稿。
+ */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
@@ -11,29 +17,36 @@ import { siteConfig } from '@/config/site'
 import { formatDiaryDate, todayDateString, MOOD_OPTIONS } from '@/utils/diaryFormat'
 import { MO_SHORT, diaryStreakFromDates, popCraftAnim } from '@/utils/diaryCraft'
 
+// 草稿持久化用的 localStorage key 与中文月份/星期文案
 const DRAFT_KEY = 'diary-vue-draft'
 const MO_CN = ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月']
 const WEEK = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
 
 const router = useRouter()
+// 选中日期（YYYY-MM-DD）与当日日记；草稿本文本及其保存状态
 const today = todayDateString()
 const selectedDate = ref(today)
 const dayEntry = ref<API.DiaryEntryVO | null>(null)
 const draftText = ref('')
 const draftStatus = ref<'saved' | 'dirty'>('saved')
+// 翻页动画开关；两个定时器分别用于草稿防抖保存与翻页动画收尾
 const pageSwitching = ref(false)
 let draftTimer: ReturnType<typeof setTimeout> | null = null
 let switchTimer: ReturnType<typeof setTimeout> | null = null
 
+// 月历数据源（当前年月、每日条目、翻月操作）
 const { year, month, monthItems, loadMonth, prevMonth, nextMonth, itemByDate } = useDiaryCalendar()
 
+// 以下为页面各处的派生展示数据：标题、右侧日历牌、本月篇数、连续天数、心情标签等
 const monthSticker = computed(() => MO_SHORT[month.value - 1])
 const calTitle = computed(() => `${year.value} · ${MO_CN[month.value - 1]}`)
+// 统一取中午 12 点构造 Date，避免时区问题导致日期偏移
 const selectedDt = computed(() => new Date(`${selectedDate.value}T12:00:00`))
 const deckDay = computed(() => String(selectedDt.value.getDate()).padStart(2, '0'))
 const deckMo = computed(() => MO_SHORT[selectedDt.value.getMonth()])
 const deckWeek = computed(() => WEEK[selectedDt.value.getDay()])
 const monthCount = computed(() => monthItems.value.length)
+// 连续写日记天数：由本月份的日记日期序列推算
 const streak = computed(() =>
   diaryStreakFromDates(
     monthItems.value.map((x) => x.diaryDate).filter(Boolean) as string[],
@@ -46,6 +59,7 @@ const moodLabel = computed(() => {
 })
 const editCta = computed(() => (dayEntry.value ? '编辑这篇' : '写这一天'))
 
+// 月历格子：周一开头，含前置空白格（mute）与"有日记/今日/选中"三种标记
 const calCells = computed(() => {
   const y = year.value
   const m = month.value - 1

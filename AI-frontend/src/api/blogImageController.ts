@@ -1,8 +1,12 @@
+/**
+ * 博客图片 API — 对应后端 BlogImageController，接口前缀 /blog/image
+ * 提供博客配图的上传、与文章的绑定/解绑、状态更新及分页查询。
+ */
 // @ts-ignore
 /* eslint-disable */
 import request from '@/request'
 
-/** 此处后端没有提供注释 POST /blog/image/bind/post */
+/** 将图片绑定到文章 POST /blog/image/bind/post */
 export async function bindImageToPost(
   // 叠加生成的Param类型 (非body参数swagger默认没有生成对象)
   params: API.bindImageToPostParams,
@@ -17,7 +21,7 @@ export async function bindImageToPost(
   })
 }
 
-/** 此处后端没有提供注释 POST /blog/image/delete */
+/** 删除图片记录 POST /blog/image/delete — 按 id 删除 */
 export async function deleteImage(body: API.DeleteRequest, options?: { [key: string]: any }) {
   return request<API.BaseResponseBoolean>('/blog/image/delete', {
     method: 'POST',
@@ -29,7 +33,7 @@ export async function deleteImage(body: API.DeleteRequest, options?: { [key: str
   })
 }
 
-/** 此处后端没有提供注释 GET /blog/image/get/vo */
+/** 获取图片详情 GET /blog/image/get/vo */
 export async function getImageVo(
   // 叠加生成的Param类型 (非body参数swagger默认没有生成对象)
   params: API.getImageVOParams,
@@ -44,7 +48,7 @@ export async function getImageVo(
   })
 }
 
-/** 此处后端没有提供注释 GET /blog/image/list/by/post/${param0} */
+/** 查询文章配图列表 GET /blog/image/list/by/post/${postId} */
 export async function getImagesByPostId(
   // 叠加生成的Param类型 (非body参数swagger默认没有生成对象)
   params: API.getImagesByPostIdParams,
@@ -58,7 +62,7 @@ export async function getImagesByPostId(
   })
 }
 
-/** 此处后端没有提供注释 POST /blog/image/list/page/vo */
+/** 分页查询图片 POST /blog/image/list/page/vo — 图库管理列表 */
 export async function queryImagePage(
   body: API.BlogImageQueryRequest,
   options?: { [key: string]: any }
@@ -73,7 +77,7 @@ export async function queryImagePage(
   })
 }
 
-/** 此处后端没有提供注释 POST /blog/image/update/status */
+/** 更新图片状态 POST /blog/image/update/status — 如启用/弃用 */
 export async function updateImageStatus(
   // 叠加生成的Param类型 (非body参数swagger默认没有生成对象)
   params: API.updateImageStatusParams,
@@ -88,7 +92,7 @@ export async function updateImageStatus(
   })
 }
 
-/** 此处后端没有提供注释 POST /blog/image/upload */
+/** 上传博客图片 POST /blog/image/upload — 返回图片记录 id */
 export async function uploadImage1(body: API.BlogImage, options?: { [key: string]: any }) {
   return request<API.BaseResponseLong>('/blog/image/upload', {
     method: 'POST',

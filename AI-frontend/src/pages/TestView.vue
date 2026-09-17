@@ -1,5 +1,7 @@
 <script setup lang="ts">
-
+/**
+ * 测试占位页面：仅用于路由调试/临时验证，无业务逻辑。
+ */
 </script>
 
 <template>

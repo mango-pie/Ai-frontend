@@ -9,10 +9,12 @@ import { ref } from 'vue'
 import { getLoginUser } from '@/api/userController.ts'
 
 export const useLoginUserStore = defineStore('loginUser', () => {
+  // 未登录时的占位用户：userName 显示“未登录”，不含 id
   const loginUser = ref<API.LoginUserVO>({
     userName: '未登录',
   })
 
+  /** 拉取当前登录用户；失败（未登录/网络异常）时保持原状态不抛出 */
   async function fetchLoginUser() {
     try {
       const res = await getLoginUser()
@@ -25,6 +27,7 @@ export const useLoginUserStore = defineStore('loginUser', () => {
     }
   }
 
+  /** 直接覆盖用户信息（登录成功写入 / 登出清空） */
   function setLoginUser(newLoginUser: API.LoginUserVO) {
     loginUser.value = newLoginUser
   }

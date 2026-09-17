@@ -1,4 +1,9 @@
 <script setup lang="ts">
+/**
+ * 本地文件视图：负责本地音频的导入（文件选择 / 文件夹 / 拖放）、
+ * 下载曲库目录管理、失效授权的恢复提醒，以及本地曲目列表的维护（歌词绑定 / 移除）。
+ * 具体导入、扫描、授权逻辑都在播放器单例（props.p）中，本组件只做交互入口。
+ */
 import { computed, ref } from 'vue'
 import {
   FilePlus,
@@ -17,8 +22,10 @@ import type { PulsePlayerApi } from '@/pages/music/pulseApi'
 const props = defineProps<{ p: PulsePlayerApi }>()
 const p = props.p
 
+/** 拖放区是否正被悬停（高亮反馈） */
 const dragOver = ref(false)
 
+/** 需要重新授权（FSA 句柄失效）的曲目数量，用于展示恢复授权提醒条 */
 const pendingCount = computed(() => p.localTracks.value.filter((t) => t.localNeedsPermission).length)
 
 /** 本地文件的持久化状态徽标 */
@@ -35,6 +42,7 @@ function persistBadge(track: PulseTrack) {
   }
 }
 
+/** 拖放导入：把拖入的文件交给播放器解析入库 */
 function onDrop(e: DragEvent) {
   dragOver.value = false
   const files = e.dataTransfer?.files

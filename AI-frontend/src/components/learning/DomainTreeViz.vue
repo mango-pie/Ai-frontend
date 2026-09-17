@@ -26,10 +26,14 @@ const props = withDefaults(defineProps<Props>(), { loading: false, hideToolbar: 
 const emit = defineEmits<Emits>()
 
 const wrapRef = ref<HTMLElement | null>(null)
+/** 鼠标在画布内的归一化坐标（0~1），驱动节点微摆动效 */
 const pointer = ref({ x: 0.5, y: 0.2 })
+/** 用户系统开启"减少动态效果"时关闭微摆 */
 const reduceMotion = ref(false)
+/** 用户手动缩放比例（0.7 ~ 1.4） */
 const scale = ref(1)
 
+/** 步进缩放：toFixed 消除浮点累加误差 */
 function zoomIn() {
   scale.value = Math.min(1.4, +(scale.value + 0.1).toFixed(2))
 }
@@ -37,6 +41,7 @@ function zoomOut() {
   scale.value = Math.max(0.7, +(scale.value - 0.1).toFixed(2))
 }
 
+/** 布局节点：枝数据 + 计算出的画布坐标（x/y）与层级 */
 type LayoutNode = {
   id: string
   title: string
@@ -47,10 +52,12 @@ type LayoutNode = {
   branch: LearningBranchTreeNode
 }
 
+/** 固定画布尺寸与根节点位置：根居中在上，L1 一排在中间，L2 一排在下方 */
 const W = 900
 const H = 560
 const ROOT = { x: W / 2, y: 56 }
 
+/** 依据 L1 枝数量自动降低整体缩放，避免节点过密互相遮挡 */
 const autoScale = computed(() => {
   const n = props.branches.filter((b) => b.depth === 1).length
   if (n <= 6) return 1
@@ -60,6 +67,11 @@ const autoScale = computed(() => {
 
 const l1List = computed(() => props.branches.filter((b) => b.depth === 1))
 
+/**
+ * 计算全部节点的布局坐标：
+ * L1 枝等间距排在同一行；其 L2 子枝只展示部分——
+ * 父枝被选中时全量展开，否则只保留被选中的子枝 + 前 2 个，控制画面密度。
+ */
 const layoutNodes = computed(() => {
   const nodes: LayoutNode[] = []
   const l1s = l1List.value
@@ -108,6 +120,7 @@ const layoutNodes = computed(() => {
   return nodes
 })
 
+/** 连线集合：根→L1、L1→L2，各生成一条贝塞尔曲线的起止点 */
 const edges = computed(() => {
   const list: { x1: number; y1: number; x2: number; y2: number; key: string }[] = []
   for (const node of layoutNodes.value) {
@@ -131,6 +144,7 @@ const edges = computed(() => {
   return list
 })
 
+/** 根据鼠标位置计算节点的微摆变换（朝指针方向轻微平移+旋转），模拟风吹效果 */
 function swayAt(x: number, y: number) {
   if (reduceMotion.value) return { transform: 'none', transformOrigin: `${x}px ${y}px` }
   const nx = x / W
@@ -148,6 +162,7 @@ function sway(node: LayoutNode) {
   return swayAt(node.x, node.y)
 }
 
+/** 追踪鼠标在画布内的归一化位置，供微摆计算使用 */
 function onPointer(e: PointerEvent) {
   const el = wrapRef.value
   if (!el) return
@@ -158,16 +173,19 @@ function onPointer(e: PointerEvent) {
   }
 }
 
+/** 单击节点：同步选中枝到左侧知识树 */
 function onSelect(node: LayoutNode) {
   emit('update:selected-branch-id', node.branch.id)
 }
 
+/** 双击空枝：触发"补学"流程（选中该枝并请父层引导 AI 搜索） */
 function onLearn(node: LayoutNode) {
   if (node.leafCount > 0) return
   emit('learn-empty', { branchId: node.branch.id, branchTitle: node.branch.title })
   emit('update:selected-branch-id', node.branch.id)
 }
 
+/** 读取系统"减少动态效果"偏好，据此禁用微摆动画 */
 onMounted(() => {
   reduceMotion.value = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 })
@@ -185,6 +203,7 @@ onMounted(() => {
       <button type="button" class="domain-tree-viz__zoom-btn" title="放大" @click="zoomIn">+</button>
     </div>
     <div v-if="loading" class="domain-tree-viz__loading">加载树图…</div>
+    <!-- 画布：总缩放 = 用户手动缩放 × 节点数量自适应缩放 -->
     <div v-else class="domain-tree-viz__canvas" :style="{ transform: `scale(${(scale * autoScale).toFixed(2)})` }">
       <svg
         class="domain-tree-viz__svg"
@@ -234,6 +253,7 @@ onMounted(() => {
           </text>
         </g>
 
+        <!-- 枝节点循环：单击选中、空枝双击补学；右上角绿色徽标显示已挂笔记数，空枝显示"补学 →"入口 -->
         <g
           v-for="node in layoutNodes"
           :key="node.id"

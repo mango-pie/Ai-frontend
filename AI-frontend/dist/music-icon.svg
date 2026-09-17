@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="MIKU PULSE">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b2630"/>
+      <stop offset="1" stop-color="#02070c"/>
+    </linearGradient>
+    <linearGradient id="pulse" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#39c5bb"/>
+      <stop offset="1" stop-color="#bdfcf4"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <circle cx="256" cy="256" r="174" fill="none" stroke="#39c5bb" stroke-opacity=".28" stroke-width="10"/>
+  <path d="M84 278h70l28-72 44 126 42-176 48 122h112" fill="none" stroke="url(#pulse)" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="256" cy="256" r="20" fill="#e84a8a"/>
+  <text x="256" y="430" text-anchor="middle" fill="#bdfcf4" font-family="Segoe UI,sans-serif" font-size="44" font-weight="700" letter-spacing="12">PULSE</text>
+</svg>

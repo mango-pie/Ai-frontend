@@ -1,8 +1,12 @@
+/**
+ * 聊天历史记录 API — 对应后端 ChatHistoryController，接口前缀 /chatHistory
+ * 负责对话消息（用户/AI/错误）的落库保存、按应用或用户维度分页查询及管理端检索。
+ */
 // @ts-ignore
 /* eslint-disable */
 import request from '@/request'
 
-/** 此处后端没有提供注释 GET /chatHistory/admin/list */
+/** 管理端分页查询聊天历史 GET /chatHistory/admin/list — 展开嵌套查询对象到平铺参数 */
 export async function listChatHistoryByPageForAdmin(
   // 叠加生成的Param类型 (非body参数swagger默认没有生成对象)
   params: API.listChatHistoryByPageForAdminParams,
@@ -19,7 +23,7 @@ export async function listChatHistoryByPageForAdmin(
   })
 }
 
-/** 此处后端没有提供注释 POST /chatHistory/aiMessage */
+/** 保存 AI 回复消息 POST /chatHistory/aiMessage — 返回消息 id */
 export async function saveAiMessage(
   // 叠加生成的Param类型 (非body参数swagger默认没有生成对象)
   params: API.saveAiMessageParams,
@@ -34,7 +38,7 @@ export async function saveAiMessage(
   })
 }
 
-/** 此处后端没有提供注释 GET /chatHistory/app/${param0} */
+/** 分页查询指定应用的聊天历史 GET /chatHistory/app/${appId} — 默认每页 10 条 */
 export async function listAppChatHistory(
   // 叠加生成的Param类型 (非body参数swagger默认没有生成对象)
   params: API.listAppChatHistoryParams,
@@ -52,7 +56,7 @@ export async function listAppChatHistory(
   })
 }
 
-/** 此处后端没有提供注释 DELETE /chatHistory/deleteByAppId */
+/** 按应用 id 删除聊天历史 DELETE /chatHistory/deleteByAppId */
 export async function deleteByAppId(
   // 叠加生成的Param类型 (非body参数swagger默认没有生成对象)
   params: API.deleteByAppIdParams,
@@ -67,7 +71,7 @@ export async function deleteByAppId(
   })
 }
 
-/** 此处后端没有提供注释 POST /chatHistory/errorMessage */
+/** 保存错误消息 POST /chatHistory/errorMessage — 记录调用失败的异常信息 */
 export async function saveErrorMessage(
   // 叠加生成的Param类型 (非body参数swagger默认没有生成对象)
   params: API.saveErrorMessageParams,
@@ -82,7 +86,7 @@ export async function saveErrorMessage(
   })
 }
 
-/** 此处后端没有提供注释 GET /chatHistory/latest */
+/** 查询最近聊天记录 GET /chatHistory/latest — 默认取 10 条 */
 export async function getLatestChatHistory(
   // 叠加生成的Param类型 (非body参数swagger默认没有生成对象)
   params: API.getLatestChatHistoryParams,
@@ -99,7 +103,7 @@ export async function getLatestChatHistory(
   })
 }
 
-/** 此处后端没有提供注释 GET /chatHistory/list */
+/** 用户侧分页查询聊天历史 GET /chatHistory/list — 展开嵌套查询对象到平铺参数 */
 export async function listChatHistoryByPage(
   // 叠加生成的Param类型 (非body参数swagger默认没有生成对象)
   params: API.listChatHistoryByPageParams,
@@ -116,7 +120,7 @@ export async function listChatHistoryByPage(
   })
 }
 
-/** 此处后端没有提供注释 POST /chatHistory/userMessage */
+/** 保存用户消息 POST /chatHistory/userMessage — 返回消息 id */
 export async function saveUserMessage(
   // 叠加生成的Param类型 (非body参数swagger默认没有生成对象)
   params: API.saveUserMessageParams,

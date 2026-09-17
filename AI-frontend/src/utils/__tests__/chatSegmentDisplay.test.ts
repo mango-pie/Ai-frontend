@@ -1,5 +1,9 @@
+/**
+ * chatSegmentDisplay 测试：分段对话展示文本的清洗规则
+ * 覆盖外层中/英文方括号剥离、括号动作描写保留、内部括号不动、空段落过滤
+ */
 import { describe, expect, it } from 'vitest'
-import { sanitizeSegmentDisplayText, sanitizeSegmentList } from './chatSegmentDisplay'
+import { sanitizeSegmentDisplayText, sanitizeSegmentList } from '../chatSegmentDisplay'
 
 describe('sanitizeSegmentDisplayText', () => {
   it('strips outer square brackets from reply', () => {

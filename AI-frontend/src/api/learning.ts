@@ -15,6 +15,7 @@ import type {
   LearningReviewQuizVO,
 } from './learning.types'
 
+/** 接口统一前缀：知识树管理端路径 */
 const BASE = '/admin/knowledge/learning'
 
 /** GET /domains — 领域列表 */

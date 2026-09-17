@@ -1,8 +1,13 @@
+/**
+ * 知识库笔记 API — 对应后端 KnowledgeNoteController，接口前缀 /admin/knowledge
+ * 涵盖 URL/文件摄取、笔记 CRUD、复习状态流转、蒸馏、博客发布、向量索引与异步阅读任务
+ */
 import request from '@/request'
 
+/** 摄取/蒸馏/索引等长耗时操作的统一超时：5 分钟 */
 const LONG_TIMEOUT = 300_000
 
-/** POST /admin/knowledge/ingest/url */
+/** POST /admin/knowledge/ingest/url — 摄取单个 URL 为笔记（抓取 + AI 蒸馏，长耗时） */
 export async function ingestKnowledgeUrl(
   body: API.KnowledgeIngestUrlRequest,
   options?: { [key: string]: unknown },
@@ -34,7 +39,7 @@ export async function ingestKnowledgeFile(
   })
 }
 
-/** GET /admin/knowledge/notes */
+/** GET /admin/knowledge/notes — 分页查询笔记列表 */
 export async function listKnowledgeNotes(
   params?: API.KnowledgeNoteQueryRequest,
   options?: { [key: string]: unknown },
@@ -46,7 +51,7 @@ export async function listKnowledgeNotes(
   })
 }
 
-/** GET /admin/knowledge/notes/{noteId} */
+/** GET /admin/knowledge/notes/{noteId} — 获取笔记详情（含蒸馏内容与索引状态） */
 export async function getKnowledgeNoteDetail(
   noteId: number | string,
   options?: { [key: string]: unknown },
@@ -57,7 +62,7 @@ export async function getKnowledgeNoteDetail(
   })
 }
 
-/** PUT /admin/knowledge/notes/{noteId} */
+/** PUT /admin/knowledge/notes/{noteId} — 更新笔记（标题/标签/正文等） */
 export async function updateKnowledgeNote(
   noteId: number | string,
   body: API.KnowledgeNoteUpdateRequest,
@@ -71,7 +76,7 @@ export async function updateKnowledgeNote(
   })
 }
 
-/** DELETE /admin/knowledge/notes/{noteId} */
+/** DELETE /admin/knowledge/notes/{noteId} — 删除笔记 */
 export async function deleteKnowledgeNote(
   noteId: number | string,
   options?: { [key: string]: unknown },
@@ -99,7 +104,7 @@ export async function updateKnowledgeNoteReviewStatus(
   )
 }
 
-/** POST /admin/knowledge/notes/{noteId}/redistill */
+/** POST /admin/knowledge/notes/{noteId}/redistill — 重新 AI 蒸馏笔记内容（长耗时） */
 export async function redistillKnowledgeNote(
   noteId: number | string,
   options?: { [key: string]: unknown },
@@ -114,7 +119,7 @@ export async function redistillKnowledgeNote(
   )
 }
 
-/** POST /admin/knowledge/notes/{noteId}/publish-blog */
+/** POST /admin/knowledge/notes/{noteId}/publish-blog — 将笔记发布为博客文章 */
 export async function publishKnowledgeNoteBlog(
   noteId: number | string,
   body: API.KnowledgeNotePublishRequest,
@@ -128,7 +133,7 @@ export async function publishKnowledgeNoteBlog(
   })
 }
 
-/** POST /admin/knowledge/notes/{noteId}/sync-blog */
+/** POST /admin/knowledge/notes/{noteId}/sync-blog — 同步笔记最新内容到已关联的博客文章 */
 export async function syncKnowledgeNoteBlog(
   noteId: number | string,
   options?: { [key: string]: unknown },
@@ -139,7 +144,7 @@ export async function syncKnowledgeNoteBlog(
   })
 }
 
-/** POST /admin/knowledge/notes/{noteId}/index */
+/** POST /admin/knowledge/notes/{noteId}/index — 首次建立向量索引（切块 + 向量化，长耗时） */
 export async function indexKnowledgeNote(
   noteId: number | string,
   body: API.KnowledgeNoteIndexRequest,
@@ -154,7 +159,7 @@ export async function indexKnowledgeNote(
   })
 }
 
-/** POST /admin/knowledge/notes/{noteId}/reindex */
+/** POST /admin/knowledge/notes/{noteId}/reindex — 重建向量索引（长耗时） */
 export async function reindexKnowledgeNote(
   noteId: number | string,
   options?: { [key: string]: unknown },
@@ -220,12 +225,14 @@ export async function listKnowledgeReadingJobs(
     {
       method: 'GET',
       params: { ...params },
+      // 后端 V2 任务列表端点尚未部署：404 时静默，页面以无任务态呈现
+      silent404: true,
       ...(options || {}),
     },
   )
 }
 
-/** GET /admin/knowledge/reading-jobs/{jobId} */
+/** GET /admin/knowledge/reading-jobs/{jobId} — 查询异步阅读任务进度与结果 */
 export async function getKnowledgeReadingJob(
   jobId: number | string,
   options?: { [key: string]: unknown },

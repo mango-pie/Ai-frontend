@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>星野 · AURORA NIGHT</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Manrope:wght@200;300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<canvas id="sky" aria-label="交互式星夜画布"></canvas>
+<div class="grain" id="grain"></div>
+<div class="cursor-glow" id="cursorGlow"></div>
+<div class="vignette"></div>
+
+<header class="topbar">
+  <div class="brand glass">
+    <span class="brand-mark">&#10022;</span>
+    <span class="brand-name">AURORA NIGHT</span>
+    <span class="brand-sub">星野</span>
+  </div>
+  <nav class="actions">
+    <button class="btn" id="btnWish" type="button">许愿</button>
+    <button class="btn" id="btnDraw" type="button">画星座</button>
+    <button class="btn" id="btnMeteor" type="button">流星雨</button>
+    <button class="btn" id="btnPause" type="button">暂停</button>
+    <button class="btn" id="btnFull" type="button">全屏</button>
+  </nav>
+</header>
+
+<section class="hero">
+  <p class="hero-overline">32.8&#176;N &#183; 117.2&#176;W &#183; THE LONGEST NIGHT</p>
+  <h1 class="hero-title">星野</h1>
+  <p class="hero-sub">一片不会打烊的夜空 &#8212; 点亮它,或让它点燃你。</p>
+  <p class="hero-hint">点击夜空 &#183; 拖拽连星 &#183; 许下愿望</p>
+</section>
+
+<div class="hintbar glass" id="hintbar"></div>
+
+<aside class="panel p-const glass" id="constPanel">
+  <header class="panel-head" id="constPanelHead">
+    <span class="panel-title">星座 <em class="panel-count" id="constCount">0</em></span>
+    <span class="panel-caret">&#9662;</span>
+  </header>
+  <ul class="panel-body" id="constList"></ul>
+</aside>
+
+<aside class="panel p-wish glass" id="wishPanel">
+  <header class="panel-head" id="wishPanelHead">
+    <span class="panel-title">愿望 <em class="panel-count" id="wishCount">0</em></span>
+    <span class="panel-caret">&#9662;</span>
+  </header>
+  <ul class="panel-body" id="wishList"></ul>
+</aside>
+
+<button class="btn finish-draw glass" id="finishDraw" type="button">完成星座</button>
+
+<div class="tweaks glass" id="tweaks">
+  <header class="tweaks-head" id="tweaksHead">
+    <span class="tweaks-title">Tweaks</span>
+    <span class="tweaks-star">&#10022;</span>
+  </header>
+  <div class="tweaks-body" id="tweaksBody"></div>
+  <footer class="tweaks-foot">
+    <span id="statFps"></span>
+    <span id="statStars"></span>
+    <button class="btn btn-reset" id="btnReset" type="button">重置</button>
+  </footer>
+</div>
+
+<div class="zoom-hint" id="zoomHint">100%</div>
+
+<div class="modal" id="nameModal" hidden>
+  <div class="modal-card glass">
+    <p class="modal-title">为这片星座命名</p>
+    <input class="modal-input" id="nameInput" type="text" maxlength="12" placeholder="例:猎户座 · 我的秘密" autocomplete="off">
+    <div class="modal-actions">
+      <button class="btn" id="nameCancel" type="button">算了</button>
+      <button class="btn btn-primary" id="nameOk" type="button">收入星图</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast glass" id="toast" hidden></div>
+
+<script src="js/starfield.js"></script>
+<script src="js/aurora.js"></script>
+<script src="js/interactions.js"></script>
+<script src="js/constellations.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

@@ -1,4 +1,9 @@
 <script setup lang="ts">
+/**
+ * 挂叶确认侧滑弹层：把一篇学习笔记挂载到知识树的某个枝上。
+ * 支持两种模式：选择已有枝 / 新建枝（需指定父枝，仅可选 L1 或根级）。
+ * 弹层由父组件控制 visible，确认后通过 confirm 事件把选择结果抛给父组件提交。
+ */
 import { computed, ref, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import { Paperclip, X } from 'lucide-vue-next'
@@ -35,9 +40,13 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<Emits>()
 
 type AttachMode = 'existing' | 'new'
+/** 当前挂载模式：选已有枝 / 新建枝 */
 const mode = ref<AttachMode>('existing')
+/** 新建枝模式下用户输入的枝标题 */
 const newBranchTitle = ref('')
+/** 已有枝模式下选中的挂载目标枝 id */
 const selectedBranchId = ref<number | string | null>(null)
+/** 新建枝的父枝 id，0 表示根级（成为 L1 枝） */
 const newBranchParentId = ref<number | string>(0)
 
 /** 只展示 L1 枝作为父枝候选，"根级 (L1)" 代表 parentBranchId=0 */
@@ -49,6 +58,7 @@ const parentBranchOptions = computed(() => {
   return [rootOption, ...l1Options]
 })
 
+/** 已有枝候选列表：展示全量枝，用完整路径（path）作标签便于区分同名枝 */
 const branchOptions = computed(() =>
   props.branches.map((b) => ({
     value: b.id,
@@ -56,6 +66,7 @@ const branchOptions = computed(() =>
   })),
 )
 
+/** 每次弹层打开时重置表单：若有 AI 推荐枝则默认选中它，否则切到"新建枝"模式 */
 watch(
   () => props.visible,
   (v) => {
@@ -69,10 +80,12 @@ watch(
   { immediate: true },
 )
 
+/** 点击遮罩关闭：提交中禁止误关，避免打断请求 */
 function onOverlayClick() {
   if (!props.submitting) emit('cancel')
 }
 
+/** 确认挂载：按模式做参数校验后，把结果抛给父组件去调接口 */
 function onConfirm() {
   if (props.submitting) return
 
@@ -96,6 +109,7 @@ function onConfirm() {
 </script>
 
 <template>
+  <!-- Teleport 到 body 避免被父级 overflow/层级裁剪，Transition 提供右侧滑入动画 -->
   <Teleport to="body">
     <Transition name="attach-slide">
       <div v-if="visible" class="attach-root">

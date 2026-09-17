@@ -1,12 +1,23 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { clearNeteaseCookie, neteaseFetch, setNeteaseCookie } from '@/integrations/musicRuntime'
 
+/**
+ * 网易云音乐登录 Hook：支持「二维码扫码」与「手机号+短信验证码」两种登录方式。
+ * 状态为模块级单例，多个组件同时使用时共享同一份登录态与轮询定时器，
+ * 通过 subscribers 引用计数决定何时清理定时器。
+ */
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { clearNeteaseCookie, neteaseFetch, setNeteaseCookie } from '@/integrations/musicRuntime'
+
+/** 验证码发送冷却秒数，防止频繁触发短信 */
 const CAPTCHA_COOLDOWN_SEC = 60
 
 type LoginStatus = 'logged-out' | 'logging' | 'logged-in' | 'error'
+/** 二维码轮询状态：待扫码 -> 待确认 -> 过期 */
 type QrStatus = 'idle' | 'waiting-scan' | 'waiting-confirm' | 'expired'
 type LoginMode = 'qr' | 'phone'
 
+// ---- 登录态（全局共享） ----
 const isLoggedIn = ref(false)
 const loginStatus = ref<LoginStatus>('logged-out')
 const loginError = ref('')
@@ -19,6 +30,7 @@ const loginInfo = ref<{
 }>({})
 const qrCodeUrl = ref('')
 
+// ---- 手机号登录表单（全局共享） ----
 const phone = ref('')
 const captcha = ref('')
 const countrycode = ref('86')
@@ -26,11 +38,14 @@ const captchaSending = ref(false)
 const captchaCooldown = ref(0)
 const phoneLogging = ref(false)
 
+// 二维码扫码状态轮询定时器 / 验证码倒计时定时器
 let checkTimer: ReturnType<typeof setTimeout> | null = null
 let cooldownTimer: ReturnType<typeof setInterval> | null = null
+// 引用计数：记录当前挂载的组件数；bootstrapped 保证首挂载时只探测一次登录状态
 let subscribers = 0
 let bootstrapped = false
 
+/** 登录状态的一句话文案，按二维码/手机号两种流程分别给出进度提示 */
 const loginStatusText = computed(() => {
   if (loginStatus.value === 'logged-in') {
     return loginInfo.value.nickname ? `已登录：${loginInfo.value.nickname}` : '已登录'
@@ -49,6 +64,7 @@ const loginStatusText = computed(() => {
   return '未登录'
 })
 
+/** 手机号合法、不在发送中且冷却结束才允许发验证码 */
 const canSendCaptcha = computed(
   () =>
     !captchaSending.value &&
@@ -57,6 +73,7 @@ const canSendCaptcha = computed(
     /^1\d{10}$/.test(phone.value.trim()),
 )
 
+/** 手机号与验证码格式均合法才允许提交登录 */
 const canSubmitPhoneLogin = computed(
   () =>
     !phoneLogging.value &&
@@ -64,6 +81,7 @@ const canSubmitPhoneLogin = computed(
     /^\d{4,8}$/.test(captcha.value.trim()),
 )
 
+/** 停止二维码扫码轮询 */
 function clearQrPoll() {
   if (checkTimer) {
     clearTimeout(checkTimer)
@@ -79,6 +97,7 @@ function clearCooldown() {
   captchaCooldown.value = 0
 }
 
+/** 启动验证码 60s 倒计时，每秒递减，归零后自动清理定时器 */
 function startCooldown(seconds = CAPTCHA_COOLDOWN_SEC) {
   clearCooldown()
   captchaCooldown.value = seconds
@@ -88,6 +107,12 @@ function startCooldown(seconds = CAPTCHA_COOLDOWN_SEC) {
   }, 1000)
 }
 
+/**
+ * 以下四个工具函数用于兼容后端两种响应包装格式：
+ * 有的接口直接返回数据，有的把数据再包一层 body，因此取值时都要做双路径兜底。
+ */
+
+/** 归一化 cookie 字段：后端可能返回字符串或字符串数组 */
 function normalizeCookie(raw: unknown): string {
   if (!raw) return ''
   if (Array.isArray(raw)) return raw.filter(Boolean).join('; ')
@@ -103,10 +128,12 @@ function extractCookie(payload: Record<string, unknown>): string {
   return ''
 }
 
+/** 把登录成功返回的 cookie 写入音乐运行时，供后续需登录态的接口使用 */
 function saveCookie(cookieStr: string) {
   setNeteaseCookie(cookieStr)
 }
 
+/** 统一的网易云接口 GET 请求：走 musicRuntime 的 neteaseFetch 通道并解析 JSON */
 async function fetchJson(path: string, init?: RequestInit) {
   const res = await neteaseFetch(path, init)
   return res.json() as Promise<Record<string, unknown>>
@@ -130,6 +157,7 @@ function pickAccountInfo(data: Record<string, unknown>) {
   return (body?.data || body || data.data || data) as Record<string, unknown>
 }
 
+/** 从账号信息中提取用户 id / 昵称 / 头像，标记为已登录并复位二维码状态 */
 function applyLoggedIn(accountInfo: Record<string, unknown>) {
   const profile = (accountInfo.profile || {}) as Record<string, unknown>
   const account = (accountInfo.account || {}) as Record<string, unknown>
@@ -145,6 +173,7 @@ function applyLoggedIn(accountInfo: Record<string, unknown>) {
 }
 
 export function useNeteaseLogin() {
+  /** 探测当前登录状态（依据 /login/status 返回的 profile），扫码轮询期间跳过以免互相干扰 */
   const checkLoginStatus = async () => {
     // 扫码轮询中不要打断
     if (checkTimer) return
@@ -175,6 +204,7 @@ export function useNeteaseLogin() {
     }
   }
 
+  /** 二维码登录第一步：先向网易云申请 unikey，再用 key 换取二维码图片（base64） */
   const generateQrCode = async () => {
     const keyData = await fetchJson(`/login/qr/key?timestamp=${Date.now()}`)
     const keyPayload = (keyData.data || keyData.body || keyData) as Record<string, unknown>
@@ -197,6 +227,7 @@ export function useNeteaseLogin() {
     return unikey
   }
 
+  /** 发起二维码扫码登录：生成二维码后启动轮询状态机，按网易云返回码流转 */
   const handleLogin = async () => {
     if (loginStatus.value === 'logging' || phoneLogging.value) return
 
@@ -212,6 +243,11 @@ export function useNeteaseLogin() {
       let attempts = 0
       const maxAttempts = 100
 
+      /**
+       * 轮询扫码状态（网易云约定返回码）：
+       * 800 二维码过期 / 801 待扫码 / 802 已扫码待确认 / 803 登录成功（返回 cookie）。
+       * 待确认阶段缩短轮询间隔，请求异常时退避到 3s 重试，总次数超限判定超时。
+       */
       const checkStatus = async () => {
         if (attempts >= maxAttempts) {
           loginStatus.value = 'error'
@@ -279,6 +315,7 @@ export function useNeteaseLogin() {
     }
   }
 
+  /** 取消二维码登录：停止轮询并复位到登录前状态 */
   const cancelQrLogin = () => {
     clearQrPoll()
     qrCodeUrl.value = ''
@@ -288,6 +325,7 @@ export function useNeteaseLogin() {
     }
   }
 
+  /** 发送短信验证码：校验手机号后调用 /captcha/sent，成功后进入 60s 冷却 */
   const sendCaptcha = async () => {
     const mobile = phone.value.trim()
     if (!/^1\d{10}$/.test(mobile)) {
@@ -328,6 +366,7 @@ export function useNeteaseLogin() {
     }
   }
 
+  /** 手机号 + 验证码登录：成功后保存 cookie，响应里没有账号信息时再回查一次登录状态兜底 */
   const loginWithPhone = async () => {
     const mobile = phone.value.trim()
     const captchaCode = captcha.value.trim()
@@ -387,6 +426,7 @@ export function useNeteaseLogin() {
     }
   }
 
+  /** 退出登录：通知网易云失效会话，清空本地 cookie 与全部登录状态 */
   const handleLogout = async () => {
     clearQrPoll()
     try {
@@ -405,6 +445,7 @@ export function useNeteaseLogin() {
     captcha.value = ''
   }
 
+  // 挂载时累加引用计数；首个使用者负责探测一次登录状态
   onMounted(() => {
     subscribers += 1
     if (!bootstrapped) {
@@ -413,6 +454,7 @@ export function useNeteaseLogin() {
     }
   })
 
+  // 所有使用者都卸载后才清理轮询/倒计时定时器，避免仍有组件展示时被误停
   onUnmounted(() => {
     subscribers = Math.max(0, subscribers - 1)
     if (subscribers === 0) {

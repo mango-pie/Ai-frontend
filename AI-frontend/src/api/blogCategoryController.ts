@@ -1,8 +1,12 @@
+/**
+ * 博客分类 API — 对应后端 BlogCategoryController，接口前缀 /blog/category
+ * 提供博客分类的增删改查与分页检索。
+ */
 // @ts-ignore
 /* eslint-disable */
 import request from '@/request'
 
-/** 此处后端没有提供注释 POST /blog/category/add */
+/** 新增分类 POST /blog/category/add — 返回分类 id */
 export async function addCategory(
   body: API.BlogCategoryAddRequest,
   options?: { [key: string]: any }
@@ -17,7 +21,7 @@ export async function addCategory(
   })
 }
 
-/** 此处后端没有提供注释 POST /blog/category/delete */
+/** 删除分类 POST /blog/category/delete — 按 id 删除 */
 export async function deleteCategory(body: API.DeleteRequest, options?: { [key: string]: any }) {
   return request<API.BaseResponseBoolean>('/blog/category/delete', {
     method: 'POST',
@@ -29,7 +33,7 @@ export async function deleteCategory(body: API.DeleteRequest, options?: { [key: 
   })
 }
 
-/** 此处后端没有提供注释 GET /blog/category/get/vo */
+/** 获取分类详情 GET /blog/category/get/vo */
 export async function getCategoryVo(
   // 叠加生成的Param类型 (非body参数swagger默认没有生成对象)
   params: API.getCategoryVOParams,
@@ -44,7 +48,7 @@ export async function getCategoryVo(
   })
 }
 
-/** 此处后端没有提供注释 GET /blog/category/list/all */
+/** 获取全部分类 GET /blog/category/list/all — 供下拉选择/侧边栏使用 */
 export async function getAllCategories(options?: { [key: string]: any }) {
   return request<API.BaseResponseListBlogCategory>('/blog/category/list/all', {
     method: 'GET',
@@ -52,7 +56,7 @@ export async function getAllCategories(options?: { [key: string]: any }) {
   })
 }
 
-/** 此处后端没有提供注释 POST /blog/category/list/page/vo */
+/** 分页查询分类 POST /blog/category/list/page/vo — 管理端列表页 */
 export async function queryCategoryPage(
   body: API.BlogCategoryQueryRequest,
   options?: { [key: string]: any }
@@ -67,7 +71,7 @@ export async function queryCategoryPage(
   })
 }
 
-/** 此处后端没有提供注释 POST /blog/category/update */
+/** 更新分类 POST /blog/category/update */
 export async function updateCategory(
   body: API.BlogCategoryUpdateRequest,
   options?: { [key: string]: any }

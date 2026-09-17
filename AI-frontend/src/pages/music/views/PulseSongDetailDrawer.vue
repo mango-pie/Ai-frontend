@@ -1,4 +1,10 @@
 <script setup lang="ts">
+/**
+ * 音乐模块 - Pulse 播放器的歌曲详情抽屉
+ * 展示当前详情曲目（封面 / 标题 / 来源 / 时长），提供播放、下一首、加队列、收藏、下载、加歌单操作
+ * 网易云来源的曲目附带"相似歌曲"推荐列表
+ * 播放器全部能力通过注入的 PulsePlayerApi（props.p）调用，本组件不持有播放状态
+ */
 import { computed } from 'vue'
 import { Download, Heart, ListMusic, ListPlus, Play, X } from 'lucide-vue-next'
 import { toCoverDisplayUrl } from '@/utils/musicCover'
@@ -8,9 +14,10 @@ import type { PulsePlayerApi } from '@/pages/music/pulseApi'
 const props = defineProps<{ p: PulsePlayerApi }>()
 const p = props.p
 
+/** 当前详情面板展示的曲目（由播放器状态驱动） */
 const track = computed(() => p.songDetail.value)
-const visible = computed(() => !!track.value)
 
+/** 立即播放当前曲目 */
 function playTrackNow() {
   const t = track.value
   if (!t) return
@@ -19,6 +26,7 @@ function playTrackNow() {
   p.closeSongDetail()
 }
 
+/** 加入队首（作为下一首播放） */
 function playNext() {
   const t = track.value
   if (!t) return
@@ -26,6 +34,7 @@ function playNext() {
   p.closeSongDetail()
 }
 
+/** 追加到播放队列末尾 */
 function enqueue() {
   const t = track.value
   if (!t) return
@@ -33,23 +42,25 @@ function enqueue() {
   p.closeSongDetail()
 }
 
+/** 加入用户歌单：优先当前正在浏览的歌单，否则第一个 */
 function addToUserPlaylist() {
   const t = track.value
   if (!t || !p.userPlaylists.value.length) return
   const first = p.playlistKey.value.startsWith('user:')
     ? p.playlistKey.value.slice(5)
-    : p.userPlaylists.value[0].id
+    : p.userPlaylists.value[0]!.id
   p.addTrackToUserPlaylist(first, t)
 }
 </script>
 
 <template>
-  <div v-if="visible" class="song-detail-backdrop" @click.self="p.closeSongDetail()">
+  <div v-if="track" class="song-detail-backdrop" @click.self="p.closeSongDetail()">
     <aside class="song-detail-drawer" role="dialog" aria-modal="true" aria-label="歌曲详情">
       <button class="song-detail-close" type="button" aria-label="关闭详情" @click="p.closeSongDetail()">
         <X :size="16" :stroke-width="2" />
       </button>
 
+      <!-- 曲目主信息：封面 / 标题 / 来源 / 时长 -->
       <div class="song-detail-hero">
         <span class="track-cover song-detail-cover" aria-hidden="true">
           <img v-if="toCoverDisplayUrl(track.coverUrl)" :src="toCoverDisplayUrl(track.coverUrl)" alt="" />
@@ -64,6 +75,7 @@ function addToUserPlaylist() {
         </div>
       </div>
 
+      <!-- 操作区：播放 / 下一首 / 加队列 / 收藏 / 下载 / 加歌单 -->
       <div class="song-detail-actions">
         <button class="action-button primary" type="button" @click="playTrackNow">
           <Play :size="14" :stroke-width="2" /> 播放
@@ -102,6 +114,7 @@ function addToUserPlaylist() {
         </button>
       </div>
 
+      <!-- 相似歌曲推荐（仅网易云来源曲目展示） -->
       <div v-if="track.neteaseId" class="song-detail-simi">
         <header class="panel-head">
           <span class="panel-index">SIMILAR</span><h3>相似歌曲</h3>

@@ -1,4 +1,9 @@
 <script setup lang="ts">
+/**
+ * 通用图标操作按钮（全站基础 UI 件）
+ * - 图标 + 可选文字，支持 primary/ghost/danger/soft 四种视觉与三档尺寸
+ * - motion 属性提供悬停时的语义化图标动效（发送/旋转/抖动等），loading 时图标转为持续旋转
+ */
 import type { Component } from 'vue'
 
 withDefaults(
@@ -33,6 +38,7 @@ withDefaults(
 </script>
 
 <template>
+  <!-- variant/size/motion 全部以修饰类落地，便于 CSS 统一维护；loading 中视为禁用 -->
   <button
     class="icon-action"
     :class="[
@@ -45,14 +51,17 @@ withDefaults(
     :disabled="disabled || loading"
     :aria-label="ariaLabel || label"
   >
+    <!-- 图标容器：loading 时 is-spin 持续旋转；图标尺寸随按钮档位联动 -->
     <span class="icon-action__icon" :class="{ 'is-spin': loading }">
       <component :is="icon" :size="size === 'lg' ? 20 : size === 'sm' ? 16 : 18" :stroke-width="2" />
     </span>
+    <!-- 文案可选：不传 label 时呈现为纯图标按钮 -->
     <span v-if="label" class="icon-action__label">{{ label }}</span>
   </button>
 </template>
 
 <style scoped>
+/* 基础形态：内联弹性布局，多维度过渡为悬停反馈做准备 */
 .icon-action {
   display: inline-flex;
   align-items: center;
@@ -79,6 +88,7 @@ withDefaults(
   transform: none !important;
 }
 
+/* 尺寸档位：block 占满一行；icon-only 时按档位裁成方形图标钮 */
 .icon-action--block {
   width: 100%;
 }
@@ -248,6 +258,7 @@ withDefaults(
   }
 }
 
+/* 无障碍：用户偏好减少动效时关闭全部图标动画 */
 @media (prefers-reduced-motion: reduce) {
   .icon-action__icon,
   .icon-action:hover:not(:disabled) .icon-action__icon {
@@ -256,6 +267,7 @@ withDefaults(
   }
 }
 
+/* 四种视觉变体：primary 渐变主按钮 / soft 柔和描边 / ghost 透明 / danger 危险操作 */
 .icon-action--primary {
   background: var(--gradient-primary);
   color: #fff;

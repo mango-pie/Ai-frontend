@@ -1,4 +1,9 @@
 <script setup lang="ts">
+/**
+ * 博客列表首页
+ * 职责：已发布文章的默认入口 —— 服务端分页列表 + 标题搜索 + 最新/热门排序，
+ * 支持卡片与时间线两种布局（全局 layoutMode）；侧栏分类/标签点击跳筛选页。
+ */
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
@@ -23,6 +28,7 @@ const router = useRouter()
 const loginUserStore = useLoginUserStore()
 const { layoutMode, setLayoutMode } = useBlogLayoutMode()
 
+// 站点 UX 配置；layoutMode 为跨页共享的布局偏好
 const blogUx = ref<BlogUxSettings>({
   pageSizeDefault: 10,
   summaryMaxLength: 200,
@@ -32,6 +38,7 @@ const blogUx = ref<BlogUxSettings>({
   defaultStatusKey: 'DRAFT',
 })
 
+// 搜索词（标题模糊匹配）与排序；排序切换由 watch 自动触发重新拉取
 const searchQuery = ref('')
 const sortBy = ref<'latest' | 'popular'>('latest')
 const loading = ref(false)
@@ -39,6 +46,7 @@ const allPosts = ref<API.BlogPostVO[]>([])
 const categories = ref<API.BlogCategoryVO[]>([])
 const tags = ref<API.BlogTagVO[]>([])
 
+// 服务端分页状态：pageSize=0 表示由后端决定，回填后再用于计算页码点
 const pagination = reactive({
   current: 1,
   pageSize: 0,
@@ -51,6 +59,7 @@ const totalPages = computed(() => {
   return Math.max(1, Math.ceil(pagination.total / size))
 })
 
+// 页码点窗口：最多显示 7 个页码，并尽量让当前页居中
 const pageDots = computed(() => {
   const n = totalPages.value
   const cur = pagination.current
@@ -59,6 +68,7 @@ const pageDots = computed(() => {
   return Array.from({ length: max }, (_, i) => start + i)
 })
 
+// 时间线布局：把当前页文章按"年-月"分组（无法解析日期的归入"未知"）
 const monthGroups = computed(() => {
   const map = new Map<string, API.BlogPostVO[]>()
   for (const p of allPosts.value) {
@@ -73,6 +83,7 @@ const monthGroups = computed(() => {
   return [...map.entries()].map(([month, posts]) => ({ month, posts }))
 })
 
+// 组装列表查询参数：只查已发布（status=1），热门排序按浏览量降序
 const buildQueryParams = (): API.BlogPostQueryRequest => ({
   pageNum: pagination.current,
   pageSize: 0,
@@ -82,6 +93,7 @@ const buildQueryParams = (): API.BlogPostQueryRequest => ({
   sortOrder: 'descend',
 })
 
+// 拉取当前页文章，并回填总数/页大小（优先用后端返回值，其次站点配置）
 const fetchPosts = async () => {
   loading.value = true
   try {
@@ -127,6 +139,7 @@ const fetchTags = async () => {
 
 const goPost = (id: number) => router.push(`/blog/${id}`)
 
+// 打开筛选页：无具体 id 时退化为"任选第一个分类/标签"作为初始条件
 const goFilterOpen = () => {
   const firstCat = categories.value.find((c) => c.id != null)?.id
   if (firstCat) {
@@ -157,6 +170,7 @@ const goFilterTags = (id?: number) => {
   router.push({ path: '/blog/filter', query: buildFilterQuery([], [id]) })
 }
 
+// 搜索/翻页：均重置页码后重新拉取
 const handleSearch = () => {
   pagination.current = 1
   fetchPosts()
@@ -168,6 +182,7 @@ const clearSearch = () => {
   fetchPosts()
 }
 
+// 发布入口：未登录先跳登录页并带好回跳地址
 const handleCreatePost = () => {
   if (!loginUserStore.loginUser?.id) {
     message.warning('请先登录')
@@ -183,6 +198,7 @@ const goPage = (page: number) => {
   fetchPosts()
 }
 
+// 点赞：成功后本地 +1；后端提示"已关闭"时同步关闭本页点赞能力
 const handleLike = async (post: API.BlogPostVO) => {
   if (!post.id || !blogUx.value.allowLike) return
   try {
@@ -209,6 +225,7 @@ const handleLike = async (post: API.BlogPostVO) => {
 const setLayout = (mode: BlogLayoutMode) => setLayoutMode(mode)
 
 onMounted(async () => {
+  // 先加载站点配置确定默认页大小，再并行拉列表/分类/标签
   blogUx.value = await loadBlogSettings()
   if (blogUx.value.pageSizeDefault > 0) {
     pagination.pageSize = blogUx.value.pageSizeDefault
@@ -217,6 +234,7 @@ onMounted(async () => {
   fetchCategories()
   fetchTags()
 
+  // 监听自定义事件：其它模块（如 AI 助手）发布/编辑文章后通知本页刷新列表
   if (typeof window !== 'undefined') {
     window.addEventListener('agent-ui-action', (e: Event) => {
       const d = (e as CustomEvent).detail
@@ -227,6 +245,7 @@ onMounted(async () => {
   }
 })
 
+// 切换排序时回到第一页并重新拉取
 watch(sortBy, () => {
   pagination.current = 1
   fetchPosts()
@@ -359,6 +378,7 @@ watch(sortBy, () => {
           </div>
         </div>
 
+        <!-- 卡片布局：首张卡片放大为 featured -->
         <div v-show="layoutMode === 'card'" class="bento">
           <template v-if="!loading && allPosts.length">
             <BlogPostCard
@@ -376,6 +396,7 @@ watch(sortBy, () => {
           </template>
         </div>
 
+        <!-- 时间线布局：按月份分组渲染当前页文章 -->
         <div v-show="layoutMode === 'timeline'" class="timeline-wrap">
           <div class="tl-scroll">
             <div class="tl-line" />
@@ -392,6 +413,7 @@ watch(sortBy, () => {
           </div>
         </div>
 
+        <!-- 空状态：搜索无结果时提示并可一键清空搜索 -->
         <div v-if="!loading && allPosts.length === 0" class="empty-state show">
           <div class="t font-display">没有找到相关随笔</div>
           <button type="button" class="chip-btn" style="margin-top: 10px" @click="clearSearch">

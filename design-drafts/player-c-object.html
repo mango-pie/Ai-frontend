@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Player C — Object</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500&family=Jost:wght@500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --body: #16130F;
+      --face: #1F1B16;
+      --ink: #E8E0D4;
+      --muted: #8A8176;
+      --metal: #C4A574;
+    }
+    [data-metal="steel"] { --metal: #A8B0B6; }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      background: var(--body);
+      color: var(--ink);
+      font-family: Jost, "IBM Plex Sans", sans-serif;
+      overflow: hidden;
+      text-wrap: pretty;
+    }
+    .app {
+      height: 100vh;
+      display: grid;
+      grid-template-columns: 216px 1fr;
+      grid-template-rows: 1fr 108px;
+      grid-template-areas: "rail stage" "rail player";
+    }
+    .rail {
+      grid-area: rail;
+      background: var(--face);
+      border-right: 1px solid rgb(232 224 212 / 0.08);
+      padding: 24px 18px;
+      display: flex;
+      flex-direction: column;
+    }
+    .mark {
+      color: inherit;
+      text-decoration: none;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      font-size: 13px;
+    }
+    .lamp {
+      width: 8px; height: 8px;
+      background: var(--metal);
+      margin-bottom: 14px;
+    }
+    nav { margin-top: 32px; display: grid; gap: 2px; }
+    nav button {
+      font: 500 13px/1 Jost, sans-serif;
+      color: var(--muted);
+      background: none;
+      border: 0;
+      text-align: left;
+      padding: 12px 10px;
+      cursor: pointer;
+    }
+    nav button.is-on {
+      color: var(--ink);
+      background: rgb(232 224 212 / 0.05);
+    }
+    nav button:focus-visible { outline: 1px solid var(--metal); }
+    .stage {
+      grid-area: stage;
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      gap: 40px;
+      padding: 40px 44px;
+      align-items: center;
+    }
+    .cover {
+      aspect-ratio: 1;
+      background: #2A241C;
+      border: 1px solid rgb(232 224 212 / 0.14);
+      display: grid;
+      place-items: center;
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    h1 {
+      font-weight: 600;
+      font-size: clamp(28px, 3.6vw, 44px);
+      letter-spacing: 0.02em;
+      margin-bottom: 10px;
+    }
+    .lede { color: var(--muted); max-width: 26em; font-family: "IBM Plex Sans", sans-serif; font-size: 14px; line-height: 1.55; }
+    .lyric { margin-top: 28px; font-size: 15px; line-height: 1.7; }
+    .lyric span { display: block; color: rgb(232 224 212 / 0.28); }
+    .lyric .now { color: var(--ink); }
+    .player {
+      grid-area: player;
+      background: var(--face);
+      border-top: 2px solid var(--metal);
+      display: grid;
+      grid-template-columns: 1.1fr 1.4fr 0.9fr;
+      align-items: center;
+      padding: 0 22px;
+    }
+    .now { display: flex; gap: 12px; align-items: center; }
+    .now b { width: 48px; height: 48px; background: #2A241C; border: 1px solid rgb(232 224 212 / 0.14); display: block; }
+    .now strong { display: block; font-size: 14px; }
+    .now small { color: var(--muted); font-family: "IBM Plex Sans", sans-serif; font-size: 12px; }
+    .transport { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+    .keys { display: flex; gap: 8px; }
+    button.key {
+      width: 40px; height: 32px;
+      background: #2A241C;
+      border: 1px solid rgb(232 224 212 / 0.16);
+      color: var(--ink);
+      cursor: pointer;
+      display: grid; place-items: center;
+    }
+    button.play { background: var(--metal); color: #16130F; border-color: var(--metal); width: 52px; }
+    button.key:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+    .bar { width: min(100%, 340px); height: 3px; background: rgb(232 224 212 / 0.12); position: relative; }
+    .bar::after { content: ""; position: absolute; inset: 0 auto 0 0; width: 38%; background: var(--metal); }
+    .tools { justify-self: end; font-size: 11px; letter-spacing: 0.16em; color: var(--muted); }
+    .tweaks-toggle, .tweaks { position: fixed; bottom: 20px; right: 20px; z-index: 9; font-family: Jost, sans-serif; }
+    .tweaks-toggle {
+      background: var(--face); color: var(--ink); border: 1px solid var(--metal);
+      padding: 8px 12px; cursor: pointer; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+    }
+    .tweaks { width: 230px; background: var(--face); border: 1px solid var(--metal); padding: 16px; display: none; }
+    .tweaks.is-open { display: block; }
+    .tweaks h2 { font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 8px; font-weight: 600; }
+    .tweaks select { width: 100%; background: var(--body); color: var(--ink); border: 1px solid rgb(232 224 212 / 0.16); padding: 8px; }
+    .tweaks-close { margin-top: 10px; background: none; border: 0; color: var(--muted); cursor: pointer; }
+    @media (max-width: 860px) {
+      .app { grid-template-columns: 1fr; grid-template-areas: "stage" "player"; }
+      .rail { display: none; }
+      .stage { grid-template-columns: 1fr; padding: 24px; }
+    }
+  </style>
+</head>
+<body data-metal="brass">
+  <div class="app">
+    <aside class="rail">
+      <div class="lamp" aria-hidden="true"></div>
+      <a class="mark" href="index.html">LISTEN</a>
+      <nav>
+        <button class="is-on" type="button">正在播放</button>
+        <button type="button">发现</button>
+        <button type="button">曲库</button>
+        <button type="button">设置</button>
+      </nav>
+    </aside>
+    <main class="stage">
+      <div class="cover" role="img" aria-label="封面占位，1 比 1">1:1 plate</div>
+      <div>
+        <h1>SPECIMEN TRACK</h1>
+        <p class="lede">Artist pending. 暖黑壳体，铜指示，底栏是一条控制条。封面是板，不是雾。</p>
+        <div class="lyric">
+          <span>上一行</span>
+          <span class="now">这一行正在被读出</span>
+          <span>下一行</span>
+        </div>
+      </div>
+    </main>
+    <footer class="player">
+      <div class="now">
+        <b aria-hidden="true"></b>
+        <div>
+          <strong>Specimen track</strong>
+          <small>Artist pending</small>
+        </div>
+      </div>
+      <div class="transport">
+        <div class="keys">
+          <button class="key" type="button" aria-label="上一首"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h2v12H3zm3.2 6L13 2v12z"/></svg></button>
+          <button class="key play" type="button" aria-label="播放"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M4 2l11 6-11 6z"/></svg></button>
+          <button class="key" type="button" aria-label="下一首"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M11 2h2v12h-2zM3 2l6.8 6L3 14z"/></svg></button>
+        </div>
+        <div class="bar" aria-hidden="true"></div>
+      </div>
+      <div class="tools">QUEUE</div>
+    </footer>
+  </div>
+  <button class="tweaks-toggle" type="button" id="tweaksOpen">Tweaks</button>
+  <aside class="tweaks" id="tweaks" hidden>
+    <h2>Tweaks</h2>
+    <label for="metal">Metal</label>
+    <select id="metal">
+      <option value="brass">Brass</option>
+      <option value="steel">Steel</option>
+    </select>
+    <button class="tweaks-close" type="button" id="tweaksClose">Close</button>
+  </aside>
+  <script>
+    const root = document.body, panel = document.getElementById("tweaks");
+    const openBtn = document.getElementById("tweaksOpen"), closeBtn = document.getElementById("tweaksClose");
+    function setOpen(o){ panel.hidden=!o; panel.classList.toggle("is-open",o); openBtn.hidden=o; }
+    openBtn.onclick=()=>setOpen(true); closeBtn.onclick=()=>setOpen(false);
+    document.getElementById("metal").onchange=e=>root.setAttribute("data-metal", e.target.value);
+  </script>
+</body>
+</html>

@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Specimen 04 — Pentagram</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ground: #F4F1E7;
+      --ink: #1E3FFF;
+      --type: "Barlow Condensed", "Arial Narrow", sans-serif;
+      --gutter: 28px;
+    }
+
+    [data-pair="mono"] {
+      --ground: #FFFFFF;
+      --ink: #000000;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      min-height: 100%;
+      background: var(--ground);
+      color: var(--ink);
+      font-family: var(--type);
+      font-size: 16px;
+      font-weight: 400;
+      line-height: 1.5;
+      text-wrap: pretty;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      column-gap: var(--gutter);
+      padding: 20px var(--gutter) 80px;
+      min-height: 100vh;
+      position: relative;
+    }
+
+    .rule {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 56px;
+      height: 1px;
+      background: var(--ink);
+    }
+
+    .meta {
+      grid-column: 1 / 3;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      line-height: 1.35;
+      padding-top: 8px;
+    }
+
+    .nav {
+      grid-column: 10 / 13;
+      display: flex;
+      justify-content: flex-end;
+      gap: 20px;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding-top: 8px;
+    }
+
+    .nav a {
+      border-bottom: 1px solid transparent;
+    }
+
+    .nav a:hover,
+    .nav a:focus-visible {
+      border-bottom-color: var(--ink);
+      outline: none;
+    }
+
+    h1 {
+      grid-column: 1 / 13;
+      font-weight: 800;
+      font-size: clamp(64px, 18vw, 220px);
+      line-height: 0.82;
+      letter-spacing: -0.04em;
+      text-transform: uppercase;
+      margin-left: calc(var(--gutter) * -0.6);
+      width: calc(100% + 12vw);
+      padding-top: 48px;
+    }
+
+    .block {
+      grid-column: 8 / 13;
+      background: var(--ink);
+      color: var(--ground);
+      min-height: 28vh;
+      display: flex;
+      align-items: flex-end;
+      justify-content: flex-end;
+      padding: 16px 20px;
+      margin-top: 8px;
+    }
+
+    .block .num {
+      font-weight: 800;
+      font-size: clamp(72px, 14vw, 180px);
+      line-height: 0.75;
+      letter-spacing: -0.05em;
+    }
+
+    .body {
+      grid-column: 1 / 7;
+      font-size: 17px;
+      line-height: 1.5;
+      max-width: 28em;
+      align-self: start;
+      padding-top: 24px;
+    }
+
+    .actions {
+      grid-column: 1 / 6;
+      display: flex;
+      gap: 0;
+      margin-top: 8px;
+    }
+
+    .btn {
+      font-family: var(--type);
+      font-weight: 800;
+      font-size: 13px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      border: 1px solid var(--ink);
+      background: transparent;
+      color: var(--ink);
+      padding: 10px 18px;
+      cursor: pointer;
+      border-radius: 0;
+    }
+
+    .btn:hover,
+    .btn:focus-visible {
+      background: var(--ink);
+      color: var(--ground);
+      outline: none;
+    }
+
+    .btn-fill {
+      background: var(--ink);
+      color: var(--ground);
+    }
+
+    .btn-fill:hover,
+    .btn-fill:focus-visible {
+      background: transparent;
+      color: var(--ink);
+    }
+
+    .gutter-note {
+      grid-column: 12 / 13;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+      justify-self: end;
+      align-self: end;
+      padding-bottom: 12px;
+    }
+
+    .tweaks-toggle,
+    .tweaks {
+      position: fixed;
+      z-index: 20;
+      bottom: 20px;
+      right: 20px;
+      font-family: var(--type);
+    }
+
+    .tweaks-toggle {
+      background: var(--ground);
+      color: var(--ink);
+      border: 1px solid var(--ink);
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-weight: 800;
+      padding: 8px 12px;
+      cursor: pointer;
+      border-radius: 0;
+    }
+
+    .tweaks-toggle:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+
+    .tweaks {
+      width: 250px;
+      background: var(--ground);
+      color: var(--ink);
+      border: 1px solid var(--ink);
+      padding: 16px;
+      display: none;
+    }
+
+    .tweaks.is-open { display: block; }
+
+    .tweaks h2 {
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .tweaks label {
+      display: block;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .tweaks select {
+      width: 100%;
+      border: 1px solid var(--ink);
+      background: var(--ground);
+      color: var(--ink);
+      font-family: var(--type);
+      font-size: 14px;
+      font-weight: 800;
+      padding: 8px;
+      border-radius: 0;
+    }
+
+    .tweaks-close {
+      margin-top: 12px;
+      background: none;
+      border: 0;
+      border-bottom: 1px solid var(--ink);
+      font-family: var(--type);
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--ink);
+      cursor: pointer;
+      padding: 0 0 2px;
+    }
+
+    @media (max-width: 800px) {
+      .meta, .nav, .body, .actions, .block, h1, .gutter-note {
+        grid-column: 1 / 13;
+      }
+      .nav { justify-content: flex-start; }
+      .gutter-note { writing-mode: horizontal-tb; transform: none; }
+      h1 { width: 108%; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; }
+    }
+  </style>
+</head>
+<body data-pair="cobalt">
+  <div class="grid">
+    <div class="rule" aria-hidden="true"></div>
+    <p class="meta">Specimen 04<br />Type as image<br />12-column</p>
+    <nav class="nav">
+      <a href="index.html">Index</a>
+      <a href="#">Work</a>
+      <a href="#">Studio</a>
+    </nav>
+    <h1>Make the<br />type do it</h1>
+    <p class="body">A phrase large enough to be mistaken for architecture. Color arrives as a field, not a decoration. Captions cling to the gutter and wait.</p>
+    <div class="actions">
+      <button class="btn btn-fill" type="button">The brief</button>
+      <button class="btn" type="button">The grid</button>
+    </div>
+    <div class="block" aria-hidden="true"><span class="num">02</span></div>
+    <p class="gutter-note">Public scale · no photography</p>
+  </div>
+
+  <button class="tweaks-toggle" type="button" id="tweaksOpen">Tweaks</button>
+  <aside class="tweaks" id="tweaks" hidden>
+    <h2>Tweaks</h2>
+    <label for="pair">Pairing</label>
+    <select id="pair">
+      <option value="cobalt">Cobalt on bone</option>
+      <option value="mono">Black on white</option>
+    </select>
+    <button class="tweaks-close" type="button" id="tweaksClose">Close</button>
+  </aside>
+
+  <script>
+    const root = document.body;
+    const panel = document.getElementById("tweaks");
+    const openBtn = document.getElementById("tweaksOpen");
+    const closeBtn = document.getElementById("tweaksClose");
+    const pair = document.getElementById("pair");
+
+    function setOpen(open) {
+      panel.hidden = !open;
+      panel.classList.toggle("is-open", open);
+      openBtn.hidden = open;
+    }
+
+    openBtn.addEventListener("click", () => setOpen(true));
+    closeBtn.addEventListener("click", () => setOpen(false));
+    pair.addEventListener("change", () => root.setAttribute("data-pair", pair.value));
+  </script>
+</body>
+</html>

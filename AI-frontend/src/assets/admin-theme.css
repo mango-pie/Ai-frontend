@@ -1,3 +1,13 @@
+/* ============================================================
+   admin-theme.css — 管理后台通用主题样式表
+   适用于各类管理/工作台页面（.admin-theme-page 容器），包含：
+   1. Ant Design 组件的暗色主题覆盖（表单 / 输入框 / 卡片 / 表格 / 分页 / 按钮 / 弹窗）
+   2. 通用管理页扩展样式（面包屑 / 页头 Hero / 筛选栏 / 编辑器工具栏 / Tab 等）
+   3. 精读美化共享工具类（卡片网格 / 骨架屏 / stagger 入场 / 状态 chip）
+   4. 数据工作台字体治理与页头统计、头像占位
+   ============================================================ */
+
+/* ---------- Ant Design 暗色主题覆盖：页面容器与表单 ---------- */
 .admin-theme-page {
   max-width: 1200px;
   margin: 0 auto;
@@ -34,6 +44,7 @@
   border-color: var(--color-border);
 }
 
+/* ---------- 表格：透明底 + 悬停行高亮，融入暗色卡片 ---------- */
 .admin-theme-page :deep(.ant-table),
 .admin-theme-page :deep(.ant-table-container),
 .admin-theme-page :deep(.ant-table-thead > tr > th),
@@ -47,6 +58,7 @@
   background: var(--color-primary-08) !important;
 }
 
+/* ---------- 分页器：暗色底，当前页使用品牌渐变 ---------- */
 .admin-theme-page :deep(.ant-pagination-item),
 .admin-theme-page :deep(.ant-pagination-prev .ant-pagination-item-link),
 .admin-theme-page :deep(.ant-pagination-next .ant-pagination-item-link) {
@@ -73,6 +85,7 @@
   border: none !important;
 }
 
+/* ---------- 全局弹窗（挂在 body 下，不随 scoped 容器）：暗色卡片底 ---------- */
 .ant-modal .ant-modal-content {
   background: var(--color-bg-card);
   border: 1px solid var(--color-border);
@@ -324,7 +337,7 @@
   color: var(--color-primary-light);
 }
 
-/* 响应式调整 */
+/* ---------- 响应式断点：≤768px 收窄页距、纵向堆叠筛选与操作栏 ---------- */
 @media (max-width: 768px) {
   .admin-page-hero {
     padding: 18px 20px;
@@ -385,6 +398,7 @@
   border-radius: 6px;
 }
 
+/* 骨架屏流光关键帧：高光带从左到右扫过 */
 @keyframes kbShimmer {
   100% {
     transform: translateX(100%);
@@ -406,6 +420,7 @@
 .kb-stagger > *:nth-child(8) { animation-delay: 0.3s; }
 .kb-stagger > *:nth-child(n + 9) { animation-delay: 0.34s; }
 
+/* stagger 入场关键帧：上移淡入 */
 @keyframes kbFadeUp {
   from {
     opacity: 0;
@@ -464,6 +479,7 @@
   --chip-border: var(--color-border);
 }
 
+/* 无障碍：减弱动效偏好下关闭骨架屏流光与 stagger 入场动画 */
 @media (prefers-reduced-motion: reduce) {
   .kb-skeleton::after,
   .kb-stagger > * {
@@ -473,4 +489,63 @@
     opacity: 1 !important;
     transform: none !important;
   }
+}
+
+/* ── 数据工作台字体治理：表格/表单用正文字体，展示字只留给页头标题 ── */
+.admin-theme-page {
+  --font-sans: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+  /* body 上的 font-family 已按 :root 变量计算完成，继承的是计算值；
+     必须在本作用域重新声明才能让数据表格回到正文字体 */
+  font-family: var(--font-sans);
+}
+.admin-page-hero .hero-title {
+  font-family: 'ZCOOL KuaiLe', 'PingFang SC', sans-serif;
+  letter-spacing: 1px;
+}
+.admin-theme-page .ant-table {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 页头右侧迷你统计 */
+.admin-hero-stats {
+  display: flex;
+  gap: 26px;
+  align-items: center;
+}
+.admin-hero-stats .stat {
+  text-align: right;
+}
+.admin-hero-stats .stat b {
+  display: block;
+  font-size: 22px;
+  line-height: 1.15;
+  font-family: 'ZCOOL KuaiLe', 'PingFang SC', sans-serif;
+  color: var(--color-text-primary);
+}
+.admin-hero-stats .stat span {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+/* 头像缺省占位：圆角方形 + 首字 */
+.admin-avatar-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: var(--color-primary-08);
+  color: var(--color-primary-light);
+  font-family: 'ZCOOL KuaiLe', 'PingFang SC', sans-serif;
+  font-size: 18px;
+  overflow: hidden;
+}
+
+/* antd 组件自带字体栈会压过页面继承，数据单元格强制回到正文字体 */
+.admin-theme-page .ant-table-tbody > tr > td,
+.admin-theme-page .ant-table-thead > tr > th,
+.admin-theme-page .ant-pagination,
+.admin-theme-page .ant-btn {
+  font-family: var(--font-sans);
 }

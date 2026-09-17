@@ -878,6 +878,14 @@ watch(
   margin-bottom: 0 !important;
 }
 
+/* 表单可读宽度：输入控件不再横贯 1920 舞台 */
+.settings-form :deep(.ant-form-item) {
+  max-width: 720px;
+}
+.settings-form :deep(.ant-form-item-control-input-content) {
+  max-width: 100%;
+}
+
 .field-extra {
   display: flex;
   flex-wrap: wrap;

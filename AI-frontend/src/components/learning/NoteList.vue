@@ -1,4 +1,9 @@
 <script setup lang="ts">
+/**
+ * 学习笔记列表（"叶"列表）：展示当前选中知识树枝下挂载的全部笔记卡片。
+ * 功能：标题/摘要搜索、发布/入库状态筛选、行内预览 Markdown、移动到其它枝、
+ * 取消挂载、跳转笔记详情页；并提供多种空状态引导（无枝/无笔记/无匹配）。
+ */
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search, Sparkles, Loader2 } from 'lucide-vue-next'
@@ -7,6 +12,7 @@ import { getKnowledgeNoteDetail } from '@/api/knowledge/knowledgeNote'
 import { marked } from 'marked'
 import EmptyState from './EmptyState.vue'
 
+/** 渲染 Markdown 预览；解析失败时降级为转义纯文本，避免抛错 */
 function renderMd(md: string): string {
   if (!md) return ''
   try {
@@ -40,9 +46,11 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<Emits>()
 const router = useRouter()
 
+/** 搜索关键词与状态筛选（全部/已发博客/已入库），作用于当前枝的叶列表 */
 const searchQuery = ref('')
 const statusFilter = ref<'all' | 'published' | 'indexed'>('all')
 
+/** 过滤后的叶列表：先按关键词匹配标题/摘要，再按发布或索引状态过滤 */
 const filteredLeaves = computed(() => {
   let list = props.leaves
   if (searchQuery.value.trim()) {
@@ -59,15 +67,18 @@ const filteredLeaves = computed(() => {
   return list
 })
 
+/** 叶标题优先取自身 title，否则回退到源笔记标题 noteTitle */
 function leafTitle(leaf: LearningLeafVO): string {
   return leaf.title || leaf.noteTitle || ''
 }
 
+/* ---------- 行内预览：点击"预览"后懒加载笔记精读正文 ---------- */
 const expandedId = ref<number | string | null>(null)
 const expandedLoading = ref(false)
 const expandedContent = ref('')
 const expandedError = ref('')
 
+/** 展开/收起笔记预览；再次点击同一条则收起。正文通过详情接口懒加载 */
 async function toggleExpand(noteId: number | string) {
   if (expandedId.value === noteId) {
     expandedId.value = null
@@ -93,13 +104,16 @@ async function toggleExpand(noteId: number | string) {
   }
 }
 
+/** 跳转到笔记详情页（单击/双击卡片均可进入） */
 function goToDetail(noteId: number | string) {
   router.push(`/admin/knowledge/notes/${noteId}`)
 }
 
+/* ---------- 移叶：把当前笔记挂到其它枝 ---------- */
 const movingNoteId = ref<number | string | null>(null)
 const moveTargetId = ref<number | string | null>(null)
 
+/** 开始移动：记录要移动的笔记并默认选中第一个候选枝 */
 function startMove(noteId: number | string) {
   movingNoteId.value = noteId
   moveTargetId.value = (props.branches || [])[0]?.id ?? null
@@ -110,6 +124,7 @@ function cancelMove() {
   moveTargetId.value = null
 }
 
+/** 确认移动：校验通过后抛出 move-to 事件，由父组件调接口完成挂载迁移 */
 function confirmMove() {
   if (movingNoteId.value != null && moveTargetId.value != null) {
     emit('move-to', { noteId: movingNoteId.value, targetBranchId: moveTargetId.value })
@@ -117,10 +132,12 @@ function confirmMove() {
   cancelMove()
 }
 
+/** 移动目标枝候选：用完整路径作标签，避免同名枝混淆 */
 const branchOptions = computed(() =>
   (props.branches || []).map((b) => ({ value: b.id, label: b.path || b.title })),
 )
 
+/** 复习状态 → 徽章文案与样式（已掌握/复习中/待复习） */
 function reviewChip(leaf: LearningLeafVO) {
   const s = String(leaf.reviewStatus || 'NEW').toUpperCase()
   if (s === 'MASTERED') return { text: '已掌握', cls: 'rev done' }
@@ -136,6 +153,7 @@ function reviewChip(leaf: LearningLeafVO) {
       <span v-if="leaves.length" class="meta">{{ filteredLeaves.length }} 篇 · 已挂载</span>
     </div>
 
+    <!-- 搜索 + 状态筛选工具条：仅在选中了枝且有笔记时显示 -->
     <div v-if="branchId != null && leaves.length > 0" class="note-list__toolbar">
       <span class="note-list__search-wrap">
         <Search :size="14" class="note-list__search-icon" />
@@ -168,10 +186,12 @@ function reviewChip(leaf: LearningLeafVO) {
       </span>
     </div>
 
+    <!-- 加载骨架：按已有数量（或默认 4 个）占位 -->
     <div v-if="loading" class="leaf-grid" aria-label="加载中">
       <div v-for="i in (leaves.length || 4)" :key="i" class="leaf-card" style="min-height: 72px; opacity: 0.55" />
     </div>
 
+    <!-- 笔记卡片网格：卡片点击进详情；展开态占满整行展示预览 -->
     <div v-else-if="branchId != null && leaves?.length" class="leaf-grid">
       <div
         v-for="leaf in filteredLeaves"
@@ -195,6 +215,7 @@ function reviewChip(leaf: LearningLeafVO) {
           >已入库</span>
         </div>
 
+        <!-- 行内预览区：懒加载的精读 Markdown（截断 2000 字防长文卡顿） -->
         <div v-if="expandedId === leaf.noteId" class="leaf-card__expand" @click.stop>
           <div v-if="expandedLoading" class="leaf-card__muted">
             <Loader2 :size="14" class="ld-spin" /> 加载中…
@@ -203,6 +224,7 @@ function reviewChip(leaf: LearningLeafVO) {
           <div v-else class="leaf-card__md" v-html="renderMd(expandedContent.slice(0, 2000))" />
         </div>
 
+        <!-- 移叶操作行：选择目标枝后确认，事件交给父组件处理 -->
         <div v-if="movingNoteId === leaf.noteId" class="leaf-card__move" @click.stop>
           <a-select
             v-model:value="moveTargetId"
@@ -215,6 +237,7 @@ function reviewChip(leaf: LearningLeafVO) {
           <button type="button" class="chip-btn sm" @click="cancelMove">取消</button>
         </div>
 
+        <!-- 卡片操作按钮：默认隐藏，悬浮/聚焦/展开时才显示 -->
         <div class="lc-actions" @click.stop>
           <button type="button" class="chip-btn sm" @click="toggleExpand(leaf.noteId)">
             {{ expandedId === leaf.noteId ? '收起' : '预览' }}
@@ -226,6 +249,7 @@ function reviewChip(leaf: LearningLeafVO) {
       </div>
     </div>
 
+    <!-- 三种空状态：筛选无匹配 / 枝下无笔记（引导 AI 搜索）/ 未选择枝 -->
     <EmptyState
       v-else-if="branchId != null && leaves.length > 0 && filteredLeaves.length === 0"
       title="没有匹配的笔记"

@@ -53,8 +53,10 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<Emits>()
 
+/** 一级枝列表（L1 主题），L2 子枝通过 childrenOf 按需取 */
 const l1Branches = computed(() => props.branches.filter((b) => b.depth === 1))
 
+/** 取某 L1 枝下的全部 L2 子枝（id 统一转字符串比较，兼容 number/string） */
 function childrenOf(parentId: number | string) {
   return props.branches.filter(
     (b) => b.depth === 2 && String(b.parentBranchId) === String(parentId),
@@ -97,6 +99,7 @@ watch(
 )
 
 // ── selection ──
+/** 选中枝：同步给父组件；带子枝时自动展开，减少一次点击 */
 function onSelect(branch: LearningBranchTreeNode) {
   emit('update:selected-branch-id', branch.id)
   // auto-expand when selecting a branch that has children
@@ -105,20 +108,24 @@ function onSelect(branch: LearningBranchTreeNode) {
   }
 }
 
+/** 空枝"补学"入口：选中该枝并请父层发起 AI 搜索文章 */
 function onLearnEmpty(branch: LearningBranchTreeNode) {
   emit('learn-empty', { branchId: branch.id, branchTitle: branch.title })
   emit('update:selected-branch-id', branch.id)
 }
 
 // ── inline rename ──
+/** 当前正在改名的枝 id（字符串化）与编辑框初始标题；为 null 表示未在改名 */
 const renamingId = ref<string | null>(null)
 const renamingTitle = ref('')
 
+/** 进入改名态：记录目标枝并把原标题填入输入框 */
 function startRename(branch: LearningBranchTreeNode) {
   renamingId.value = String(branch.id)
   renamingTitle.value = branch.title
 }
 
+/** 确认改名：先做同级重名校验，通过后才把新标题抛给父组件提交 */
 function confirmRename(title: string) {
   if (renamingId.value == null) return
   const branch = props.branches.find((b) => String(b.id) === renamingId.value)
@@ -149,12 +156,15 @@ function isSiblingDuplicate(title: string, parentBranchId: number | string, excl
 }
 
 // ── inline create L1 ──
+/** 是否正在新建 L1 枝（编辑模式行内输入） */
 const creatingL1 = ref(false)
 
+/** 打开新建 L1 的行内输入框 */
 function startCreateL1() {
   creatingL1.value = true
 }
 
+/** 确认新建 L1：与根级（parentBranchId=0）现有枝查重后抛出创建事件 */
 function confirmCreateL1(title: string) {
   if (isSiblingDuplicate(title, 0)) {
     message.warning('同级已存在同名枝')
@@ -170,6 +180,7 @@ function cancelCreateL1() {
   emit('update:createL1Requested', false)
 }
 
+/** 外部（如父组件工具栏"新建主题"按钮）请求打开新建 L1 输入框 */
 watch(
   () => props.createL1Requested,
   (v) => {
@@ -178,6 +189,7 @@ watch(
 )
 
 // ── keyboard nav ──
+/** 上下方向键在可见树行之间移动焦点并触发选中，实现无鼠标导航 */
 function onTreeKeydown(e: KeyboardEvent) {
   if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
   e.preventDefault()
@@ -194,13 +206,16 @@ function onTreeKeydown(e: KeyboardEvent) {
 }
 
 // ── inline create L2 ──
+/** 正在新建 L2 子枝的父枝 id；为 null 表示未在创建 */
 const creatingL2Parent = ref<string | null>(null)
 
+/** 在指定父枝下新建子枝：记录父枝并确保其处于展开状态 */
 function startCreateL2(parentId: number | string) {
   creatingL2Parent.value = String(parentId)
   expandedIds.add(String(parentId))
 }
 
+/** 确认新建子枝：校验父枝存在、标题非空、同级不重名，再抛出创建事件 */
 function confirmCreateL2(title: string) {
   const parentId = creatingL2Parent.value
   if (parentId == null || parentId === '' || parentId === '0') {
@@ -226,6 +241,7 @@ function cancelCreateL2() {
 }
 
 // ── context menu ──
+/** 右键菜单状态：显示位置（已 clamp 在视口内）与目标枝 */
 interface ContextMenuState {
   visible: boolean
   x: number
@@ -257,6 +273,7 @@ function closeContextMenu() {
   ctxMenu.branch = null
 }
 
+/** 右键菜单动作分发：改名/加子枝/合并/删除（有叶的枝禁止删除） */
 function ctxAction(action: 'rename' | 'add-child' | 'merge' | 'delete') {
   if (!ctxMenu.branch) return
   const b = ctxMenu.branch
@@ -281,6 +298,7 @@ function ctxAction(action: 'rename' | 'add-child' | 'merge' | 'delete') {
   }
 }
 
+/** 全局点击关闭菜单：点击菜单自身除外（由菜单上的 @click.stop 兜底） */
 function onGlobalClick(e: MouseEvent) {
   if (!ctxMenu.visible) return
   const t = e.target as HTMLElement | null
@@ -288,6 +306,7 @@ function onGlobalClick(e: MouseEvent) {
   closeContextMenu()
 }
 
+/** Esc 关闭右键菜单 */
 function onGlobalKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape' && ctxMenu.visible) closeContextMenu()
 }

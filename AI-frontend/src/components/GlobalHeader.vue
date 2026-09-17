@@ -1,4 +1,10 @@
 <script setup lang="ts">
+/**
+ * GlobalHeader 全局顶栏
+ * 职责：展示 Logo/站名（点击回首页）、水平导航菜单（由父组件传入并按权限过滤）、
+ * 以及右侧登录态区域（已登录展示头像下拉菜单，未登录展示登录按钮）。
+ * 菜单点击仅向父组件抛出 menuClick 事件，导航跳转逻辑由父组件统一处理。
+ */
 import { computed } from 'vue'
 import { useLoginUserStore } from '@/stores/loginUser.ts'
 import { useRouter } from 'vue-router'
@@ -28,6 +34,7 @@ const router = useRouter()
 const logoSrc = new URL('../assets/logo.svg', import.meta.url).href
 const loginUserStore = useLoginUserStore()
 
+// 把内部菜单树结构递归转换为 ant-design-vue Menu 组件所需的 items 格式
 const menuItemsForAntd = computed<MenuProps['items']>(() => {
   const convert = (items: MenuItem[]): MenuProps['items'] => {
     return items.map(item => {
@@ -44,12 +51,14 @@ const menuItemsForAntd = computed<MenuProps['items']>(() => {
   return convert(props.menuItems)
 })
 
+// 导航菜单点击：透传给父组件处理路由跳转
 const handleMenuClick = (info: { key: string | number }) => {
   emit('menuClick', String(info.key))
 }
 
 type MenuClickEvent = { key: string | number }
 
+// 头像下拉菜单：个人中心直接跳转；退出登录调后端接口并复位本地登录态
 const handleAvatarClick = async ({ key }: MenuClickEvent) => {
   if (key === 'profile') {
     await router.push('/user/profile')
@@ -70,6 +79,7 @@ const handleAvatarClick = async ({ key }: MenuClickEvent) => {
 
 <template>
   <div class="global-header">
+    <!-- 品牌区：点击回首页 -->
     <div class="global-header__left" @click="router.push('/')">
       <img class="global-header__logo" :src="logoSrc" alt="Logo" />
       <div class="global-header__brand">
@@ -78,6 +88,7 @@ const handleAvatarClick = async ({ key }: MenuClickEvent) => {
       </div>
     </div>
 
+    <!-- 中部导航菜单 -->
     <div class="global-header__center">
       <a-menu
         mode="horizontal"
@@ -88,6 +99,7 @@ const handleAvatarClick = async ({ key }: MenuClickEvent) => {
       />
     </div>
 
+    <!-- 右侧登录态：已登录显示头像+下拉菜单，未登录显示登录按钮 -->
     <div class="user-login-status">
       <div v-if="loginUserStore.loginUser.id">
         <a-dropdown

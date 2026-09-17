@@ -1,9 +1,15 @@
 
 <template>
+  <!-- 仅有权限时渲染插槽内容，无权限直接不渲染 -->
   <slot v-if="hasPermission"></slot>
 </template>
 
 <script setup lang="ts">
+/**
+ * PermissionWrapper 权限包裹组件
+ * 职责：声明式的权限控制容器——按所需角色或自定义校验函数判断当前登录用户，
+ * 有权限则渲染插槽内容，无权限则整体隐藏（不渲染任何替代 UI）。
+ */
 import { computed } from 'vue'
 import { useLoginUserStore } from '@/stores/loginUser'
 import { isAdminRole, isAdministrator } from '@/config/permission'
@@ -19,6 +25,7 @@ interface Props {
 const props = defineProps<Props>()
 const loginUserStore = useLoginUserStore()
 
+// 权限判定：customCheck 优先，其次按 required 角色逐级校验（登录 -> 管理员 -> 高级管理员）
 const hasPermission = computed(() => {
   const user = loginUserStore.loginUser
 

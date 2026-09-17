@@ -33,6 +33,7 @@ import {
 } from '@/utils/knowledgeSearchLabels'
 import ReadingRoomShell from '@/components/reading/ReadingRoomShell.vue'
 
+// 采集约束与节奏常量：单次合蒸上限 8 条，建议勾选 2～5 条，任务轮询间隔 2s
 const BATCH_MAX = 8
 const SELECT_HINT_MIN = 2
 const SELECT_HINT_MAX = 5
@@ -40,6 +41,7 @@ const JOB_POLL_MS = 2000
 
 const router = useRouter()
 const route = useRoute()
+// 当前采集模式：url（单链接精炼）/ file（本地文件）/ agent（搜索合蒸）
 const activeTab = ref('url')
 const submitting = ref(false)
 const searchLoading = ref(false)
@@ -54,12 +56,14 @@ let jobPollTimer: ReturnType<typeof setInterval> | null = null
 let activePollJobId: string | number | null = null
 let reconnectNotified = false
 
+// URL 模式表单：链接 + 可选标题/标签
 const urlForm = reactive({
   url: '',
   title: '',
   tags: '',
 })
 
+// 文件模式表单：可选标题/标签（文件本体放在 selectedFile）
 const fileForm = reactive({
   title: '',
   tags: '',
@@ -67,6 +71,7 @@ const fileForm = reactive({
 const fileList = ref<UploadProps['fileList']>([])
 const selectedFile = ref<File | null>(null)
 
+// 搜索合蒸模式表单：学习目标/偏好/标签/手动 URL/自定义精读 Prompt
 const agentForm = reactive({
   goal: '',
   preference: '',
@@ -74,14 +79,17 @@ const agentForm = reactive({
   manualUrls: '',
   distillPrompt: '',
 })
+// 搜索阶段产出的大纲与候选网页，selectedUrls 为用户勾选的来源
 const outline = ref('')
 const candidates = ref<API.KnowledgeSearchCandidate[]>([])
 const selectedUrls = ref<string[]>([])
 const searchDone = ref(false)
+// 合蒸异步任务快照（jobId/progress/noteId 等），驱动整个工作台状态机
 const batchResult = ref<API.KnowledgeReadingJobVO | null>(null)
 /** 组件是否仍挂载：离页后停止自动跳转详情，任务由服务端 + 任务页接续 */
 let pageAlive = true
 
+// 任务状态派生：是否进行中、进度文案、工作台步骤（1～4）、是否待勾选/搜索中/已成功
 const batchJobInProgress = computed(() => isReadingJobInProgress(batchResult.value))
 const batchProgressLabel = computed(() => readingJobProgressLabel(batchResult.value?.progress))
 const workbenchStep = computed(() => readingJobWorkbenchStep(batchResult.value))
@@ -93,6 +101,7 @@ const batchJobSucceeded = computed(() => {
   return data.success === true || String(data.status || '').toUpperCase() === 'SUCCESS'
 })
 
+/** 从任务快照恢复候选列表：默认勾选无风险来源（最多 5 条） */
 function applyCandidatesFromJob(data: API.KnowledgeReadingJobVO) {
   if (data.outline) outline.value = data.outline
   if (Array.isArray(data.candidates) && data.candidates.length) {
@@ -106,6 +115,7 @@ function applyCandidatesFromJob(data: API.KnowledgeReadingJobVO) {
   }
 }
 
+/** 收集当前工作台全量状态，用于草稿持久化 */
 function snapshotDraft() {
   return {
     goal: agentForm.goal,
@@ -316,6 +326,7 @@ const goDetail = (noteId?: number | string | null) => {
   router.push(`/admin/knowledge/notes/${noteId}`)
 }
 
+/** URL 模式：抓取单个网页正文并精炼为精读笔记，成功后跳详情页 */
 const submitUrl = async (sourceType: 'URL' | 'AGENT' = 'URL') => {
   if (!urlForm.url.trim()) {
     message.warning('请填写文章 URL')
@@ -345,6 +356,7 @@ const submitUrl = async (sourceType: 'URL' | 'AGENT' = 'URL') => {
   }
 }
 
+/** 上传前置校验：类型/大小不符合要求直接拦截；返回 false 阻止组件自动上传 */
 const beforeUpload: UploadProps['beforeUpload'] = (file) => {
   const check = isAllowedKbUploadFile(file as File)
   if (!check.ok) {
@@ -368,6 +380,7 @@ const removeFile = () => {
   fileList.value = []
 }
 
+/** 文件模式：上传本地文件（PDF/DOCX/TXT/MD）并由后端提取精炼 */
 const submitFile = async () => {
   if (!selectedFile.value) {
     message.warning('请先选择本地文件（PDF / DOCX / TXT / Markdown）')
@@ -485,6 +498,7 @@ const appendManualCandidates = () => {
   message.success(`已追加 ${added.length} 条`)
 }
 
+/** 任务成功收尾：合并来源统计提示，并按需自动跳转笔记详情 */
 const applyJobSuccess = (data: API.KnowledgeReadingJobVO, navigate: boolean) => {
   batchResult.value = data
   draftRestored.value = false
@@ -582,6 +596,7 @@ const handleJobSnapshot = (
   return 'continue'
 }
 
+/** 单次轮询任务状态；失败仅告警不终止，等待下一轮 */
 const pollJobOnce = async (jobId: number | string, opts: { navigateOnSuccess: boolean }) => {
   try {
     const res = await getKnowledgeReadingJob(jobId)
@@ -596,6 +611,7 @@ const pollJobOnce = async (jobId: number | string, opts: { navigateOnSuccess: bo
   }
 }
 
+/** 启动定时轮询：立即查一次，随后每 2s 拉取任务快照 */
 const startJobPoll = (jobId: number | string, opts: { navigateOnSuccess: boolean }) => {
   stopJobPoll()
   activePollJobId = jobId
@@ -654,6 +670,7 @@ async function refreshMaterialCache() {
   })
 }
 
+/** 合蒸主流程：去重校验 → 提交勾选来源 → 建任务/复用待勾选任务 → 轮询跟踪 */
 const runBatchIngest = async (urls: string[]) => {
   const unique = [...new Set(urls.map((u) => u.trim()).filter(Boolean))]
   if (!unique.length) {
@@ -744,6 +761,7 @@ const retryMergeWithoutFailed = () => {
       </div>
 
       <div class="layout-3 ingest-layout">
+      <!-- 左栏：流水线步骤 / 当前模式 / 本轮任务日志 -->
       <aside class="side anim" style="animation-delay: 0.06s">
         <div class="side-card glass">
           <span class="tape"></span>
@@ -795,6 +813,7 @@ const retryMergeWithoutFailed = () => {
         </div>
       </aside>
 
+      <!-- 中栏：模式切换 + 三种输入面板（URL / 文件 / 搜索合蒸，按 activeTab 条件渲染） -->
       <main class="mid-bay anim" style="animation-delay: 0.14s">
         <div class="ingest-top">
           <div class="ingest-controls">
@@ -958,6 +977,7 @@ const retryMergeWithoutFailed = () => {
           </div>
         </div>
 
+        <!-- 反馈区：按 feedbackMode 在 空态引导/候选列表/进度/成功/失败 五种面板间切换 -->
         <div class="ingest-bottom">
           <section class="band feedback glass">
             <div class="fb-head">
@@ -1156,6 +1176,7 @@ const retryMergeWithoutFailed = () => {
         </div>
       </main>
 
+      <!-- 右栏：本轮统计 / 快捷入口（我的文章、精读设置、清缓存）/ 最近任务 -->
       <aside class="deck anim" style="animation-delay: 0.22s">
         <div class="deck-panel glass">
           <span class="tape alt"></span>

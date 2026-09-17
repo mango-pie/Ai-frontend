@@ -39,7 +39,7 @@ const handleSubmit = async (values: API.UserRegisterRequest) => {
 </script>
 
 <template>
-  <StationRoomShell brand-path="/" note-label="Station · 登记" room="auth" escape-to="/">
+  <StationRoomShell brand-path="/" room="auth" escape-to="/">
     <div class="auth-stage">
       <div class="auth-welcome">
         <p class="auth-kana">{{ siteConfig.brandKana }}</p>
@@ -47,6 +47,7 @@ const handleSubmit = async (values: API.UserRegisterRequest) => {
         <p>创建账号后即可写日记、做实验、继续未完的对话。</p>
       </div>
       <div id="userRegisterPage" class="auth-card station-glass">
+        <span class="auth-card__tape font-display" aria-hidden="true">Station · 登记</span>
         <h2 class="title font-display">{{ siteConfig.siteName }} · 注册</h2>
         <p class="desc">账号至少 4 位，密码至少 8 位</p>
         <a-form :model="formState" name="register" autocomplete="off" @finish="handleSubmit">

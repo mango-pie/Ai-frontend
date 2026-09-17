@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Style specimens</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      min-height: 100%;
+      background: #fff;
+      color: #000;
+      font-family: "Times New Roman", Times, serif;
+    }
+
+    main {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 48px 32px;
+      max-width: 52rem;
+    }
+
+    p {
+      font-size: 14px;
+      margin-bottom: 24px;
+      letter-spacing: 0.04em;
+    }
+
+    p.break {
+      margin-top: 48px;
+    }
+
+    ol {
+      list-style: none;
+    }
+
+    li + li {
+      margin-top: 8px;
+    }
+
+    a {
+      color: #000;
+      text-decoration: none;
+      font-size: clamp(28px, 6vw, 56px);
+      line-height: 1.15;
+      display: inline-block;
+      text-wrap: pretty;
+    }
+
+    a:hover,
+    a:focus-visible {
+      text-decoration: underline;
+      outline: none;
+    }
+
+    em {
+      font-style: italic;
+      font-size: 0.42em;
+      letter-spacing: 0;
+      margin-left: 0.4em;
+      vertical-align: middle;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <p>Style specimens, then three player shells without Miku.</p>
+    <ol>
+      <li><a href="01-aesop.html">01 Aesop <em>editorial quiet</em></a></li>
+      <li><a href="02-linear.html">02 Linear <em>warm dark tool</em></a></li>
+      <li><a href="03-turley.html">03 Turley <em>typographic violence</em></a></li>
+      <li><a href="04-pentagram.html">04 Pentagram <em>type as image</em></a></li>
+      <li><a href="05-field-io.html">05 Field.io <em>generative motion</em></a></li>
+      <li><a href="06-mailchimp.html">06 Mailchimp <em>warm yellow</em></a></li>
+      <li><a href="07-y2k.html">07 Y2K <em>aqua chrome</em></a></li>
+      <li><a href="08-mid-century.html">08 Mid-century <em>cut paper</em></a></li>
+    </ol>
+    <p class="break">Player shells. Same grid. No character.</p>
+    <ol>
+      <li><a href="player-a-cover-light.html">A Cover light</a></li>
+      <li><a href="player-b-paper.html">B Paper radio</a></li>
+      <li><a href="player-c-object.html">C Object</a></li>
+      <li><a href="player-d-shoujo-night.html">D Shoujo night</a></li>
+    </ol>
+  </main>
+</body>
+</html>

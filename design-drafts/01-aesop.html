@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Specimen 01 — Aesop</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400&family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,400&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ground: #E8E4D9;
+      --cream: #F0EDE4;
+      --ink: #1B1B1B;
+      --sage: #7A8470;
+      --amber: #7A4623;
+      --space-1: 8px;
+      --space-2: 16px;
+      --space-3: 24px;
+      --space-4: 40px;
+      --space-5: 72px;
+      --space-6: 120px;
+      --serif: "Newsreader", "Iowan Old Style", "Palatino Linotype", Palatino, serif;
+      --sans: "IBM Plex Sans", "Helvetica Neue", Helvetica, sans-serif;
+      --ease: ease-out;
+      --dur: 450ms;
+      --radius: 0;
+    }
+
+    [data-paper="cream"] {
+      --ground: #F2EFE5;
+      --cream: #E8E4D9;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      min-height: 100%;
+      background: var(--ground);
+      color: var(--ink);
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: 18px;
+      line-height: 1.65;
+      text-wrap: pretty;
+    }
+
+    body {
+      position: relative;
+    }
+
+    body::before {
+      content: "";
+      pointer-events: none;
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      opacity: 0.045;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .page {
+      position: relative;
+      z-index: 2;
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+    }
+
+    .masthead {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: var(--space-4);
+      padding: var(--space-4) var(--space-5);
+    }
+
+    .mark {
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+    }
+
+    .nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-3) var(--space-4);
+      font-family: var(--sans);
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .nav a {
+      color: var(--ink);
+      border-bottom: 1px solid transparent;
+      padding-bottom: 2px;
+      transition: border-color var(--dur) var(--ease);
+    }
+
+    .nav a:hover,
+    .nav a:focus-visible {
+      border-bottom-color: var(--amber);
+      outline: none;
+    }
+
+    .stage {
+      display: grid;
+      grid-template-columns: minmax(220px, 5fr) minmax(280px, 7fr);
+      gap: var(--space-6);
+      align-items: end;
+      padding: 0 var(--space-5) var(--space-5);
+    }
+
+    .still {
+      width: min(100%, 420px);
+    }
+
+    .still-frame {
+      aspect-ratio: 4 / 5;
+      background: var(--cream);
+      border: 1px solid color-mix(in srgb, var(--sage) 35%, var(--ground));
+      display: grid;
+      place-items: center;
+      position: relative;
+    }
+
+    .still-frame::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 1px;
+      background: var(--amber);
+    }
+
+    .still-frame span {
+      font-family: var(--sans);
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--sage);
+    }
+
+    .still figcaption {
+      margin-top: var(--space-2);
+      font-style: italic;
+      font-size: 14px;
+      color: var(--sage);
+    }
+
+    .copy {
+      padding-bottom: var(--space-4);
+      max-width: 36rem;
+    }
+
+    .kicker {
+      font-family: var(--sans);
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--sage);
+      margin-bottom: var(--space-3);
+    }
+
+    h1 {
+      font-size: clamp(40px, 6.4vw, 88px);
+      font-weight: 400;
+      line-height: 1.05;
+      letter-spacing: -0.018em;
+      margin-bottom: var(--space-4);
+    }
+
+    h1 em {
+      font-style: italic;
+      font-weight: 400;
+    }
+
+    .lede {
+      text-align: justify;
+      hyphens: auto;
+      max-width: 34em;
+      margin-bottom: var(--space-4);
+    }
+
+    .rule {
+      width: 40px;
+      height: 1px;
+      background: var(--amber);
+      border: 0;
+      margin: 0 0 var(--space-4);
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2) var(--space-4);
+      align-items: center;
+    }
+
+    .btn {
+      font-family: var(--sans);
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      border-radius: var(--radius);
+      border: 1px solid var(--ink);
+      background: transparent;
+      color: var(--ink);
+      padding: 12px 20px;
+      cursor: pointer;
+      transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+    }
+
+    .btn:hover,
+    .btn:focus-visible {
+      background: var(--ink);
+      color: var(--ground);
+      outline: none;
+    }
+
+    .btn-ghost {
+      border-color: transparent;
+      padding-left: 0;
+      padding-right: 0;
+      border-bottom: 1px solid var(--amber);
+      border-radius: 0;
+    }
+
+    .btn-ghost:hover,
+    .btn-ghost:focus-visible {
+      background: transparent;
+      color: var(--ink);
+      border-bottom-color: var(--ink);
+    }
+
+    .fragments {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-4);
+      padding: var(--space-4) var(--space-5) var(--space-6);
+      border-top: 1px solid color-mix(in srgb, var(--sage) 28%, var(--ground));
+    }
+
+    .fragment dt {
+      font-family: var(--sans);
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--sage);
+      margin-bottom: var(--space-2);
+    }
+
+    .fragment dd {
+      font-size: 16px;
+      line-height: 1.55;
+      font-style: italic;
+    }
+
+    .tweaks-toggle,
+    .tweaks {
+      position: fixed;
+      z-index: 20;
+      bottom: 20px;
+      right: 20px;
+      font-family: var(--sans);
+    }
+
+    .tweaks-toggle {
+      background: var(--cream);
+      color: var(--ink);
+      border: 1px solid var(--amber);
+      border-radius: 0;
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      padding: 10px 14px;
+      cursor: pointer;
+    }
+
+    .tweaks-toggle:focus-visible {
+      outline: 1px solid var(--amber);
+      outline-offset: 3px;
+    }
+
+    .tweaks {
+      width: 260px;
+      background: var(--cream);
+      color: var(--ink);
+      border: 1px solid var(--amber);
+      padding: var(--space-3);
+      display: none;
+    }
+
+    .tweaks.is-open { display: block; }
+
+    .tweaks h2 {
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      font-weight: 400;
+      margin-bottom: var(--space-3);
+    }
+
+    .tweaks label {
+      display: block;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--sage);
+      margin-bottom: 8px;
+    }
+
+    .tweaks select {
+      width: 100%;
+      border: 1px solid var(--ink);
+      background: var(--ground);
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 13px;
+      padding: 8px;
+      border-radius: 0;
+    }
+
+    .tweaks-close {
+      margin-top: var(--space-3);
+      font-family: var(--sans);
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      background: none;
+      border: 0;
+      border-bottom: 1px solid var(--amber);
+      color: var(--ink);
+      cursor: pointer;
+      padding: 0 0 2px;
+    }
+
+    @media (max-width: 900px) {
+      .masthead,
+      .stage,
+      .fragments {
+        padding-left: var(--space-3);
+        padding-right: var(--space-3);
+      }
+      .stage {
+        grid-template-columns: 1fr;
+        gap: var(--space-4);
+        align-items: start;
+      }
+      .still { width: min(100%, 280px); }
+      .lede { text-align: left; }
+      .fragments { grid-template-columns: 1fr; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; }
+    }
+  </style>
+</head>
+<body data-paper="chamois">
+  <div class="page">
+    <header class="masthead">
+      <a class="mark" href="index.html">Specimen</a>
+      <nav class="nav" aria-label="Primary">
+        <a href="#">Skincare</a>
+        <a href="#">Body</a>
+        <a href="#">Hair</a>
+        <a href="#">Home</a>
+        <a href="#">Ritual</a>
+      </nav>
+    </header>
+
+    <main class="stage">
+      <figure class="still">
+        <div class="still-frame" role="img" aria-label="Product still pending, 4 by 5">
+          <span>4:5 still</span>
+        </div>
+        <figcaption>Amber glass. Warm chamois. One sprig.</figcaption>
+      </figure>
+
+      <section class="copy">
+        <p class="kicker">A preparation</p>
+        <h1>The hour<br />held <em>still</em></h1>
+        <hr class="rule" />
+        <p class="lede">A preparation is not a performance. It is the hour kept for the basin, the linen, the unhurried surface of the skin. Nothing here asks to be believed. The room is enough, if you allow it to remain unfinished.</p>
+        <div class="actions">
+          <button class="btn" type="button">The formulation</button>
+          <button class="btn btn-ghost" type="button">Notes</button>
+        </div>
+      </section>
+    </main>
+
+    <dl class="fragments">
+      <div class="fragment">
+        <dt>Texture</dt>
+        <dd>Paper before glass. Sage before speech.</dd>
+      </div>
+      <div class="fragment">
+        <dt>Measure</dt>
+        <dd>Regular and italic only. No raised voices.</dd>
+      </div>
+      <div class="fragment">
+        <dt>Edge</dt>
+        <dd>Square throughout. A single amber rule.</dd>
+      </div>
+    </dl>
+  </div>
+
+  <button class="tweaks-toggle" type="button" id="tweaksOpen">Tweaks</button>
+  <aside class="tweaks" id="tweaks" hidden>
+    <h2>Tweaks</h2>
+    <label for="paper">Paper</label>
+    <select id="paper">
+      <option value="chamois">Chamois</option>
+      <option value="cream">Cream</option>
+    </select>
+    <button class="tweaks-close" type="button" id="tweaksClose">Close</button>
+  </aside>
+
+  <script>
+    const root = document.body;
+    const panel = document.getElementById("tweaks");
+    const openBtn = document.getElementById("tweaksOpen");
+    const closeBtn = document.getElementById("tweaksClose");
+    const paper = document.getElementById("paper");
+
+    function setOpen(open) {
+      panel.hidden = !open;
+      panel.classList.toggle("is-open", open);
+      openBtn.hidden = open;
+    }
+
+    openBtn.addEventListener("click", () => setOpen(true));
+    closeBtn.addEventListener("click", () => setOpen(false));
+    paper.addEventListener("change", () => {
+      root.setAttribute("data-paper", paper.value);
+    });
+  </script>
+</body>
+</html>

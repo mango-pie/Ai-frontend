@@ -3,6 +3,7 @@
  * 运维中心 · AI 用量
  * 路由：/admin/ops/usage
  */
+import AdminRoomShell from '@/components/shared/AdminRoomShell.vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { message } from 'ant-design-vue'
 import type { Dayjs } from 'dayjs'
@@ -266,27 +267,11 @@ onMounted(async () => {
 </script>
 
 <template>
+  <AdminRoomShell note-label="Station · 运维中心">
+    <template #nav>
+      <OpsCenterNav active-key="AI用量" />
+    </template>
   <div class="ops-center-page admin-theme-page">
-    <a-breadcrumb class="admin-breadcrumb">
-      <a-breadcrumb-item>
-        <router-link to="/">首页</router-link>
-      </a-breadcrumb-item>
-      <a-breadcrumb-item>
-        <router-link to="/admin/ops">运维中心</router-link>
-      </a-breadcrumb-item>
-      <a-breadcrumb-item>AI 用量</a-breadcrumb-item>
-    </a-breadcrumb>
-
-    <div class="admin-page-hero">
-      <div class="hero-left">
-        <div class="hero-title">AI 用量与调用</div>
-        <div class="hero-subtitle">查看 Token、耗时与场景分布（不含 Prompt 全文）</div>
-      </div>
-    </div>
-
-    <div class="ops-layout">
-      <OpsCenterNav active-key="usage" />
-
       <section class="ops-main">
         <a-alert
           v-if="!switchLoading && !usageLogEnabled"
@@ -520,8 +505,8 @@ onMounted(async () => {
           </a-table>
         </a-card>
       </section>
-    </div>
   </div>
+  </AdminRoomShell>
 </template>
 
 <style scoped>

@@ -1,4 +1,10 @@
 <script setup lang="ts">
+/**
+ * 博客发布/编辑页
+ * 职责：新建与编辑文章共用一页 —— 有路由参数 id 即为编辑模式。
+ * 布局：左侧写作提示栏 + 中间正文表单 + 右侧元数据（封面/分类/标签）。
+ * 支持存草稿与发布两种提交状态，保存后按 from 参数或文章详情页跳回。
+ */
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { message } from 'ant-design-vue'
@@ -19,11 +25,13 @@ const router = useRouter()
 const route = useRoute()
 const loginUserStore = useLoginUserStore()
 
+// 编辑模式判定：路由带 id 即编辑已有文章
 const isEdit = computed(() => !!route.params.id)
 const loading = ref(false)
 const submitting = ref(false)
 const uploading = ref(false)
 
+// 博客 UX 站点配置（摘要字数上限、默认状态等），挂载时从后端加载
 const blogUx = ref<BlogUxSettings>({
   pageSizeDefault: 10,
   summaryMaxLength: 200,
@@ -33,9 +41,11 @@ const blogUx = ref<BlogUxSettings>({
   defaultStatusKey: 'DRAFT',
 })
 
+// 文章状态常量：0 草稿 / 1 已发布
 const STATUS_DRAFT = 0
 const STATUS_PUBLISHED = 1
 
+// 表单模型：新建与编辑共用，编辑时由 fetchPostDetail 回填
 const form = reactive({
   id: null as number | null,
   title: '',
@@ -47,6 +57,7 @@ const form = reactive({
   status: STATUS_DRAFT as number,
 })
 
+// 表单回显：区分"草稿预览 / 将发布"与"草稿 / 已发布"等场景文案
 const isDraft = computed(() => form.status !== STATUS_PUBLISHED)
 const pageTitle = computed(() => {
   if (!isEdit.value) return '写文章'
@@ -58,12 +69,15 @@ const statusLabel = computed(() => {
   return isDraft.value ? '草稿' : '已发布'
 })
 
+// 分类/标签候选项，挂载时一次性拉取
 const categoryOptions = ref<API.BlogCategoryVO[]>([])
 const tagOptions = ref<API.BlogTagVO[]>([])
+// 隐藏的文件输入框引用，由"封面卡片"点击触发
 const coverInput = ref<HTMLInputElement | null>(null)
 
 const openCoverPicker = () => coverInput.value?.click()
 
+// 上传前校验：仅允许图片类型且不超过 5MB
 const beforeUpload = (file: File) => {
   if (!file.type.startsWith('image/')) {
     message.error('只能上传图片文件!')
@@ -76,6 +90,7 @@ const beforeUpload = (file: File) => {
   return true
 }
 
+// 上传封面图片，成功后把返回的 url 写入表单
 const handleImageUpload = async (file: File) => {
   if (!beforeUpload(file)) return
   uploading.value = true
@@ -107,12 +122,14 @@ const handleRemoveCover = () => {
   form.coverUrl = ''
 }
 
+// 标签多选切换：已在选区则移除，不在则加入
 const handleTagToggle = (tagId: number) => {
   const i = form.tagIds.indexOf(tagId)
   if (i === -1) form.tagIds.push(tagId)
   else form.tagIds.splice(i, 1)
 }
 
+// 提交前校验：标题/摘要/正文/分类均为必填
 const validateForm = () => {
   if (!form.title.trim()) {
     message.warning('请输入文章标题')
@@ -133,6 +150,7 @@ const validateForm = () => {
   return true
 }
 
+// 提交：按是否编辑模式调用更新/新增接口；成功后依据来源页优先跳回
 const handleSubmit = async (nextStatus: number) => {
   if (!validateForm()) return
   submitting.value = true
@@ -182,6 +200,7 @@ const handleSubmit = async (nextStatus: number) => {
   }
 }
 
+// 重置：编辑模式重新拉取详情还原；新建模式清空表单并恢复默认状态
 const handleReset = () => {
   if (isEdit.value) fetchPostDetail()
   else {
@@ -195,6 +214,7 @@ const handleReset = () => {
   }
 }
 
+// 返回：优先回到来源页（from 参数），否则回博客列表
 const handleBack = () => {
   const returnPath = resolveBlogReturnPath(
     route.query.from,
@@ -207,6 +227,7 @@ const handleBack = () => {
   router.push('/blog')
 }
 
+// 编辑模式：拉取文章详情并回填表单（含分类 id、标签 id 列表）
 const fetchPostDetail = async () => {
   if (!route.params.id) return
   loading.value = true
@@ -236,12 +257,14 @@ const fetchPostDetail = async () => {
 }
 
 onMounted(async () => {
+  // 写作需登录：未登录直接带回跳地址去登录页
   if (!loginUserStore.loginUser?.id) {
     message.warning('请先登录')
     router.push(`/user/login?redirect=${encodeURIComponent(route.fullPath)}`)
     return
   }
 
+  // 先加载站点配置（决定默认状态等），再并发拉取分类与标签候选
   blogUx.value = await loadBlogSettings()
   form.status = blogUx.value.defaultStatus
 
@@ -323,9 +346,11 @@ onMounted(async () => {
         </div>
       </div>
 
+      <!-- 右侧元数据栏：封面、分类、标签与发布建议 -->
       <aside class="form-panel glass detail-side">
         <div class="form-row">
           <div class="form-label">封面</div>
+          <!-- 封面上传卡片：已有封面显示预览图，否则显示占位提示 -->
           <div
             class="cover-upload"
             role="button"
@@ -362,6 +387,7 @@ onMounted(async () => {
             <option v-for="cat in categoryOptions" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
           </select>
         </div>
+        <!-- 标签多选：点击切换选中态（on 类控制勾选样式） -->
         <div class="form-row">
           <div class="form-label">标签</div>
           <div class="tag-cloud">

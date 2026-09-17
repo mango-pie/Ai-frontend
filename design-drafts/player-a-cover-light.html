@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Player A — Cover as light</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #0B0A09;
+      --elev: #161412;
+      --text: #F4F0EA;
+      --muted: #9A9388;
+      --cover: #C45A2A;
+      --cover-rgb: 196 90 42;
+      --radius: 0;
+    }
+    [data-cover="teal"] { --cover: #2A8F86; --cover-rgb: 42 143 134; }
+    [data-cover="ink"] { --cover: #D7C4A3; --cover-rgb: 215 196 163; }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      background: var(--ink);
+      color: var(--text);
+      font-family: "IBM Plex Sans", sans-serif;
+      font-size: 14px;
+      overflow: hidden;
+      text-wrap: pretty;
+    }
+    .wash {
+      position: fixed;
+      inset: 0;
+      background: rgb(var(--cover-rgb) / 0.22);
+      pointer-events: none;
+    }
+    .app {
+      position: relative;
+      z-index: 1;
+      height: 100vh;
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      grid-template-rows: 1fr 88px;
+      grid-template-areas: "rail stage" "rail player";
+    }
+    .rail {
+      grid-area: rail;
+      border-right: 1px solid rgb(255 255 255 / 0.06);
+      display: flex;
+      flex-direction: column;
+      padding: 20px 16px;
+      background: rgb(0 0 0 / 0.28);
+    }
+    .mark {
+      font-family: Syne, sans-serif;
+      font-weight: 800;
+      font-size: 18px;
+      letter-spacing: 0.12em;
+    }
+    .mark span { color: var(--muted); font-weight: 500; font-size: 11px; display: block; margin-top: 4px; letter-spacing: 0.16em; }
+    nav { margin-top: 36px; display: grid; gap: 4px; }
+    nav button {
+      font: inherit;
+      color: var(--muted);
+      background: none;
+      border: 0;
+      text-align: left;
+      padding: 10px 8px;
+      cursor: pointer;
+    }
+    nav button.is-on, nav button:hover, nav button:focus-visible {
+      color: var(--text);
+      outline: none;
+    }
+    nav button.is-on { box-shadow: inset 2px 0 0 var(--cover); }
+    .stage {
+      grid-area: stage;
+      display: grid;
+      grid-template-columns: minmax(240px, 420px) 1fr;
+      gap: 48px;
+      align-items: center;
+      padding: 40px 48px;
+    }
+    .cover {
+      aspect-ratio: 1;
+      background: var(--cover);
+      display: grid;
+      place-items: center;
+      color: rgb(0 0 0 / 0.45);
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+    .copy h1 {
+      font-family: Syne, sans-serif;
+      font-size: clamp(32px, 4vw, 52px);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.05;
+      margin-bottom: 12px;
+    }
+    .copy p { color: var(--muted); max-width: 28em; line-height: 1.6; }
+    .lyric {
+      margin-top: 28px;
+      font-size: 16px;
+      line-height: 1.8;
+    }
+    .lyric .now { color: var(--text); }
+    .lyric span { display: block; color: rgb(255 255 255 / 0.28); }
+    .player {
+      grid-area: player;
+      border-top: 1px solid rgb(255 255 255 / 0.06);
+      display: grid;
+      grid-template-columns: 1.1fr 1.4fr 1fr;
+      align-items: center;
+      padding: 0 24px;
+      background: rgb(0 0 0 / 0.35);
+    }
+    .now { display: flex; gap: 12px; align-items: center; }
+    .now i { width: 44px; height: 44px; background: var(--cover); display: block; }
+    .now strong { display: block; font-family: Syne, sans-serif; }
+    .now small { color: var(--muted); }
+    .transport { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+    .keys { display: flex; gap: 8px; align-items: center; }
+    button.icon {
+      width: 36px; height: 36px;
+      border: 0; background: none; color: var(--text); cursor: pointer;
+      display: grid; place-items: center;
+    }
+    button.play {
+      width: 44px; height: 44px;
+      background: var(--cover); color: #0B0A09;
+    }
+    button.icon:focus-visible, button.play:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+    .bar {
+      width: min(100%, 360px);
+      height: 2px;
+      background: rgb(255 255 255 / 0.12);
+      position: relative;
+    }
+    .bar::after {
+      content: "";
+      position: absolute; left: 0; top: 0; bottom: 0; width: 38%;
+      background: var(--cover);
+    }
+    .tools { justify-self: end; color: var(--muted); font-size: 12px; letter-spacing: 0.08em; }
+    .tweaks-toggle, .tweaks { position: fixed; z-index: 9; bottom: 20px; right: 20px; font-family: inherit; }
+    .tweaks-toggle {
+      background: var(--elev); color: var(--text); border: 1px solid rgb(255 255 255 / 0.12);
+      padding: 8px 12px; cursor: pointer; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+    }
+    .tweaks { width: 240px; background: var(--elev); padding: 16px; display: none; border: 1px solid rgb(255 255 255 / 0.12); }
+    .tweaks.is-open { display: block; }
+    .tweaks h2 { font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 10px; }
+    .tweaks select { width: 100%; background: var(--ink); color: var(--text); border: 1px solid rgb(255 255 255 / 0.12); padding: 8px; }
+    .tweaks-close { margin-top: 10px; background: none; border: 0; color: var(--muted); cursor: pointer; }
+    @media (max-width: 860px) {
+      .app { grid-template-columns: 1fr; grid-template-areas: "stage" "player"; }
+      .rail { display: none; }
+      .stage { grid-template-columns: 1fr; padding: 24px; }
+    }
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  </style>
+</head>
+<body data-cover="amber">
+  <div class="wash" aria-hidden="true"></div>
+  <div class="app">
+    <aside class="rail">
+      <a class="mark" href="index.html">LISTEN<span>PLAYER SPECIMEN</span></a>
+      <nav>
+        <button class="is-on" type="button">正在播放</button>
+        <button type="button">发现</button>
+        <button type="button">曲库</button>
+        <button type="button">设置</button>
+      </nav>
+    </aside>
+    <main class="stage">
+      <div class="cover" role="img" aria-label="封面占位，1 比 1">1:1 cover</div>
+      <div class="copy">
+        <h1>Specimen track</h1>
+        <p>Artist pending. 房间只喝封面里的一个色。没有角色，没有网格。</p>
+        <div class="lyric">
+          <span>上一行退到很远</span>
+          <span class="now">这一行是正在发生的句子</span>
+          <span>下一行还没有到</span>
+        </div>
+      </div>
+    </main>
+    <footer class="player">
+      <div class="now">
+        <i aria-hidden="true"></i>
+        <div>
+          <strong>Specimen track</strong>
+          <small>Artist pending</small>
+        </div>
+      </div>
+      <div class="transport">
+        <div class="keys">
+          <button class="icon" type="button" aria-label="上一首"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h2v12H3zm3.2 6L13 2v12z"/></svg></button>
+          <button class="icon play" type="button" aria-label="播放"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M4 2l11 6-11 6z"/></svg></button>
+          <button class="icon" type="button" aria-label="下一首"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M11 2h2v12h-2zM3 2l6.8 6L3 14z"/></svg></button>
+        </div>
+        <div class="bar" aria-hidden="true"></div>
+      </div>
+      <div class="tools">QUEUE</div>
+    </footer>
+  </div>
+  <button class="tweaks-toggle" type="button" id="tweaksOpen">Tweaks</button>
+  <aside class="tweaks" id="tweaks" hidden>
+    <h2>Tweaks</h2>
+    <label for="cover">Cover temperature</label>
+    <select id="cover">
+      <option value="amber">Amber</option>
+      <option value="teal">Teal</option>
+      <option value="ink">Bone</option>
+    </select>
+    <button class="tweaks-close" type="button" id="tweaksClose">Close</button>
+  </aside>
+  <script>
+    const root = document.body, panel = document.getElementById("tweaks");
+    const openBtn = document.getElementById("tweaksOpen"), closeBtn = document.getElementById("tweaksClose");
+    function setOpen(o){ panel.hidden=!o; panel.classList.toggle("is-open",o); openBtn.hidden=o; }
+    openBtn.onclick=()=>setOpen(true); closeBtn.onclick=()=>setOpen(false);
+    document.getElementById("cover").onchange=e=>root.setAttribute("data-cover", e.target.value);
+  </script>
+</body>
+</html>

@@ -3,18 +3,22 @@
  * 对话管理页（管理员） - 路径：/admin/chatHistoryManage
  * 表格展示所有对话历史，支持分页、搜索、删除
  */
+import AdminRoomShell from '@/components/shared/AdminRoomShell.vue'
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
 import { listChatHistoryByPageForAdmin, deleteByAppId } from '@/api/chatHistoryController.ts'
+import AdminIdCell from '@/components/admin/AdminIdCell.vue'
 import '@/assets/admin-theme.css'
 import { MessagesSquare } from 'lucide-vue-next'
 
 const router = useRouter()
+// 表格数据源与分页状态
 const dataSource = ref<API.ChatHistoryVO[]>([])
 const total = ref(0)
 const loading = ref(false)
 
+// 查询条件：按应用/用户/消息类型/消息内容多维度筛选对话记录
 const searchParams = reactive<API.ChatHistoryQueryRequest>({
   pageNum: 1,
   pageSize: 10,
@@ -24,6 +28,7 @@ const searchParams = reactive<API.ChatHistoryQueryRequest>({
   userId: undefined,
 })
 
+/** 格式化时间为本地字符串 */
 function formatTime(str: string | undefined): string {
   if (!str) return '-'
   try {
@@ -49,6 +54,7 @@ const columns = [
   { title: '操作', key: 'action', width: 140, fixed: 'right' },
 ]
 
+/** 拉取对话分页列表 */
 const fetchData = async () => {
   loading.value = true
   try {
@@ -80,13 +86,15 @@ const doReset = () => {
   fetchData()
 }
 
+/** 分页页码或每页条数变化后重新请求 */
 const onTableChange = (pag: { current?: number; pageSize?: number }) => {
   if (pag.current != null) searchParams.pageNum = pag.current
   if (pag.pageSize != null) searchParams.pageSize = pag.pageSize
   fetchData()
 }
 
-const doDeleteByAppId = (appId: string) => {
+/** 清空指定应用的全部对话记录（二次确认） */
+const doDeleteByAppId = (appId: number) => {
   Modal.confirm({
     title: `确认删除应用 ${appId} 的所有对话记录吗？`,
     okText: '确认',
@@ -107,18 +115,16 @@ onMounted(fetchData)
 </script>
 
 <template>
+  <AdminRoomShell note-label="Station · 对话管理">
   <div class="chat-history-manager-page admin-theme-page">
-    <!-- 面包屑 -->
-    <a-breadcrumb class="admin-breadcrumb">
-      <a-breadcrumb-item>管理</a-breadcrumb-item>
-      <a-breadcrumb-item>对话管理</a-breadcrumb-item>
-    </a-breadcrumb>
-
     <!-- 页面头部 -->
     <div class="admin-page-hero">
       <div class="hero-left">
         <div class="hero-title"><MessagesSquare :size="22" /> 对话管理</div>
-        <div class="hero-subtitle">共 {{ total }} 条对话记录 · 管理平台所有 AI 对话历史</div>
+        <div class="hero-subtitle">管理平台所有 AI 对话历史</div>
+      </div>
+      <div class="hero-extra admin-hero-stats">
+        <div class="stat"><b>{{ total }}</b><span>对话记录</span></div>
       </div>
     </div>
 
@@ -177,7 +183,16 @@ onMounted(fetchData)
         @change="onTableChange"
       >
         <template #bodyCell="{ column, record }">
-          <template v-if="column.dataIndex === 'messageType'">
+          <template v-if="column.dataIndex === 'id'">
+            <AdminIdCell :id="record.id" />
+          </template>
+          <template v-else-if="column.dataIndex === 'appId'">
+            <AdminIdCell :id="record.appId" />
+          </template>
+          <template v-else-if="column.dataIndex === 'userId'">
+            <AdminIdCell :id="record.userId" />
+          </template>
+          <template v-else-if="column.dataIndex === 'messageType'">
             <a-tag :color="record.messageType === 'user' ? 'blue' : 'green'">
               {{ record.messageType ?? '-' }}
             </a-tag>
@@ -186,7 +201,7 @@ onMounted(fetchData)
             {{ formatTime(record.createTime) }}
           </template>
           <template v-else-if="column.key === 'action'">
-            <a-button type="link" danger size="small" @click="doDeleteByAppId(String(record.appId ?? ''))">
+            <a-button size="small" @click="doDeleteByAppId(Number(record.appId ?? 0))">
               清空对话
             </a-button>
           </template>
@@ -197,6 +212,7 @@ onMounted(fetchData)
       </a-table>
     </a-card>
   </div>
+  </AdminRoomShell>
 </template>
 
 <style scoped>

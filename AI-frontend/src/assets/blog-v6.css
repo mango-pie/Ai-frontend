@@ -1,3 +1,11 @@
+/* ============================================================
+   blog-v6.css — 随笔手账舞台（博客 v6 版式，随 Home v3 改版派生）
+   对应模块：#blog-journal-stage 博客手账舞台（固定 1920x1080 画布 + 等比缩放）
+   结构分区：设计令牌与四时段主题 → 舞台/视口 → 顶栏 topbar → LIST 列表页
+   （便当卡 + 时间线 + 杂志架 deck）→ DETAIL 详情页 → CREATE 编辑页
+   → category/tag 聚合页 → toast/分享弹窗 → 调试面板 #tweaks → 减弱动效适配
+   ============================================================ */
+
 /* Design tokens — Home v3 · Redesign Overhaul layout (anti long-bar) */
 :root{
   --ink:#4c5570; --ink-soft:#7a83a0; --ink-faint:#a5acc4;
@@ -18,6 +26,8 @@
   --col-side:248px;
   --col-deck:300px;
 }
+/* 四时段主题变量：morning/noon/dusk/night 各自覆盖天空渐变、页面底色、山丘与
+   光效透明度（glow/moon/star/sun/rays/mist 由 -o 透明度变量统一驱动） */
 :root[data-theme="morning"]{
   --sky-1:#bfe6f7; --sky-2:#dcf2fb; --sky-3:#fff3df;
   --page-1:#eaf6fc; --page-2:#fdeef2; --page-3:#f3effc;
@@ -44,6 +54,7 @@
 }
 
 #blog-journal-stage, #blog-journal-stage *:where(:not(svg),:not(svg *)){margin:0;padding:0;box-sizing:border-box}
+/* 视口容器：整页渐变背景（随主题 1.4s 过渡），舞台在其中水平居中 */
 #blog-journal-viewport{
   min-height:100vh;
   font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Source Han Sans SC",sans-serif;
@@ -63,6 +74,7 @@ button,input,textarea,select{font-family:inherit;color:inherit}
 .text-pretty{text-wrap:pretty}
 
 #blog-journal-stage-wrap{position:relative;flex:none}position:relative;flex:none}
+/* 舞台：固定 1920x1080 画布，transform-origin 左上配合 JS 等比缩放适配屏幕 */
 #blog-journal-stage{
   position:absolute;top:0;left:0;width:1920px;height:1080px;
   transform-origin:top left;border-radius:36px;overflow:hidden;
@@ -144,6 +156,7 @@ button,input,textarea,select{font-family:inherit;color:inherit}
 }
 
 /* pages */
+/* 页面切换：.page 默认隐藏，.on 激活时淡入上移 */
 .page{display:none;position:relative;z-index:4;height:996px;padding:8px 48px 28px}
 .page.on{display:block;animation:pageIn .42s var(--ease-out)}
 @keyframes pageIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
@@ -152,6 +165,7 @@ button,input,textarea,select{font-family:inherit;color:inherit}
   border:1.5px solid rgba(255,255,255,.95);border-radius:var(--r-md);box-shadow:var(--shadow-1);
 }
 
+/* 键盘可达性：仅 :focus-visible 显示紫色描边 */
 #blog-journal-stage :focus{outline:none}
 :focus-visible{
   outline:2.5px solid rgba(155,140,232,.65);
@@ -758,6 +772,7 @@ button,input,textarea,select{font-family:inherit;color:inherit}
 #tweaks.open .fab{display:none}
 #tweaks .fab svg{width:15px;height:15px}
 
+/* 无障碍：用户偏好减弱动效时，将舞台内所有动画/过渡压缩到近零时长 */
 @media (prefers-reduced-motion:reduce){
   #blog-journal-stage *,#blog-journal-stage *::before,#blog-journal-stage *::after{animation-duration:.01ms !important;transition-duration:.01ms !important}
   .page.on{animation:none}

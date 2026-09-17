@@ -1,3 +1,6 @@
+> 本文件是后端 OpenAPI 文档的手动导出快照（来源 `http://localhost:8123/api/v3/api-docs/default`，knife4j 导出），
+> 仅作离线参考，后端接口变更后不会自动更新。类型化客户端代码请看 `openapi2ts.config.ts` 生成的 `src/api/`。
+
 # OpenAPI definition
 
 

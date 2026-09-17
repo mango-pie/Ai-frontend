@@ -9,6 +9,7 @@ import { useHomeStageScale } from '@/composables/useHomeStageScale'
 import { themeByHour, type HomeTheme } from '@/composables/useHomeTheme'
 import { useInkMode } from '@/composables/useInkMode'
 import { useBackgroundMode } from '@/composables/useBackgroundMode'
+import WorkspaceRail from '@/components/workspace/WorkspaceRail.vue'
 import HomeTopbar from '@/components/home/HomeTopbar.vue'
 import PeriodAtmosphere from '@/components/shared/PeriodAtmosphere.vue'
 import StationTweaks from '@/components/shared/StationTweaks.vue'
@@ -100,6 +101,7 @@ onUnmounted(() => {
 
 <template>
   <div class="knowledge-room-root home-v3-root">
+    <WorkspaceRail />
     <div id="stageWrap" ref="stageWrapRef">
       <div id="stage" ref="stageRef" :data-page="stagePage">
         <PeriodAtmosphere />

@@ -1,4 +1,10 @@
 <script setup lang="ts">
+/**
+ * 博客文章详情页
+ * 职责：展示单篇已发布文章 —— Markdown 渲染正文、目录（TOC）、点赞/分享/浏览计数，
+ * 右侧提供相关文章与"下一篇"入口；分类/标签可点击跳筛选页。
+ * 编辑入口仅对管理员角色开放。
+ */
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
@@ -29,6 +35,7 @@ const router = useRouter()
 const route = useRoute()
 const loginUserStore = useLoginUserStore()
 
+// 文章、相关文章、标签云与站点 UX 配置
 const post = ref<API.BlogPostVO | null>(null)
 const relatedPosts = ref<API.BlogPostVO[]>([])
 const tagCloud = ref<API.BlogTagVO[]>([])
@@ -42,8 +49,10 @@ const blogUx = ref<BlogUxSettings>({
   defaultStatusKey: 'DRAFT',
 })
 
+// 仅管理员可编辑文章
 const canEdit = computed(() => isAdminRole(loginUserStore.loginUser?.userRole))
 
+// 日期格式化为 YYYY-MM-DD，非法值返回空串
 const shortDate = (raw?: string) => {
   if (!raw) return ''
   const d = new Date(raw)
@@ -52,11 +61,13 @@ const shortDate = (raw?: string) => {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
 }
 
+// 正文 Markdown 转 HTML（自定义渲染器，含代码高亮等）
 const renderedContent = computed(() => {
   if (!post.value?.content) return ''
   return renderBlogMarkdown(post.value.content)
 })
 
+// 从渲染后的 HTML 中提取 h2/h3 作为目录项（最多 12 条）
 const toc = computed<TocItem[]>(() => {
   const html = renderedContent.value
   if (!html) return []
@@ -73,18 +84,22 @@ const toc = computed<TocItem[]>(() => {
   return items
 })
 
+// 预估阅读时长：按每分钟 400 字粗算，至少 1 分钟
 const readMinutes = computed(() => {
   const len = (post.value?.content || '').length
   return Math.max(1, Math.round(len / 400))
 })
 
+// "下一篇"取相关文章列表的第一篇
 const nextPost = computed(() => relatedPosts.value[0] || null)
 
+// 阅读数缩写：超过 999 显示 x.xk
 const formatViews = (n?: number) => {
   if (!n) return '0'
   return n > 999 ? `${(n / 1000).toFixed(1)}k` : String(n)
 }
 
+// 拉取文章详情；成功后记一次浏览（站点开启计数时），本地同步 +1
 const fetchPost = async () => {
   loading.value = true
   try {
@@ -127,6 +142,7 @@ const fetchTagCloud = async () => {
   }
 }
 
+// 相关文章：拉最新已发布列表并排除当前篇（作为"相关/下一篇"数据源）
 const fetchRelatedPosts = async () => {
   try {
     const currentId = Number(route.params.id)
@@ -139,6 +155,7 @@ const fetchRelatedPosts = async () => {
   }
 }
 
+// 点赞：成功本地 +1；后端提示"已关闭"时同步关闭本页点赞能力
 const handleLike = async () => {
   if (!blogUx.value.allowLike || !post.value?.id) return
   try {
@@ -161,6 +178,7 @@ const handleLike = async () => {
   }
 }
 
+// 分享：把当前页地址复制到剪贴板
 const handleShare = async () => {
   try {
     await navigator.clipboard.writeText(window.location.href)
@@ -188,6 +206,7 @@ const goPost = (id?: number) => {
 
 const goBack = () => router.push('/blog')
 
+// 编辑：带上来源页 from，保存后可跳回详情
 const handleEdit = () => {
   if (post.value?.id) {
     router.push({
@@ -197,12 +216,14 @@ const handleEdit = () => {
   }
 }
 
+// 统一刷新：详情 + 标签云 + 相关文章
 const reload = () => {
   fetchPost()
   fetchTagCloud()
   fetchRelatedPosts()
 }
 
+// 同一组件在不同文章间跳转（如"下一篇"）时按 id 重载
 watch(() => route.params.id, (id) => {
   if (id) reload()
 })
@@ -215,9 +236,11 @@ onMounted(async () => {
 
 <template>
   <BlogRoomShell>
+    <!-- 三态：加载中 / 文章不存在 / 正常详情 -->
     <div v-if="loading" class="detail-shell" style="align-items: center; justify-content: center">
       <div class="side-card glass" style="padding: 24px">加载中…</div>
     </div>
+    <!-- 加载失败或文章已删除：空状态提示 -->
     <div v-else-if="!post" class="detail-shell">
       <aside class="detail-rail">
         <button type="button" class="back-chip" @click="goBack">← 返回列表</button>
@@ -282,6 +305,7 @@ onMounted(async () => {
               #{{ t.name }}
             </button>
           </div>
+          <!-- 操作区：点赞（站点开关控制显隐）、复制链接、编辑（仅管理员可见） -->
           <div class="detail-actions">
             <button
               v-if="blogUx.allowLike"
@@ -340,6 +364,7 @@ onMounted(async () => {
           </div>
           <div class="mag-stack" style="min-height: 180px">
             <div class="mag-stage" style="left: 12px; right: 12px">
+              <!-- 下一篇期刊牌：有相关文章时可点击跳转，否则显示"读完"占位 -->
               <button
                 v-if="nextPost"
                 type="button"

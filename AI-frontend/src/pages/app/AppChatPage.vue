@@ -62,11 +62,13 @@ marked.use({ renderer, breaks: true, gfm: true })
 
 const route = useRoute()
 const router = useRouter()
-const appId = (route.params.appId as string) || ''
+const appId = Number(route.params.appId) || 0
+// URL 携带的首条提问（从应用广场等入口跳转进入时自动发送）
 const initPrompt = route.query.initPrompt as string | undefined
 
 const appInfo = ref<API.AppVO | null>(null)
 
+/** 聊天消息 UI 模型：区分 user/ai，AI 消息带流式接收标记 */
 interface ChatMessage {
   role: 'user' | 'ai'
   content: string
@@ -99,15 +101,18 @@ const appUx = ref<AppUxSettings>({
   publicHostDisplay: '',
 })
 
+/** 解析部署站点根地址：站点设置优先，回退环境变量 */
 function deployBase() {
   return resolveDeployBaseUrl(appUx.value, import.meta.env.VITE_DEPLOY_BASE_URL as string)
 }
 
+/** 滚动到消息底部（发送 / 流式输出时跟随） */
 const scrollToBottom = async () => {
   await nextTick()
   messagesEndRef.value?.scrollIntoView({ behavior: 'smooth' })
 }
 
+/** 滚动到消息顶部（向上加载更早历史后） */
 const scrollToTop = async () => {
   await nextTick()
   const messagesContainer = document.querySelector('.chat-messages')
@@ -119,6 +124,7 @@ function renderMarkdown(text: string): string {
   return marked.parse(text) as string
 }
 
+/** 拉取应用信息；已有 deployKey 时拼出右侧预览地址 */
 const fetchAppInfo = async () => {
   const res = await getAppById({ id: appId })
   if (res.data.code === 0 && res.data.data) {
@@ -131,6 +137,7 @@ const fetchAppInfo = async () => {
   }
 }
 
+/** 拉取对话历史：首次取最近 10 条，加载更多时以 lastCreateTime 为游标向前翻页 */
 const fetchChatHistory = async (isLoadMore = false) => {
   if (loadingHistory.value) return
   
@@ -155,8 +162,8 @@ const fetchChatHistory = async (isLoadMore = false) => {
         }
         
         if (historyMessages.length > 0) {
-          lastCreateTime.value = historyMessages[0].createTime || ''
-          const newMessages = historyMessages.map((msg) => ({
+          lastCreateTime.value = historyMessages[0]?.createTime || ''
+          const newMessages: ChatMessage[] = historyMessages.map((msg) => ({
             id: msg.id?.toString(),
             role: msg.messageType === 'user' ? 'user' : 'ai',
             content: msg.message || '',
@@ -171,7 +178,7 @@ const fetchChatHistory = async (isLoadMore = false) => {
       if (res.data.code === 0 && res.data.data) {
         const historyMessages = res.data.data || []
         if (historyMessages.length > 0) {
-          lastCreateTime.value = historyMessages[0].createTime || ''
+          lastCreateTime.value = historyMessages[0]?.createTime || ''
           messages.value = historyMessages.map((msg) => ({
             id: msg.id?.toString(),
             role: msg.messageType === 'user' ? 'user' : 'ai',
@@ -186,12 +193,14 @@ const fetchChatHistory = async (isLoadMore = false) => {
   }
 }
 
+/** "加载更多"入口：还有更早历史时再向上翻一页 */
 const loadMoreHistory = async () => {
   if (hasMoreHistory.value) {
     await fetchChatHistory(true)
   }
 }
 
+/** 发送消息：本地先入列用户消息与流式占位，fetch SSE 接收生成内容，正常结束后自动部署 */
 const sendMessage = async (userMsg: string) => {
   if (!userMsg.trim() || isStreaming.value) return
   messages.value.push({ role: 'user', content: userMsg })
@@ -207,8 +216,10 @@ const sendMessage = async (userMsg: string) => {
     const response = await fetch(url, { credentials: 'include' })
     if (!response.ok || !response.body) throw new Error('请求失败')
 
+    // SSE 读取失败与外层请求失败分开处理：仅前者不触发自动部署
     let streamError = false
 
+    // 逐段读取流式响应，增量追加到最后一条 AI 消息
     try {
       await readSseChatStream(response.body, (text) => {
         const last = messages.value[messages.value.length - 1]
@@ -445,6 +456,7 @@ onMounted(async () => {
 <style scoped>
 @import '@/components/chat/chat-shell.css';
 
+/* 页面级布局补充（基础布局来自 @import 的 chat-shell.css） */
 .chat-page {
   padding: 12px;
 }
@@ -476,10 +488,12 @@ onMounted(async () => {
   color: var(--color-text-muted);
 }
 
+/* 部署成功弹窗 */
 .deploy-modal__icon {
   color: var(--color-success);
 }
 
+/* 图标 / 部署按钮悬停动效（遵循系统"减弱动态效果"设置） */
 .chat-icon-btn svg {
   transition: transform var(--transition-fast);
 }

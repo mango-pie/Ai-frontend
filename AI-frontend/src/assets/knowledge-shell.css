@@ -2,6 +2,7 @@
  * 知识库房间样式 — 与 admin-theme 区分的库房气质
  */
 
+/* 房间容器：限制内容最大宽度并居中，定义本房间强调色变量（缺省回退到辅色浅档） */
 .kb-room-page {
   --kb-accent: var(--room-accent, var(--color-secondary-light));
   max-width: 1200px;
@@ -9,11 +10,13 @@
   width: 100%;
 }
 
+/* 页首横幅：覆盖通用 admin 页首的边框与蓝色系渐变底 */
 .kb-room-page .admin-page-hero {
   border-color: rgba(124, 156, 224, 0.22);
   background: linear-gradient(135deg, rgba(124, 156, 224, 0.1) 0%, rgba(45, 36, 56, 0.55) 100%);
 }
 
+/* 标题行内布局：图标与文字对齐，图标着强调色 */
 .kb-room-page .hero-title {
   display: inline-flex;
   align-items: center;
@@ -25,6 +28,7 @@
   color: var(--kb-accent);
 }
 
+/* 筛选栏：覆盖通用筛选栏边框为蓝色系弱透明 */
 .kb-room-page .admin-filter-bar {
   border-color: rgba(124, 156, 224, 0.14);
 }

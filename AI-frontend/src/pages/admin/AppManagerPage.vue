@@ -3,18 +3,22 @@
  * 应用管理页（管理员） - 路径：/admin/appManage
  * 表格展示所有应用，支持分页、搜索、编辑（新开页面）、删除、精选
  */
+import AdminRoomShell from '@/components/shared/AdminRoomShell.vue'
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
 import { listAppByPageForAdmin, deleteAppByAdmin, updateAppByAdmin } from '@/api/appController.ts'
+import AdminIdCell from '@/components/admin/AdminIdCell.vue'
 import '@/assets/admin-theme.css'
 import { AppWindowMac } from 'lucide-vue-next'
 
 const router = useRouter()
+// 表格数据源与分页状态
 const dataSource = ref<API.AppVO[]>([])
 const total = ref(0)
 const loading = ref(false)
 
+// 列表查询条件（应用名模糊搜索 + 类型筛选），随表格分页联动
 const searchParams = reactive<API.AppQueryRequest>({
   pageNum: 1,
   pageSize: 10,
@@ -22,6 +26,7 @@ const searchParams = reactive<API.AppQueryRequest>({
   codeGenType: undefined,
 })
 
+/** 格式化时间为本地字符串 */
 function formatTime(str: string | undefined): string {
   if (!str) return '-'
   try {
@@ -48,6 +53,7 @@ const columns = [
   { title: '操作', key: 'action', width: 180, fixed: 'right' },
 ]
 
+/** 拉取应用分页列表 */
 const fetchData = async () => {
   loading.value = true
   try {
@@ -63,11 +69,13 @@ const fetchData = async () => {
   }
 }
 
+/** 搜索前重置到第一页，避免停留在超出结果范围的页码 */
 const doSearch = () => {
   searchParams.pageNum = 1
   fetchData()
 }
 
+/** 清空筛选条件并回到第一页重新加载 */
 const doReset = () => {
   searchParams.appName = ''
   searchParams.codeGenType = undefined
@@ -75,13 +83,15 @@ const doReset = () => {
   fetchData()
 }
 
+/** 分页页码或每页条数变化后重新请求 */
 const onTableChange = (pag: { current?: number; pageSize?: number }) => {
   if (pag.current != null) searchParams.pageNum = pag.current
   if (pag.pageSize != null) searchParams.pageSize = pag.pageSize
   fetchData()
 }
 
-const doDelete = (id: string) => {
+/** 删除应用：二次确认后调用管理端删除接口并刷新列表 */
+const doDelete = (id: number) => {
   Modal.confirm({
     title: '确认删除该应用吗？',
     okText: '确认',
@@ -98,6 +108,7 @@ const doDelete = (id: string) => {
   })
 }
 
+/** 设为精选：将优先级更新为 99 */
 const doFeatured = (record: API.AppVO) => {
   Modal.confirm({
     title: `将「${record.appName}」设为精选？`,
@@ -115,6 +126,7 @@ const doFeatured = (record: API.AppVO) => {
   })
 }
 
+/** 应用类型中文标签与颜色映射 */
 const codeGenTypeMap: Record<string, { label: string; color: string }> = {
   chat: { label: '对话', color: 'purple' },
   multi_file: { label: '多文件', color: 'cyan' },
@@ -123,18 +135,16 @@ const codeGenTypeMap: Record<string, { label: string; color: string }> = {
 </script>
 
 <template>
+  <AdminRoomShell note-label="Station · 应用管理">
   <div class="app-manager-page admin-theme-page">
-    <!-- 面包屑 -->
-    <a-breadcrumb class="admin-breadcrumb">
-      <a-breadcrumb-item>管理</a-breadcrumb-item>
-      <a-breadcrumb-item>应用管理</a-breadcrumb-item>
-    </a-breadcrumb>
-
     <!-- 页面头部 -->
     <div class="admin-page-hero">
       <div class="hero-left">
         <div class="hero-title"><AppWindowMac :size="22" /> 应用管理</div>
-        <div class="hero-subtitle">共 {{ total }} 个应用 · 管理平台所有 AI 应用</div>
+        <div class="hero-subtitle">管理平台所有 AI 应用</div>
+      </div>
+      <div class="hero-extra admin-hero-stats">
+        <div class="stat"><b>{{ total }}</b><span>上架应用</span></div>
       </div>
     </div>
 
@@ -180,9 +190,17 @@ const codeGenTypeMap: Record<string, { label: string; color: string }> = {
         @change="onTableChange"
       >
         <template #bodyCell="{ column, record }">
-          <template v-if="column.dataIndex === 'cover'">
+          <template v-if="column.dataIndex === 'id'">
+            <AdminIdCell :id="record.id" />
+          </template>
+          <template v-else-if="column.dataIndex === 'userId'">
+            <AdminIdCell :id="record.userId" />
+          </template>
+          <template v-else-if="column.dataIndex === 'cover'">
             <a-avatar v-if="record.cover" :src="record.cover" shape="square" :size="48" />
-            <span v-else style="color: var(--color-text-muted); font-size: 12px">-</span>
+            <span v-else class="admin-avatar-fallback">
+              {{ (record.appName || '?').slice(0, 1) }}
+            </span>
           </template>
           <template v-else-if="column.dataIndex === 'codeGenType'">
             <a-tag :color="codeGenTypeMap[record.codeGenType ?? '']?.color || 'default'">
@@ -229,6 +247,7 @@ const codeGenTypeMap: Record<string, { label: string; color: string }> = {
       </a-table>
     </a-card>
   </div>
+  </AdminRoomShell>
 </template>
 
 <style scoped>

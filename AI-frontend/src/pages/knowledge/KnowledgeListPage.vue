@@ -13,11 +13,14 @@ import { useLoginUserStore } from '@/stores/loginUser'
 import { themeByHour, type HomeTheme } from '@/composables/useHomeTheme'
 import KnowledgeRoomShell from '@/components/knowledge/KnowledgeRoomShell.vue'
 
+// ===== 静态装饰数据（馆藏角 / 档案柜玩具） =====
+// 馆藏角标签页字符（纯装饰）
 const LIB_TABS = ['册', '检', '成', '问'] as const
 
 type CabFile = { id: string; k: string; v: string }
 type CabToy = { key: string; label: string; dot: string; num: string; files: CabFile[] }
 
+/** 档案柜玩具静态数据：每个玩具一格抽屉，屉内是可拖拽的装饰档案 */
 const cabToys = ref<CabToy[]>([
   {
     key: 'clip',
@@ -65,7 +68,9 @@ const cabToys = ref<CabToy[]>([
   },
 ])
 
+// 书脊配色类名（模板中按索引轮换取用）
 const SPINE = ['s1', 's2', 's3', 's4', 's5'] as const
+// 各主题时段的展示文案（按当前小时匹配）
 const PERIOD: Record<HomeTheme, { name: string; hint: string }> = {
   morning: { name: '晨光', hint: '薄雾与书脊蓝' },
   noon: { name: '午间', hint: '阳光与薄荷点缀' },
@@ -73,6 +78,7 @@ const PERIOD: Record<HomeTheme, { name: string; hint: string }> = {
   night: { name: '星夜', hint: '夜灯下的馆藏' },
 }
 
+// ===== 页面基础状态 =====
 const router = useRouter()
 const loginUserStore = useLoginUserStore()
 const canManageSettings = computed(() => isAdminRole(loginUserStore.loginUser?.userRole))
@@ -83,19 +89,26 @@ const total = ref(0)
 const selectedId = ref<string | number | null>(null)
 const catFlip = ref(false)
 const sealPop = ref(false)
+// 档案柜：已打开的抽屉集合
 const openDrawers = ref<Set<string>>(new Set(['clip']))
 const dropTarget = ref<string | null>(null)
 const libTab = ref<string>('册')
+// 档案柜：手持档案 / 归位动画中的档案 / 拖拽中的档案
 const heldFileId = ref<string | null>(null)
 const returningIds = ref<Set<string>>(new Set())
 const draggingId = ref<string | null>(null)
+// 解析状态筛选签（书架丝带高亮）
 const statusFilter = ref<string | null>('SUCCESS')
+// 当前库最近入库流水（时间 / 文件名 / 解析状态）
 const intakeRows = ref<Array<{ t: string; n: string; s: string }>>([])
 
+// 拖拽过程的模块级临时状态：cabDragFileId 记录拖拽中的档案，cabDidDrag 用于区分"拖拽"与"点击"
 let cabDragFileId: string | null = null
 let cabDidDrag = false
 const returnTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
+// ===== 档案柜玩具：抽屉与档案的点击 / 拖拽交互 =====
+/** 按档案 id 反查档案及其所在抽屉 */
 const findCabFile = (fileId: string) => {
   for (const toy of cabToys.value) {
     const file = toy.files.find((f) => f.id === fileId)
@@ -104,6 +117,7 @@ const findCabFile = (fileId: string) => {
   return null
 }
 
+/** 当前手持的档案（附所在抽屉 key），空手时为 null */
 const heldFile = computed(() => {
   if (!heldFileId.value) return null
   const found = findCabFile(heldFileId.value)
@@ -142,6 +156,7 @@ const toggleDrawerSlot = (key: string) => {
   openDrawers.value = next
 }
 
+/** 归位动画：短暂标记 returning 状态，480ms 后自动清除 */
 const flashReturn = (fileId: string) => {
   const next = new Set(returningIds.value)
   next.add(fileId)
@@ -159,6 +174,7 @@ const flashReturn = (fileId: string) => {
   )
 }
 
+/** 从抽屉抽出档案到桌面（手持）；手中已有其他档案时先自动放回 */
 const takeCabFile = (fileId: string, { silent = false } = {}) => {
   const found = findCabFile(fileId)
   if (!found) return
@@ -169,6 +185,7 @@ const takeCabFile = (fileId: string, { silent = false } = {}) => {
   if (!silent) message.success(`抽出 · ${found.file.v}`)
 }
 
+/** 放回手持档案（回原屉并播放归位动画） */
 const putCabFile = ({ silent = false } = {}) => {
   const id = heldFileId.value
   if (!id) return
@@ -178,6 +195,7 @@ const putCabFile = ({ silent = false } = {}) => {
   if (!silent) message.success(`放回 · ${found?.file.v || '档案'}`)
 }
 
+/** 把档案移动到目标抽屉（手持状态下也可直接挪入） */
 const moveCabFile = (fileId: string, targetKey: string, { silent = false } = {}) => {
   const found = findCabFile(fileId)
   const target = cabToys.value.find((t) => t.key === targetKey)
@@ -200,6 +218,7 @@ const clearCabDrop = () => {
   dropTarget.value = null
 }
 
+/** 容器级点击分发：点档案抽出、点抽屉开合；刚结束拖拽的落点点击忽略 */
 const onCabRailClick = (e: MouseEvent) => {
   if (cabDidDrag) {
     cabDidDrag = false
@@ -224,6 +243,7 @@ const onCabRailClick = (e: MouseEvent) => {
   message.success(opening ? `沙沙 · 打开「${name}」` : `咔 · 关上「${name}」`)
 }
 
+/** 拖拽开始：记录档案 id，兼容屉内档案与桌面手持卡两种拖拽源 */
 const onCabDragStart = (e: DragEvent) => {
   const target = e.target as HTMLElement
   // 桌面手持卡
@@ -266,6 +286,7 @@ const onCabDragEnd = () => {
   cabDragFileId = null
 }
 
+/** 拖拽悬停：标记放置目标（抽屉或桌面）并放行 drop，悬停抽屉自动展开 */
 const onCabDragOver = (e: DragEvent) => {
   if (!cabDragFileId && !heldFileId.value) return
   const target = e.target as HTMLElement
@@ -282,6 +303,7 @@ const onCabDragOver = (e: DragEvent) => {
   }
 }
 
+/** 拖离抽屉 / 桌面区域时清除对应放置高亮 */
 const onCabDragLeave = (e: DragEvent) => {
   const target = e.target as HTMLElement
   const related = e.relatedTarget as Node | null
@@ -295,6 +317,7 @@ const onCabDragLeave = (e: DragEvent) => {
   }
 }
 
+/** 放下：落到抽屉则挪入该屉，落到桌面则转为手持 */
 const onCabDrop = (e: DragEvent) => {
   e.preventDefault()
   const fileId = cabDragFileId || heldFileId.value
@@ -313,6 +336,7 @@ const onCabDrop = (e: DragEvent) => {
   draggingId.value = null
 }
 
+/** 点击桌面手持卡：放回原屉（拖拽后的点击忽略） */
 const onHeldClick = () => {
   if (cabDidDrag) {
     cabDidDrag = false
@@ -321,6 +345,8 @@ const onHeldClick = () => {
   putCabFile()
 }
 
+// ===== 知识库查询与编辑表单状态 =====
+// 列表分页查询参数
 const query = reactive<API.KnowledgeBaseQueryRequest>({
   pageNum: 1,
   pageSize: 24,
@@ -338,8 +364,10 @@ const form = reactive({
   status: 1,
 })
 
+// ===== 派生展示数据（选中库 / 架位 / 书架占用） =====
 const period = computed(() => PERIOD[themeByHour(new Date().getHours())] ?? PERIOD.morning)
 
+/** 当前选中的知识库；未显式选中时回退第一项 */
 const selected = computed(() => {
   if (selectedId.value == null) return dataSource.value[0] ?? null
   return dataSource.value.find((x) => String(x.id) === String(selectedId.value)) ?? dataSource.value[0] ?? null
@@ -350,10 +378,12 @@ const selectedIndex = computed(() => {
   return dataSource.value.findIndex((x) => String(x.id) === String(selected.value?.id))
 })
 
+/** 当前架位编号（从 01 起，补零两位） */
 const bayLabel = computed(() => String(Math.max(1, selectedIndex.value + 1)).padStart(2, '0'))
 
 const totalDocs = computed(() => dataSource.value.reduce((s, x) => s + (x.documentCount ?? 0), 0))
 
+/** 书架占用率：按最多展示 6 座计算 */
 const shelfFill = computed(() => {
   const n = Math.min(dataSource.value.length, 6)
   return Math.round((n / 6) * 100)
@@ -365,6 +395,8 @@ const callSlip = computed(() => {
   return `${bayLabel.value} · ${kb.name} · ${kb.documentCount ?? 0} 篇`
 })
 
+// ===== 数据加载（列表 / 入库流水） =====
+/** 流水时间：今天只显示时分，更早的显示"月-日 时:分" */
 const formatIntakeTime = (raw?: string) => {
   if (!raw) return '—'
   const d = new Date(raw)
@@ -376,6 +408,7 @@ const formatIntakeTime = (raw?: string) => {
   return sameDay ? `今天 ${hh}:${mm}` : `${d.getMonth() + 1}-${String(d.getDate()).padStart(2, '0')} ${hh}:${mm}`
 }
 
+/** 拉取当前库最近 4 条文档入库流水 */
 const loadIntake = async () => {
   const kb = selected.value
   if (kb?.id == null) {
@@ -387,7 +420,7 @@ const loadIntake = async () => {
     if (res.data.code === 0 && res.data.data?.records?.length) {
       intakeRows.value = res.data.data.records.map((doc) => ({
         t: formatIntakeTime(doc.createTime || doc.updateTime),
-        n: doc.fileName || doc.name || '未命名文档',
+        n: doc.fileName || '未命名文档',
         s: doc.parseStatus || 'PENDING',
       }))
     } else {
@@ -398,6 +431,7 @@ const loadIntake = async () => {
   }
 }
 
+/** 分页拉取知识库列表；未显式选中时默认选第一项 */
 const fetchData = async () => {
   loading.value = true
   try {
@@ -416,17 +450,20 @@ const fetchData = async () => {
   }
 }
 
+// ===== 选中与页面跳转 =====
 const selectKb = (row: API.KnowledgeBaseVO) => {
   if (row.id == null) return
   selectedId.value = row.id
 }
 
+/** 进入馆藏详情页（目录双击 / Enter 触发） */
 const enterKb = (row?: API.KnowledgeBaseVO | null) => {
   const kb = row ?? selected.value
   if (kb?.id == null) return
   router.push(`/knowledge/${kb.id}`)
 }
 
+/** 打开当前库的问答页 */
 const openChat = () => {
   const kb = selected.value
   if (kb?.id == null) return
@@ -437,6 +474,8 @@ const openCreate = () => {
   router.push('/knowledge/create')
 }
 
+// ===== 编辑 / 删除知识库 =====
+/** 打开编辑弹窗并回填当前库信息 */
 const openEdit = () => {
   const row = selected.value
   if (!row) return
@@ -448,6 +487,7 @@ const openEdit = () => {
   modalOpen.value = true
 }
 
+/** 提交编辑：仅更新名称 / 描述 / 可见范围 / 状态 */
 const submitForm = async () => {
   if (!form.name.trim()) {
     message.warning('请输入知识库名称')
@@ -474,6 +514,7 @@ const submitForm = async () => {
   }
 }
 
+/** 删除知识库：库内有文档时提示将级联清理关联数据 */
 const handleDelete = () => {
   const row = selected.value
   if (!row) return
@@ -506,6 +547,8 @@ const onSeal = () => {
   }, 480)
 }
 
+// ===== 全局键盘与生命周期 =====
+/** 全局按键：Enter 进馆藏，← / → 切换选中库 */
 const onKey = (e: KeyboardEvent) => {
   if (modalOpen.value) return
   if (e.key === 'Enter') {
@@ -521,16 +564,19 @@ const onKey = (e: KeyboardEvent) => {
   if (row?.id != null) selectedId.value = row.id
 }
 
+// 切换选中库后：复位索书卡翻转态并刷新入库流水
 watch(selectedId, () => {
   catFlip.value = false
   void loadIntake()
 })
 
+// 首次进入：先加载列表再拉流水；注册全局键盘监听
 onMounted(() => {
   fetchData().then(() => loadIntake())
   window.addEventListener('keydown', onKey)
 })
 
+// 卸载：移除键盘监听并清理归位动画定时器
 onUnmounted(() => {
   window.removeEventListener('keydown', onKey)
   returnTimers.forEach((t) => clearTimeout(t))
@@ -541,6 +587,7 @@ onUnmounted(() => {
 <template>
   <KnowledgeRoomShell note-label="Knowledge v17 · 书架馆藏">
     <div class="shell" :aria-busy="loading">
+      <!-- 左栏：关于房间 / 知识库目录 / 馆藏角装饰 -->
       <aside class="side">
         <div class="side-card glass anim" style="animation-delay:.05s;flex:none">
           <h3 class="font-display">关于房间</h3>
@@ -629,6 +676,7 @@ onUnmounted(() => {
         </div>
       </aside>
 
+      <!-- 中栏：页头 / 书架 / 当前库详情 / 档案柜玩具 -->
       <main class="main list-stack">
         <div class="list-head anim" style="animation-delay:.08s">
           <div class="left">
@@ -642,6 +690,7 @@ onUnmounted(() => {
           </div>
         </div>
 
+        <!-- 书架 + 当前库详情 + 档案柜 -->
         <div class="mid-bay">
           <div class="shelf-board mid-read-shelf anim" style="animation-delay:.16s">
             <div class="shelf-top">
@@ -683,6 +732,7 @@ onUnmounted(() => {
             </div>
           </div>
 
+          <!-- 当前库详情卡片（描述 / 事实 / 入库流水） -->
           <article class="folio mid-read-folio anim" style="animation-delay:.24s">
             <span class="excerpt-mount" aria-hidden="true" />
             <div class="pick-stamp" aria-hidden="true">选</div>
@@ -731,6 +781,7 @@ onUnmounted(() => {
             </div>
           </article>
 
+          <!-- 档案柜玩具：开屉 / 抽出放回 / 拖拽换屉 -->
           <aside
             class="cab-rail glass anim"
             style="animation-delay:.28s"
@@ -808,6 +859,7 @@ onUnmounted(() => {
         </div>
       </main>
 
+      <!-- 右栏：站内统计 / 解析健康 / 最近问答 -->
       <aside class="deck">
         <div class="panel glass anim" style="animation-delay:.12s">
           <span class="edge-fold" aria-hidden="true" />
@@ -857,6 +909,7 @@ onUnmounted(() => {
       </aside>
     </div>
 
+    <!-- 编辑知识库弹窗 -->
     <a-modal
       v-model:open="modalOpen"
       title="编辑知识库"

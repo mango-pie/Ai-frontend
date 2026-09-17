@@ -2,6 +2,7 @@
  * 随笔 Markdown 正文排版（挂载 .blog-prose）
  */
 
+/* 正文容器：限宽居中，行高 1.85 的舒适阅读排版 */
 .blog-prose {
   max-width: var(--prose-max-width);
   margin: 0 auto;
@@ -15,6 +16,7 @@
   margin-top: 0;
 }
 
+/* 标题层级：h2 带主色下边框做章节分隔，h3/h4 逐级缩小 */
 .blog-prose h1,
 .blog-prose h2,
 .blog-prose h3,
@@ -55,6 +57,7 @@
   margin: 0.35rem 0;
 }
 
+/* 链接：默认辅色浅档 + 下划线，悬停切主色 */
 .blog-prose a {
   color: var(--color-secondary-light);
   text-decoration: underline;
@@ -65,6 +68,7 @@
   color: var(--color-primary-light);
 }
 
+/* 引用块：主色左竖线 + 半透明底 + 斜体 */
 .blog-prose blockquote {
   margin: 1.25rem 0;
   padding: 0.75rem 1rem;
@@ -82,6 +86,7 @@
   background: var(--color-border);
 }
 
+/* 表格：细边框 + 表头底色 + 偶数行斑马纹 */
 .blog-prose table {
   width: 100%;
   border-collapse: collapse;
@@ -105,6 +110,7 @@
   background: rgba(255, 255, 255, 0.03);
 }
 
+/* 图片：自适应宽度并带圆角描边 */
 .blog-prose img {
   max-width: 100%;
   height: auto;
@@ -134,6 +140,7 @@
   box-shadow: var(--code-shadow);
 }
 
+/* 代码块头部：语言标签 + 复制按钮 */
 .blog-prose .code-block__header {
   display: flex;
   align-items: center;

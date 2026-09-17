@@ -125,7 +125,9 @@
   --ld-skeleton-highlight: rgba(255, 255, 255, 0.12);
   --ld-skeleton-base:      var(--color-surface-hover);
 
-  /* ========== 9. Z-index ========== */
+  /* ========== 9. Z-index ==========
+     层级方案（由低到高）：内容 0 → 吸顶 10 → 下拉 100 → 抽屉 200
+     → 附件面板 250 → 模态 300，保证弹层互不遮挡 */
   --ld-z-base:        0;
   --ld-z-sticky:      10;
   --ld-z-dropdown:    100;

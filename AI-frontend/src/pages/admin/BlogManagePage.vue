@@ -3,19 +3,23 @@
  * 博客管理页（管理员） - 路径：/admin/blogManage
  * 表格展示所有博客文章，支持分页、搜索、编辑、删除、状态管理、置顶管理
  */
+import AdminRoomShell from '@/components/shared/AdminRoomShell.vue'
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
 import { queryBlogPostPage, deleteBlogPost, updateBlogPostStatus, toggleTopStatus } from '@/api/blogPostController'
+import AdminIdCell from '@/components/admin/AdminIdCell.vue'
 import { getAllCategories } from '@/api/blogCategoryController'
 import '@/assets/admin-theme.css'
 import { PenTool } from 'lucide-vue-next'
 
 const router = useRouter()
+// 表格数据源与分页状态
 const dataSource = ref<API.BlogPostVO[]>([])
 const total = ref(0)
 const loading = ref(false)
 
+// 列表查询条件：标题模糊搜索 + 分类 + 发布状态
 const searchParams = reactive<API.BlogPostQueryRequest>({
   pageNum: 1,
   pageSize: 10,
@@ -24,6 +28,7 @@ const searchParams = reactive<API.BlogPostQueryRequest>({
   categoryId: undefined,
 })
 
+// 分类下拉选项，页面挂载时一次性加载
 const categoryOptions = ref<API.BlogCategoryVO[]>([])
 
 function formatTime(str: string | undefined): string {
@@ -41,6 +46,7 @@ function formatTime(str: string | undefined): string {
   }
 }
 
+// 文章状态枚举 → 标签文案与颜色（0 草稿 / 1 已发布 / 2 已下线）
 const statusMap: Record<number, { text: string; color: string }> = {
   0: { text: '草稿', color: 'default' },
   1: { text: '已发布', color: 'success' },
@@ -60,6 +66,7 @@ const columns = [
   { title: '操作', key: 'action', width: 180, fixed: 'right' },
 ]
 
+/** 拉取文章分页列表 */
 const fetchData = async () => {
   loading.value = true
   try {
@@ -75,6 +82,7 @@ const fetchData = async () => {
   }
 }
 
+/** 加载分类下拉选项（失败仅打日志，不阻塞列表） */
 const fetchCategories = async () => {
   try {
     const res = await getAllCategories()
@@ -127,6 +135,7 @@ const doEdit = (id: number) => {
   router.push({ path: `/blog/edit/${id}` })
 }
 
+/** 发布/下线切换：已发布的置为下线，其余置为发布 */
 const doToggleStatus = (record: API.BlogPostVO) => {
   const newStatus = record.status === 1 ? 2 : 1
   const action = newStatus === 1 ? '发布' : '下线'
@@ -145,6 +154,7 @@ const doToggleStatus = (record: API.BlogPostVO) => {
   })
 }
 
+/** 置顶/取消置顶切换 */
 const doToggleTop = (record: API.BlogPostVO) => {
   const newTopStatus = record.isTop === 1 ? 0 : 1
   const action = newTopStatus === 1 ? '置顶' : '取消置顶'
@@ -170,13 +180,8 @@ onMounted(() => {
 </script>
 
 <template>
+  <AdminRoomShell note-label="Station · 博客管理">
   <div class="blog-manager-page admin-theme-page">
-    <!-- 面包屑 -->
-    <a-breadcrumb class="admin-breadcrumb">
-      <a-breadcrumb-item>管理</a-breadcrumb-item>
-      <a-breadcrumb-item>博客管理</a-breadcrumb-item>
-    </a-breadcrumb>
-
     <!-- 页面头部 -->
     <div class="admin-page-hero">
       <div class="hero-left">
@@ -242,7 +247,10 @@ onMounted(() => {
         @change="onTableChange"
       >
         <template #bodyCell="{ column, record }">
-          <template v-if="column.dataIndex === 'status'">
+          <template v-if="column.dataIndex === 'id'">
+            <AdminIdCell :id="record.id" />
+          </template>
+          <template v-else-if="column.dataIndex === 'status'">
             <a-tag :color="statusMap[record.status ?? 0]?.color">
               {{ statusMap[record.status ?? 0]?.text ?? '-' }}
             </a-tag>
@@ -292,6 +300,7 @@ onMounted(() => {
       </a-table>
     </a-card>
   </div>
+  </AdminRoomShell>
 </template>
 
 <style scoped>

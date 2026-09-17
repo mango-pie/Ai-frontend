@@ -36,6 +36,7 @@ import DiaryDetailPage from '@/pages/diary/DiaryDetailPage.vue'
 import KnowledgeListPage from '@/pages/knowledge/KnowledgeListPage.vue'
 import KnowledgeDetailPage from '@/pages/knowledge/KnowledgeDetailPage.vue'
 import KnowledgeChatPage from '@/pages/knowledge/KnowledgeChatPage.vue'
+import LibraryPage from '@/pages/library/LibraryPage.vue'
 import KnowledgeIngestPage from '@/pages/admin/KnowledgeIngestPage.vue'
 import KnowledgeNoteListPage from '@/pages/admin/KnowledgeNoteListPage.vue'
 import KnowledgeNoteDetailPage from '@/pages/admin/KnowledgeNoteDetailPage.vue'
@@ -45,16 +46,20 @@ import SiteSettingsAuditPage from '@/pages/admin/SiteSettingsAuditPage.vue'
 import SiteSettingsHealthPage from '@/pages/admin/SiteSettingsHealthPage.vue'
 import SiteModulesPage from '@/pages/admin/SiteModulesPage.vue'
 import OpsUsagePage from '@/pages/admin/OpsUsagePage.vue'
+import OpsLogsStreamPage from '@/pages/admin/OpsLogsStreamPage.vue'
 import OpsAuditPage from '@/pages/admin/OpsAuditPage.vue'
 import OpsStatsPage from '@/pages/admin/OpsStatsPage.vue'
 import OpsAccessLogsPage from '@/pages/admin/OpsAccessLogsPage.vue'
 
+// 两类页面外壳的 meta 预设：public 走门户外壳，workspace 走工作台外壳（App.vue 依据 meta.shell 切换）
 const publicMeta = { shell: 'public' as const }
 const workspaceMeta = { shell: 'workspace' as const }
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
+    // ---------- 公开门户：主页 / 实验室 / 博客 / 音乐等 ----------
+
     { path: '/', name: '主页', component: HomePage, meta: { ...publicMeta, room: 'hall' } },
     { path: '/lab', name: '实验室', component: LabPage, meta: { ...publicMeta, room: 'lab', requireModule: 'app-lab' } },
     { path: '/blog', name: '博客首页', component: BlogHomePage, meta: { ...publicMeta, room: 'blog', requireModule: 'blog' } },
@@ -71,46 +76,53 @@ const router = createRouter({
     { path: '/user/register', name: '用户注册', component: UserRegisterPage, meta: { ...publicMeta, room: 'auth' } },
     { path: '/test', name: '测试', component: TestView, meta: { ...publicMeta, room: 'public' } },
 
+    // ---------- 功能模块：日记 / 工作日志 / 知识库 / 对话（均带 requireModule 门控） ----------
+
     { path: '/diary', name: '日记首页', component: DiaryHomePage, meta: { ...publicMeta, room: 'diary', requireModule: 'diary' } },
     { path: '/diary/write', name: '写日记', component: DiaryWritePage, meta: { ...publicMeta, room: 'diary', requireModule: 'diary' } },
     { path: '/diary/:id(\\d+)', name: '日记详情', component: DiaryDetailPage, meta: { ...publicMeta, room: 'diary', requireModule: 'diary' } },
     { path: '/worklog', name: '工作日志', component: WorkLogPage, meta: { ...publicMeta, room: 'worklog', requireModule: 'worklog' } },
     { path: '/knowledge', name: '知识库', component: KnowledgeListPage, meta: { ...publicMeta, room: 'knowledge', requireModule: 'knowledge' } },
+    { path: '/library', name: '资料库', component: LibraryPage, meta: { ...publicMeta, room: 'library', requireModule: 'library' } },
     { path: '/knowledge/create', name: '新建知识库', component: KnowledgeCreatePage, meta: { ...publicMeta, room: 'knowledge', requireModule: 'knowledge' } },
     { path: '/knowledge/:kbId', name: '知识库详情', component: KnowledgeDetailPage, meta: { ...publicMeta, room: 'knowledge', requireModule: 'knowledge' } },
     { path: '/knowledge/:kbId/chat', name: '知识库问答', component: KnowledgeChatPage, meta: { ...publicMeta, room: 'knowledge', requireModule: 'knowledge' } },
-    { path: '/user/profile', name: '个人信息', component: UserProfilePage, meta: { ...workspaceMeta, room: 'profile' } },
+    { path: '/user/profile', name: '个人信息', component: UserProfilePage, meta: { ...publicMeta, room: 'profile' } },
     { path: '/chat', name: '对话首页', component: ChatHomePage, meta: { ...publicMeta, room: 'chat', requireModule: 'chat' } },
     {
       path: '/chat/:conversationId',
       name: '对话页面',
       component: ChatPage,
+      // keepAlive：对话页切走再回来时保留输入与滚动状态
       meta: { ...publicMeta, room: 'chat', keepAlive: true, requireModule: 'chat' },
     },
     { path: '/app/chat/:appId', name: '应用对话', component: AppChatPage, meta: { ...publicMeta, room: 'lab', requireModule: 'app-lab' } },
     { path: '/app/edit/:appId', name: '编辑应用', component: AppEditPage, meta: { ...publicMeta, room: 'lab', requireModule: 'app-lab' } },
-    { path: '/administrator/study', name: '学习', component: StudyView, meta: { ...workspaceMeta, room: 'study', requireModule: 'study' } },
+    { path: '/administrator/study', name: '学习', component: StudyView, meta: { ...publicMeta, room: 'study', requireModule: 'study' } },
 
-    { path: '/admin/userManage', name: '用户管理', component: UserManagerPage, meta: { ...workspaceMeta, room: 'admin' } },
-    { path: '/admin/appManage', name: '应用管理', component: AppManagerPage, meta: { ...workspaceMeta, room: 'admin', requireModule: 'app-lab' } },
-    { path: '/admin/blogManage', name: '博客管理', component: BlogManagePage, meta: { ...workspaceMeta, room: 'admin', requireModule: 'blog' } },
+    // ---------- 管理后台：用户/应用/博客/知识库采集/站点设置/运维（角色权限由 access.ts 校验） ----------
+
+    { path: '/admin/userManage', name: '用户管理', component: UserManagerPage, meta: { ...publicMeta, room: 'admin' } },
+    { path: '/admin/appManage', name: '应用管理', component: AppManagerPage, meta: { ...publicMeta, room: 'admin', requireModule: 'app-lab' } },
+    { path: '/admin/blogManage', name: '博客管理', component: BlogManagePage, meta: { ...publicMeta, room: 'admin', requireModule: 'blog' } },
     { path: '/admin/knowledge', redirect: '/admin/knowledge/ingest' },
-    { path: '/admin/knowledge/ingest', name: '内容采集', component: KnowledgeIngestPage, meta: { ...workspaceMeta, room: 'reading', requireModule: 'knowledge' } },
+    { path: '/admin/knowledge/ingest', name: '内容采集', component: KnowledgeIngestPage, meta: { ...publicMeta, room: 'reading', requireModule: 'knowledge' } },
     { path: '/admin/knowledge/jobs', name: '精读任务', redirect: '/admin/knowledge/ingest' },
     { path: '/admin/knowledge/notes', name: '我的文章', component: KnowledgeNoteListPage, meta: { ...publicMeta, room: 'reading', requireModule: 'knowledge' } },
     { path: '/admin/knowledge/notes/:noteId', name: '审阅文章', component: KnowledgeNoteDetailPage, meta: { ...publicMeta, room: 'reading', requireModule: 'knowledge' } },
     { path: '/admin/knowledge/learning', name: '领域知识树', component: LearningView, meta: { ...publicMeta, room: 'reading', requireModule: 'knowledge' } },
-    { path: '/admin/chatHistoryManage', name: '对话管理', component: ChatHistoryManagerPage, meta: { ...workspaceMeta, room: 'admin', requireModule: 'chat' } },
+    { path: '/admin/chatHistoryManage', name: '对话管理', component: ChatHistoryManagerPage, meta: { ...publicMeta, room: 'admin', requireModule: 'chat' } },
     { path: '/admin/settings', redirect: '/admin/settings/site' },
     { path: '/admin/settings/audit', name: '变更审计', component: SiteSettingsAuditPage, meta: { ...publicMeta, room: 'settings' } },
     { path: '/admin/settings/health', name: '依赖健康', component: SiteSettingsHealthPage, meta: { ...publicMeta, room: 'settings' } },
     { path: '/admin/settings/modules', name: '业务模块', component: SiteModulesPage, meta: { ...publicMeta, room: 'settings' } },
     { path: '/admin/settings/:module', name: '站点设置', component: SiteSettingsPage, meta: { ...publicMeta, room: 'settings' } },
     { path: '/admin/ops', redirect: '/admin/ops/usage' },
-    { path: '/admin/ops/usage', name: 'AI用量', component: OpsUsagePage, meta: { ...workspaceMeta, room: 'admin', requireModule: 'ops' } },
-    { path: '/admin/ops/audit', name: '操作审计', component: OpsAuditPage, meta: { ...workspaceMeta, room: 'admin', requireModule: 'ops' } },
-    { path: '/admin/ops/stats', name: '业务统计', component: OpsStatsPage, meta: { ...workspaceMeta, room: 'admin', requireModule: 'ops' } },
-    { path: '/admin/ops/access-logs', name: '访问日志', component: OpsAccessLogsPage, meta: { ...workspaceMeta, room: 'admin', requireModule: 'ops' } },
+    { path: '/admin/ops/usage', name: 'AI用量', component: OpsUsagePage, meta: { ...publicMeta, room: 'admin', requireModule: 'ops' } },
+    { path: '/admin/ops/logs', name: '实时日志', component: OpsLogsStreamPage, meta: { ...publicMeta, room: 'admin', requireModule: 'ops' } },
+    { path: '/admin/ops/audit', name: '操作审计', component: OpsAuditPage, meta: { ...publicMeta, room: 'admin', requireModule: 'ops' } },
+    { path: '/admin/ops/stats', name: '业务统计', component: OpsStatsPage, meta: { ...publicMeta, room: 'admin', requireModule: 'ops' } },
+    { path: '/admin/ops/access-logs', name: '访问日志', component: OpsAccessLogsPage, meta: { ...publicMeta, room: 'admin', requireModule: 'ops' } },
   ],
 })
 

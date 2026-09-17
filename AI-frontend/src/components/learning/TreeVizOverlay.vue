@@ -22,9 +22,12 @@ const emit = defineEmits<{
   'learn-empty': [payload: { branchId: number | string; branchTitle: string }]
 }>()
 
+/** 缩放比例（限制在 0.6 ~ 1.5 之间），作用于整个树图舞台 */
 const scale = ref(1)
+/** 面板 DOM 引用：打开浮层后聚焦它，保证 Esc 能被正确接收 */
 const panelRef = ref<HTMLElement | null>(null)
 
+/** 步进缩放：toFixed 消除浮点累加误差 */
 function zoomIn() {
   scale.value = Math.min(1.5, +(scale.value + 0.1).toFixed(2))
 }
@@ -33,6 +36,7 @@ function zoomOut() {
   scale.value = Math.max(0.6, +(scale.value - 0.1).toFixed(2))
 }
 
+/** Esc 关闭浮层（监听在 window 上，仅在浮层打开时生效） */
 function onKeydown(e: KeyboardEvent) {
   if (!props.open) return
   if (e.key === 'Escape') {
@@ -41,6 +45,7 @@ function onKeydown(e: KeyboardEvent) {
   }
 }
 
+/** 选中树图节点：同步回左侧知识树，并用 toast 提示当前选中的枝 */
 function onSelect(id: number | string | null) {
   emit('update:selected-branch-id', id)
   if (id == null) return
@@ -50,6 +55,7 @@ function onSelect(id: number | string | null) {
   }
 }
 
+/** 打开时重置缩放并聚焦面板（等待 DOM 渲染完成后再聚焦） */
 watch(
   () => props.open,
   async (v) => {
@@ -61,6 +67,7 @@ watch(
   },
 )
 
+/** 打开/关闭时挂载/卸载全局键盘监听，避免关闭后仍拦截按键 */
 watch(
   () => props.open,
   (v) => {
@@ -69,6 +76,7 @@ watch(
   },
 )
 
+/** 组件销毁兜底：防止浮层开着时销毁组件导致监听泄漏 */
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeydown)
 })
@@ -111,6 +119,7 @@ onBeforeUnmount(() => {
             </button>
           </div>
 
+          <!-- 树图舞台：整体按 scale 缩放；点击空白处透传为关闭浮层 -->
           <div class="viz-overlay__stage" :style="{ transform: `scale(${scale})` }">
             <DomainTreeViz
               hide-toolbar

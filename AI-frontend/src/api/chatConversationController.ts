@@ -1,8 +1,12 @@
+/**
+ * 对话会话管理 API — 对应后端 ChatConversationController，接口前缀 /chat/conversations
+ * 负责会话的增删查、会话内消息分页查询以及默认会话的解析/复用。
+ */
 // @ts-ignore
 /* eslint-disable */
 import request from '@/request'
 
-/** 此处后端没有提供注释 GET /chat/conversations */
+/** 分页查询会话列表 GET /chat/conversations */
 export async function listConversations(
   // 叠加生成的Param类型 (非body参数swagger默认没有生成对象)
   params: API.listConversationsParams,
@@ -17,7 +21,7 @@ export async function listConversations(
   })
 }
 
-/** 此处后端没有提供注释 POST /chat/conversations */
+/** 创建会话 POST /chat/conversations — 返回新建的会话对象 */
 export async function createConversation(
   body: API.ChatConversationCreateRequest,
   options?: { [key: string]: any }
@@ -32,7 +36,7 @@ export async function createConversation(
   })
 }
 
-/** 此处后端没有提供注释 GET /chat/conversations/${param0} */
+/** 获取会话详情 GET /chat/conversations/${id} */
 export async function getConversation(
   // 叠加生成的Param类型 (非body参数swagger默认没有生成对象)
   params: API.getConversationParams,
@@ -46,7 +50,7 @@ export async function getConversation(
   })
 }
 
-/** 此处后端没有提供注释 DELETE /chat/conversations/${param0} */
+/** 删除会话 DELETE /chat/conversations/${id} — 同时清理其下消息 */
 export async function deleteConversation(
   // 叠加生成的Param类型 (非body参数swagger默认没有生成对象)
   params: API.deleteConversationParams,
@@ -60,7 +64,7 @@ export async function deleteConversation(
   })
 }
 
-/** 此处后端没有提供注释 GET /chat/conversations/${param0}/messages */
+/** 分页查询会话消息 GET /chat/conversations/${id}/messages — 默认第 1 页、每页 20 条 */
 export async function listMessages(
   // 叠加生成的Param类型 (非body参数swagger默认没有生成对象)
   params: API.listMessagesParams,
@@ -80,7 +84,7 @@ export async function listMessages(
   })
 }
 
-/** 此处后端没有提供注释 POST /chat/conversations/resolve */
+/** 解析/获取默认会话 POST /chat/conversations/resolve — 无则按请求创建，用于进入页面时兜底 */
 export async function resolveDefault(
   body: API.ChatConversationResolveRequest,
   options?: { [key: string]: any }

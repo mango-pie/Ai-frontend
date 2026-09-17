@@ -1,4 +1,11 @@
 <script setup lang="ts">
+/**
+ * FloatingBubbleMenu 悬浮球导航菜单
+ * 职责：在页面右下角渲染一个可拖拽的悬浮球，悬停时沿双圈轨道展开快捷导航入口。
+ * - 菜单项来源于权限配置（MENU_ITEMS + filterMenuItems），按登录用户与系统能力开关动态过滤
+ * - 位置记忆在 localStorage，窗口尺寸变化时自动夹紧在可视区内
+ * - 交互约定：悬停展开菜单；按住球体拖动改变位置（拖动期间强制收起菜单）
+ */
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import type { Component } from 'vue'
@@ -20,6 +27,7 @@ import { MENU_ITEMS, filterMenuItems, type MenuItemConfig } from '@/config/permi
 import { siteConfig } from '@/config/site'
 import { getChatEntryPath } from '@/utils/chatSession'
 
+// 悬浮球及菜单项的几何尺寸、内外圈半径（单位 px），展开区域需外扩一圈半径加半个 item
 const BUBBLE_SIZE = 56
 const ITEM_SIZE = 48
 const INNER_ITEM_SIZE = 44
@@ -27,8 +35,10 @@ const RING_INNER_RADIUS = 78
 const RING_OUTER_RADIUS = 132
 const EXPAND_PAD = RING_OUTER_RADIUS + ITEM_SIZE / 2
 const ZONE_EXPANDED = BUBBLE_SIZE + EXPAND_PAD * 2
+// 悬浮球位置持久化到 localStorage 的键名
 const STORAGE_KEY = 'bubble_menu_position_v2'
 
+// 内圈固定放这几个高频入口，其余菜单项（含管理后台等）落到外圈
 const INNER_PATHS = new Set(['/', '/blog', '/lab', '/about'])
 
 interface BubbleMenuItem {
@@ -46,12 +56,14 @@ const router = useRouter()
 const loginUserStore = useLoginUserStore()
 const capsStore = useCapabilitiesStore()
 
+// 交互状态：悬浮球位置、是否拖拽中、是否展开、拖拽起点偏移、当前捕获的指针 id
 const position = ref({ x: 0, y: 0 })
 const isDragging = ref(false)
 const isExpanded = ref(false)
 const dragOffset = ref({ x: 0, y: 0 })
 const pointerId = ref<number | null>(null)
 
+// 路由路径 -> 菜单图标组件的映射，未命中的路径兜底为链接图标
 const iconByPath: Record<string, Component> = {
   '/': HomeOutlined,
   '/blog': BookOutlined,
@@ -65,6 +77,7 @@ const iconByPath: Record<string, Component> = {
   '/chat': MessageOutlined,
 }
 
+// 递归拍平树形菜单配置，只保留带 path 的叶子节点（子菜单也展开成独立入口）
 function flattenMenuItems(items: MenuItemConfig[]): BubbleMenuItem[] {
   const result: BubbleMenuItem[] = []
   for (const item of items) {
@@ -78,6 +91,7 @@ function flattenMenuItems(items: MenuItemConfig[]): BubbleMenuItem[] {
   return result
 }
 
+// 按当前登录用户与能力开关过滤后的全部可用菜单项
 const flatMenuItems = computed(() => {
   const user = loginUserStore.loginUser?.id ? loginUserStore.loginUser : null
   return flattenMenuItems(
@@ -88,6 +102,7 @@ const flatMenuItems = computed(() => {
   )
 })
 
+// 内圈：高频核心入口；外圈：其余全部入口
 const innerRingItems = computed(() =>
   flatMenuItems.value.filter((item) => INNER_PATHS.has(item.path)),
 )
@@ -96,6 +111,8 @@ const outerRingItems = computed(() =>
   flatMenuItems.value.filter((item) => !INNER_PATHS.has(item.path)),
 )
 
+// 悬浮/展开态下的热区尺寸：展开时需要扩大容器以容纳整圈菜单项；
+// 热区始终以悬浮球中心对称放大，故偏移量为尺寸增量的一半
 const zoneSize = computed(() => (isExpanded.value && !isDragging.value ? ZONE_EXPANDED : BUBBLE_SIZE))
 const zoneOffset = computed(() => (zoneSize.value - BUBBLE_SIZE) / 2)
 
@@ -107,6 +124,7 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max)
 }
 
+// 依据站点配置计算悬浮球默认出现的位置（右下角，留出边距）
 function getDefaultPosition() {
   const offset = siteConfig.effects.bubbleMenu.defaultOffset
   const bottomGap = siteConfig.effects.bubbleMenu.defaultBottomGap
@@ -116,6 +134,7 @@ function getDefaultPosition() {
   }
 }
 
+// 将位置限制在视口内（四周保留 12px 边距），防止球被拖出屏幕
 function clampPosition(pos: { x: number; y: number }) {
   const margin = 12
   return {
@@ -124,6 +143,7 @@ function clampPosition(pos: { x: number; y: number }) {
   }
 }
 
+// 从 localStorage 恢复上次位置；无记录或数据损坏时回退到默认位置
 function loadPosition() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -148,6 +168,8 @@ function savePosition() {
   )
 }
 
+// 计算菜单项在圆环轨道上的绝对定位：以热区中心为圆心，
+// 在 205°~335°（下半弧）范围内均匀分布，避免菜单弹出时遮挡球体上方内容
 function getRingItemStyle(index: number, count: number, radius: number, itemSize: number) {
   if (!count) return {}
 
@@ -165,6 +187,7 @@ function getRingItemStyle(index: number, count: number, radius: number, itemSize
   }
 }
 
+// 悬停进入热区时展开菜单（拖拽中不展开，避免拖动经过时误触发）
 function onZoneEnter() {
   if (!isDragging.value) {
     isExpanded.value = true
@@ -177,6 +200,7 @@ function onZoneLeave() {
   }
 }
 
+// 开始拖拽：仅响应鼠标左键/主指针，记录指针与球体的偏移并监听全局指针事件
 function onPointerDown(e: PointerEvent) {
   if (e.button !== 0) return
   pointerId.value = e.pointerId
@@ -206,6 +230,7 @@ function teardownPointerListeners() {
   window.removeEventListener('pointercancel', onPointerUp)
 }
 
+// 结束拖拽：复位状态、解绑全局监听，并把最终位置持久化
 function onPointerUp(e: PointerEvent) {
   if (pointerId.value !== e.pointerId) return
   isDragging.value = false
@@ -214,10 +239,12 @@ function onPointerUp(e: PointerEvent) {
   savePosition()
 }
 
+// 点击菜单项跳转；聊天入口需经由 getChatEntryPath 决定（恢复会话或新建会话）
 function onItemClick(path: string) {
   router.push(path === '/chat' ? getChatEntryPath() : path)
 }
 
+// 窗口尺寸变化时把球重新夹回视口并保存，防止遗留在可视区域外
 function onResize() {
   position.value = clampPosition(position.value)
   savePosition()
@@ -248,15 +275,18 @@ onUnmounted(() => {
       height: `${zoneSize}px`,
     }"
   >
+    <!-- 悬浮/展开热区：展开时容器整体放大以包裹整圈菜单 -->
     <div
       class="bubble-menu__zone"
       @mouseenter="onZoneEnter"
       @mouseleave="onZoneLeave"
     >
+      <!-- 展开的环形菜单（拖拽期间强制隐藏），内外两圈轨道按角度定位菜单项 -->
       <Transition name="bubble-ring">
         <div v-if="isExpanded && !isDragging" class="bubble-menu__ring">
           <span class="bubble-menu__orbit bubble-menu__orbit--inner" />
           <span class="bubble-menu__orbit bubble-menu__orbit--outer" />
+          <!-- 内圈：高频核心入口 -->
           <button
             v-for="(item, index) in innerRingItems"
             :key="item.key"
@@ -269,6 +299,7 @@ onUnmounted(() => {
             <component :is="getIcon(item.path)" class="bubble-menu__item-icon" />
             <span class="bubble-menu__item-label">{{ item.label }}</span>
           </button>
+          <!-- 外圈：其余全部入口 -->
           <button
             v-for="(item, index) in outerRingItems"
             :key="item.key"
@@ -284,6 +315,7 @@ onUnmounted(() => {
         </div>
       </Transition>
 
+      <!-- 悬浮球本体：按住拖动改变位置 -->
       <button
         type="button"
         class="bubble-menu__trigger"

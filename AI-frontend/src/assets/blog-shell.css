@@ -2,6 +2,12 @@
  * 随笔列表/聚合页共用布局与卡片样式
  */
 
+/* 模块结构总览：
+   首页头部 / 标签·分类子页头部 / 搜索与筛选栏 / 布局容器（卡片 & 时间线双模式）
+   文章卡片 post-card / 时间线 post-timeline / 右侧·左侧栏（关于我、分类、标签云）
+   末尾为 ≤960px 的响应式降级（双栏转单栏、时间线转左侧单轨） */
+
+/* 页面容器：透明底，继承 body 全局背景 */
 .blog-shell-page {
   min-height: 100vh;
   background: transparent;
@@ -68,6 +74,7 @@
   margin: 0;
 }
 
+/* 搜索框：胶囊形输入 + 无缝拼接的搜索按钮 */
 .blog-header__search {
   max-width: 520px;
   margin: 0 auto;
@@ -200,6 +207,7 @@
   color: var(--color-text-muted);
 }
 
+/* 分页器：暗色底 + 当前页主色高亮 */
 .blog-shell-page .ant-pagination-item {
   background: rgba(255, 255, 255, 0.05);
   border-color: var(--color-border);
@@ -218,7 +226,7 @@
   color: var(--color-primary-light);
 }
 
-/* 布局 */
+/* 布局：卡片模式（主列 + 320px 右栏）/ 时间线模式（220px 左栏 + 主列），侧栏 sticky 吸顶 */
 .blog-container {
   max-width: 1200px;
   margin: 0 auto;
@@ -281,6 +289,7 @@
   gap: 24px;
 }
 
+/* 列表空状态：虚线框占位 */
 .post-list--empty {
   padding: 48px 24px;
   text-align: center;
@@ -660,6 +669,7 @@
   color: var(--color-text-muted);
 }
 
+/* 时间线中轴：居中竖线，主色→辅色→透明渐隐 */
 .post-timeline__track {
   position: absolute;
   left: 50%;
@@ -696,6 +706,7 @@
   box-shadow: var(--shadow-sm);
 }
 
+/* 时间线节点：三列网格（左正文 | 中圆点 | 右正文），圆点带主色光环 */
 .post-timeline__item {
   position: relative;
   z-index: 1;
@@ -857,6 +868,7 @@
   font-size: 12px;
 }
 
+/* 响应式断点 ≤960px：所有布局降为单列，时间线改左单轨（圆点居左），卡片封面转顶部横图 */
 @media (max-width: 960px) {
   .blog-container,
   .blog-container--card,

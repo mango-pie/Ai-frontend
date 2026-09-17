@@ -19,6 +19,7 @@ const formModules = computed(() =>
   (props.modules || []).filter((m) => m.code && m.code !== 'ops' && m.code !== 'modules'),
 )
 
+// 固定的"运维"分组入口，不随模块配置变化
 const opsLinks = [
   { key: 'modules', label: '业务模块', path: '/admin/settings/modules' },
   { key: 'audit', label: '变更审计', path: '/admin/settings/audit' },
@@ -26,6 +27,7 @@ const opsLinks = [
   { key: 'ops', label: '运维开关', path: '/admin/settings/ops' },
 ] as const
 
+// 点击业务模块：不可写的模块仅提示"即将接入"，可写的跳转到对应设置页
 function selectModule(mod: API.SettingModuleVO) {
   if (!mod.code) return
   if (!mod.writable) {
@@ -44,6 +46,7 @@ function goOps(path: string, key: string) {
 
 <template>
   <aside class="settings-nav">
+    <!-- 业务模块分组：不可写的模块置灰并标记"即将接入" -->
     <div class="nav-section-title">模块</div>
     <button
       v-for="mod in formModules"
@@ -61,6 +64,7 @@ function goOps(path: string, key: string) {
       <span v-else-if="mod.phase" class="nav-phase">{{ mod.phase }}</span>
     </button>
 
+    <!-- 固定运维分组入口 -->
     <div class="nav-section-title nav-section-ops">运维</div>
     <button
       v-for="link in opsLinks"

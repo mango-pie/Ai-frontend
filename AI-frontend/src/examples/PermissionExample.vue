@@ -3,6 +3,10 @@
   展示三种权限控制方式的用法
 -->
 <script setup lang="ts">
+/**
+ * 权限控制示例页：演示 PermissionWrapper 组件、v-permission 指令、
+ * 工具函数 + v-if 三种权限控制方式的用法
+ */
 import { computed } from 'vue'
 import PermissionWrapper from '@/components/PermissionWrapper.vue'
 import { useLoginUserStore } from '@/stores/loginUser'
@@ -15,6 +19,7 @@ import {
 } from '@/utils/permission'
 
 const loginUserStore = useLoginUserStore()
+// 当前登录用户信息与 id，供页面展示和自定义权限判断使用
 const loginUser = computed(() => loginUserStore.loginUser)
 const currentUserId = computed(() => loginUser.value.id)
 </script>
@@ -50,7 +55,7 @@ const currentUserId = computed(() => loginUser.value.id)
       <button v-permission="'user'" class="btn">登录用户可见按钮</button>
       <button v-permission="'admin'" class="btn admin">管理员可见按钮</button>
       <button v-permission="'administrator'" class="btn super-admin">高级管理员可见按钮</button>
-      <button v-permission="{ custom: (user) => user.id && user.id > 100 }" class="btn custom">
+      <button v-permission="{ custom: (user: { id?: number }) => user.id && user.id > 100 }" class="btn custom">
         ID > 100 的用户可见
       </button>
     </section>
@@ -79,6 +84,7 @@ const currentUserId = computed(() => loginUser.value.id)
 
 
 <style scoped>
+/* ===== 页面布局与分区 ===== */
 .permission-example {
   padding: 20px;
   max-width: 800px;
@@ -103,6 +109,7 @@ h3 {
   font-size: 18px;
 }
 
+/* ===== 权限提示盒：按权限等级配色 ===== */
 .box {
   padding: 15px;
   margin: 10px 0;
@@ -126,6 +133,7 @@ h3 {
   border-left-color: #9c27b0;
 }
 
+/* ===== 权限按钮：按权限等级配色 ===== */
 .btn {
   padding: 10px 20px;
   margin: 5px;
@@ -153,6 +161,7 @@ h3 {
   opacity: 0.9;
 }
 
+/* ===== 当前用户信息预览 ===== */
 pre {
   background: #f5f5f5;
   padding: 15px;

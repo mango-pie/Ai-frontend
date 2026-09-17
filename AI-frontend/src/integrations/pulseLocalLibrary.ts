@@ -1,3 +1,8 @@
+/**
+ * 「脉冲」本地音乐曲库集成层：本地文件导入（Tauri / 浏览器 FSA / input 回退）
+ * 与 IndexedDB 持久化（记录、文件句柄、封面、音频 Blob 四个仓）。
+ * 供 usePulseRoom 等播放模块调用；三种导入途径统一产出 LocalImportResult。
+ */
 import { isTauriRuntime } from '@/integrations/musicRuntime'
 import { parseLrcOrPlain } from '@/integrations/neteaseMusic'
 import {
@@ -7,6 +12,7 @@ import {
   type PulseTrack,
 } from '@/composables/pulse/pulseTypes'
 
+/** IndexedDB 库名（v2）与四个对象仓：曲目记录 / 文件句柄 / 封面 / 音频 Blob */
 const DB_NAME = 'pulse-local-library-v1'
 const DB_VERSION = 2
 const STORE_RECORDS = 'records'
@@ -17,15 +23,18 @@ const STORE_BLOBS = 'blobs'
 /** 超过该大小的音频不写入 IndexedDB（避免撑爆配额），降级为 session 一次性导入 */
 const MAX_BLOB_IMPORT_BYTES = 200 * 1024 * 1024
 
+/** 文件类型识别正则；SIDECAR_NAME 为同目录手工元数据文件（pulse.json） */
 const AUDIO_EXT = /\.(mp3|flac|wav|ogg|m4a|aac|opus|webm)$/i
 const LRC_EXT = /\.lrc$/i
 const COVER_EXT = /\.(jpe?g|png|webp|gif)$/i
 const VIDEO_EXT = /\.(mp4|webm|mkv|mov)$/i
 const SIDECAR_NAME = 'pulse.json'
 
+/** 运行期句柄缓存（曲目 id → 音频 / MV 文件句柄），与 IDB handles 仓互为镜像，省去反复开库 */
 const fileHandles = new Map<string, FileSystemFileHandle>()
 const mvHandles = new Map<string, FileSystemFileHandle>()
 
+/** 同目录 pulse.json：手工补全标题 / 关联网易或远端服务等元数据 */
 export interface PulseSidecar {
   version?: number
   title?: string
@@ -39,6 +48,7 @@ export interface PulseSidecar {
   remoteId?: string
 }
 
+/** 曲目持久化记录（STORE_RECORDS 的行结构，id 为主键） */
 export interface LocalLibraryRecord {
   id: string
   title: string
@@ -59,6 +69,7 @@ export interface LocalLibraryRecord {
   localMvPath?: string
 }
 
+/** 一次导入的临时结果：含可播 URL（blob: / asset:）与待持久化的句柄、封面 Blob */
 export interface LocalImportResult {
   id: string
   title: string
@@ -83,37 +94,45 @@ export interface LocalImportResult {
   localMvUrl?: string
 }
 
+/** 按扩展名或 MIME 判断音频文件 */
 export function isAudioFile(file: { name: string; type?: string }) {
   return AUDIO_EXT.test(file.name) || !!file.type?.startsWith('audio/')
 }
 
+/** 判断 .lrc 歌词文件 */
 export function isLrcFile(file: { name: string }) {
   return LRC_EXT.test(file.name)
 }
 
+/** 去掉目录与扩展名，取文件名主干（歌词 / MV 按同名主干配对） */
 export function basenameNoExt(name: string) {
   const base = name.replace(/^.*[/\\]/, '')
   return base.replace(/\.[^.]+$/, '') || base
 }
 
+/** 是否支持 File System Access API（Chrome / Edge 的文件与目录选择器） */
 export function hasFileSystemAccess() {
   return typeof window !== 'undefined' && 'showOpenFilePicker' in window
 }
 
+/** 按运行环境返回导入提示文案（Tauri / FSA / 均不支持时为空） */
 export function localLibraryHint() {
   if (isTauriRuntime()) return '桌面版会记住文件路径，关闭后再开会继续播。标题和封面来自文件标签。'
   if (hasFileSystemAccess()) return 'Chrome / Edge 可授权文件夹，刷新后点「恢复本地曲库」即可续播。'
 }
 
+/** 拼接路径，按现有分隔符自动区分 Windows 与 Unix 风格 */
 export function joinPath(dir: string, name: string) {
   const sep = dir.includes('\\') ? '\\' : '/'
   return dir.endsWith('/') || dir.endsWith('\\') ? `${dir}${name}` : `${dir}${sep}${name}`
 }
 
+/** MV 句柄在 handles 仓中的键（曲 id + __mv 后缀） */
 function mvHandleKey(id: string) {
   return `${id}__mv`
 }
 
+/** 容错解析 pulse.json；非对象或解析失败一律返回 undefined */
 function parseSidecarJson(text: string): PulseSidecar | undefined {
   try {
     const data = JSON.parse(text) as PulseSidecar
@@ -124,15 +143,18 @@ function parseSidecarJson(text: string): PulseSidecar | undefined {
   }
 }
 
+/** 识别「翻译歌词」文件名（.trans.lrc / .tlyric.lrc） */
 function isTransLrcName(name: string) {
   const lower = name.toLowerCase()
   return lower.includes('.trans.lrc') || lower.endsWith('.tlyric.lrc') || lower === 'lyrics.trans.lrc'
 }
 
+/** 按字节范围复制出独立 ArrayBuffer（避免视图偏移或底层 buffer 复用问题） */
 function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer
 }
 
+/** 内嵌封面 → Blob：补全 mime 并复制字节数据（原 Uint8Array 可能来自复用 buffer） */
 function pictureToBlob(pic: { data: Uint8Array; format?: string } | null | undefined): Blob | undefined {
   if (!pic?.data?.length) return undefined
   const mime = pic.format?.includes('/') ? pic.format : `image/${pic.format || 'jpeg'}`
@@ -141,6 +163,7 @@ function pictureToBlob(pic: { data: Uint8Array; format?: string } | null | undef
   return new Blob([copy], { type: mime })
 }
 
+/** 提取内嵌歌词；兼容纯字符串、{text} 与 [{text}] 多种标签形态 */
 function extractEmbeddedLyrics(common: {
   lyrics?: unknown
 }): string | undefined {
@@ -163,6 +186,7 @@ function extractEmbeddedLyrics(common: {
   return text || undefined
 }
 
+/** 动态加载 music-metadata 解析音频标签（标题 / 歌手 / 专辑 / 时长 / 封面 / 内嵌歌词）；任何失败都降级为全空 */
 async function parseAudioTags(blob: Blob) {
   try {
     const { parseBlob, selectCover } = await import('music-metadata')
@@ -178,6 +202,7 @@ async function parseAudioTags(blob: Blob) {
   }
 }
 
+/** 同 parseAudioTags，但输入为字节数组（Tauri readFile 场景） */
 async function parseAudioTagsFromBytes(bytes: Uint8Array) {
   try {
     const { parseBuffer, selectCover } = await import('music-metadata')
@@ -193,6 +218,8 @@ async function parseAudioTagsFromBytes(bytes: Uint8Array) {
   }
 }
 
+// ===== IndexedDB 持久化 =====
+/** 打开 / 升级曲库库；四个仓按需补建 */
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     if (typeof indexedDB === 'undefined') {
@@ -212,6 +239,7 @@ function openDb(): Promise<IDBDatabase> {
   })
 }
 
+/** 把单个 IDBRequest 转成 Promise */
 function idbRequest<T>(req: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
     req.onsuccess = () => resolve(req.result)
@@ -219,6 +247,7 @@ function idbRequest<T>(req: IDBRequest<T>): Promise<T> {
   })
 }
 
+/** 单曲入库：记录与可选的句柄 / 封面 / 音频 Blob 同一事务写入；失败静默（隐私模式 / 配额不足） */
 export async function saveLocalRecord(
   record: LocalLibraryRecord,
   opts?: { handle?: FileSystemFileHandle; mvHandle?: FileSystemFileHandle; coverBlob?: Blob; blob?: Blob },
@@ -242,6 +271,7 @@ export async function saveLocalRecord(
   }
 }
 
+/** 删除曲目在运行期缓存与四个仓中的全部数据 */
 export async function deleteLocalRecord(id: string) {
   fileHandles.delete(id)
   mvHandles.delete(id)
@@ -262,6 +292,7 @@ export async function deleteLocalRecord(id: string) {
   }
 }
 
+/** 全量读库并回填运行期句柄缓存；失败时返回空集合（视为无曲库） */
 export async function loadAllLocalRecords(): Promise<{
   records: LocalLibraryRecord[]
   handles: Map<string, FileSystemFileHandle>
@@ -307,10 +338,13 @@ export async function loadAllLocalRecords(): Promise<{
   }
 }
 
+/** 取运行期缓存的音频句柄（不触发权限请求） */
 export function getCachedHandle(id: string) {
   return fileHandles.get(id)
 }
 
+// ===== 导入装配：标签 → 展示字段 =====
+/** 标签与文件名合并出展示字段；缺失时以文件主干 /「本地文件」兜底 */
 function toTrackFields(
   fileName: string,
   tags: { title?: string; artist?: string; album?: string; duration: number; coverBlob?: Blob },
@@ -329,6 +363,7 @@ function toTrackFields(
   }
 }
 
+/** 从 File 生成导入结果：sidecar 元数据优先于内嵌标签，歌词优先用外部 lrc */
 async function importFromBrowserFile(
   file: File,
   opts: {
@@ -367,6 +402,8 @@ async function importFromBrowserFile(
   }
 }
 
+// ===== 浏览器 FSA 导入（File System Access） =====
+/** 扫描目录配套文件：封面 / 原文·翻译歌词（按文件名主干索引）/ 视频 / pulse.json；无规范封面时回退任意图 */
 async function readFsaSidecars(dir: FileSystemDirectoryHandle): Promise<{
   coverBlob?: Blob
   lrcByStem: Map<string, string>
@@ -383,8 +420,9 @@ async function readFsaSidecars(dir: FileSystemDirectoryHandle): Promise<{
   let folderLrc: string | undefined
   let folderTrans: string | undefined
   let sidecar: PulseSidecar | undefined
-  for await (const [name, entry] of dir.entries()) {
-    if (entry.kind !== 'file') continue
+  for await (const [name, fsHandle] of dir.entries()) {
+    if (fsHandle.kind !== 'file') continue
+    const entry = fsHandle as FileSystemFileHandle
     const lower = name.toLowerCase()
     if (lower === SIDECAR_NAME) {
       try {
@@ -420,7 +458,7 @@ async function readFsaSidecars(dir: FileSystemDirectoryHandle): Promise<{
     for await (const [name, entry] of dir.entries()) {
       if (entry.kind === 'file' && COVER_EXT.test(name)) {
         try {
-          coverBlob = await entry.getFile()
+          coverBlob = await (entry as FileSystemFileHandle).getFile()
           break
         } catch {
           /* skip */
@@ -431,6 +469,7 @@ async function readFsaSidecars(dir: FileSystemDirectoryHandle): Promise<{
   return { coverBlob, lrcByStem, transByStem, folderLrc, folderTrans, videos, sidecar }
 }
 
+/** 递归收集目录：有 sidecar 或「单音频 + 配套文件」视为单曲文件夹只导该首，否则逐个导入并递归子目录 */
 async function collectFsaPackages(
   handle: FileSystemDirectoryHandle,
 ): Promise<LocalImportResult[]> {
@@ -438,8 +477,8 @@ async function collectFsaPackages(
   const audios: { name: string; handle: FileSystemFileHandle }[] = []
   const subdirs: FileSystemDirectoryHandle[] = []
   for await (const [, entry] of handle.entries()) {
-    if (entry.kind === 'directory') subdirs.push(entry)
-    else if (AUDIO_EXT.test(entry.name)) audios.push({ name: entry.name, handle: entry })
+    if (entry.kind === 'directory') subdirs.push(entry as FileSystemDirectoryHandle)
+    else if (AUDIO_EXT.test(entry.name)) audios.push({ name: entry.name, handle: entry as FileSystemFileHandle })
   }
   const sidecars = await readFsaSidecars(handle)
   const treatAsSongFolder = !!sidecars.sidecar || (audios.length === 1 && (!!sidecars.coverBlob || !!sidecars.folderLrc || sidecars.videos.length > 0))
@@ -480,6 +519,7 @@ async function collectFsaPackages(
   return out
 }
 
+/** FSA 选择器入口：目录走 showDirectoryPicker，多文件走 showOpenFilePicker */
 async function pickWithFileSystemAccess(folder: boolean): Promise<LocalImportResult[]> {
   if (folder) {
     const dir = await window.showDirectoryPicker({ mode: 'read' })
@@ -506,12 +546,15 @@ async function pickWithFileSystemAccess(folder: boolean): Promise<LocalImportRes
   return out
 }
 
+// ===== Tauri 桌面导入 =====
+/** 用 fs 插件读文本文件 */
 async function readTauriText(path: string) {
   const { readFile } = await import('@tauri-apps/plugin-fs')
   const bytes = await readFile(path)
   return new TextDecoder().decode(bytes)
 }
 
+/** Tauri 版目录配套扫描（逻辑同 readFsaSidecars，返回封面路径而非 Blob） */
 async function readTauriSidecars(dir: string): Promise<{
   coverPath?: string
   lrcByStem: Map<string, string>
@@ -572,6 +615,7 @@ async function readTauriSidecars(dir: string): Promise<{
   return { coverPath, lrcByStem, transByStem, folderLrc, folderTrans, videos, sidecar }
 }
 
+/** 读封面文件为 Blob，mime 按扩展名推断 */
 async function coverBlobFromTauri(path?: string): Promise<Blob | undefined> {
   if (!path) return undefined
   try {
@@ -585,6 +629,7 @@ async function coverBlobFromTauri(path?: string): Promise<Blob | undefined> {
   }
 }
 
+/** Tauri 版递归收集（单曲文件夹判定规则同 FSA 版） */
 async function collectTauriPackages(dir: string): Promise<LocalImportResult[]> {
   const { readDir } = await import('@tauri-apps/plugin-fs')
   let entries: Array<{ name: string; isDirectory: boolean; isFile: boolean }>
@@ -624,6 +669,7 @@ async function collectTauriPackages(dir: string): Promise<LocalImportResult[]> {
   return out
 }
 
+/** 从磁盘路径导入：优先 convertFileSrc 生成 asset: 协议直链，失败回退 blob URL */
 async function importTauriPath(
   path: string,
   extras?: {
@@ -678,6 +724,7 @@ async function importTauriPath(
   }
 }
 
+/** Tauri 对话框选择入口（目录 / 多文件） */
 async function pickWithTauri(folder: boolean): Promise<LocalImportResult[]> {
   const { open } = await import('@tauri-apps/plugin-dialog')
   if (folder) {
@@ -699,6 +746,8 @@ async function pickWithTauri(folder: boolean): Promise<LocalImportResult[]> {
   return out
 }
 
+// ===== 回退导入与统一选择入口 =====
+/** `<input type=file>` 回退导入：先按文件名主干收集歌词，再逐个音频导入（一次性 session） */
 export async function importBrowserFileList(fileList: FileList | File[]): Promise<LocalImportResult[]> {
   const files = Array.from(fileList)
   const lrcMap = new Map<string, string>()
@@ -731,6 +780,7 @@ export async function importBrowserFileList(fileList: FileList | File[]): Promis
   return out
 }
 
+/** 统一选择入口：Tauri → FSA 依次尝试；均不可用或失败返回 'fallback-input' 交由调用方转 input；用户取消返回 [] */
 export async function pickLocalMedia(folder: boolean): Promise<LocalImportResult[] | 'fallback-input'> {
   if (isTauriRuntime()) {
     try {
@@ -751,6 +801,8 @@ export async function pickLocalMedia(folder: boolean): Promise<LocalImportResult
   return 'fallback-input'
 }
 
+// ===== 恢复播放与曲库还原 =====
+/** 按优先级恢复可播 URL：现成 URL → Tauri 路径 → 授权文件句柄 → 内存 File → IDB Blob；全部失败标记 needsPermission */
 export async function restoreLocalPlayback(track: PulseTrack): Promise<{
   url: string
   file?: File
@@ -801,6 +853,7 @@ export async function restoreLocalPlayback(track: PulseTrack): Promise<{
   return { url: '', needsPermission: true }
 }
 
+/** 读 STORE_BLOBS 中缓存的音频 Blob */
 async function getTrackBlob(id: string): Promise<Blob | undefined> {
   try {
     const db = await openDb()
@@ -811,6 +864,7 @@ async function getTrackBlob(id: string): Promise<Blob | undefined> {
   }
 }
 
+/** 启动时把持久化记录还原为可播曲目：按 Tauri / FSA / blob 三种持久方式恢复 URL，并标记待授权项 */
 export async function hydrateLocalTracks(existingIds: Set<string>): Promise<PulseTrack[]> {
   const { records, handles, mvFileHandles, covers, blobs } = await loadAllLocalRecords()
   const tracks: PulseTrack[] = []
@@ -897,6 +951,8 @@ export async function hydrateLocalTracks(existingIds: Set<string>): Promise<Puls
   return tracks
 }
 
+// ===== 下载落地与持久化 =====
+/** 把下载好的音频字节导入曲库（云端下载保存到本地的统一入口）；Tauri 走直链、浏览器转 File */
 export async function importDownloadedAudio(opts: {
   bytes: Uint8Array
   fileName: string
@@ -964,6 +1020,7 @@ export async function importDownloadedAudio(opts: {
   return imported
 }
 
+/** 导入确认后入库：session 导入升级为 blob 持久化（超限回退一次性）；fsa / tauri 连同句柄与封面入库 */
 export async function persistImportedLocal(imported: LocalImportResult, favorite = false) {
   if (imported.persistKind === 'session') {
     // fallback <input type=file> 导入：把音频 Blob 写进 IndexedDB，刷新后仍能续播（过大则回退一次性导入）
@@ -1026,6 +1083,7 @@ export async function persistImportedLocal(imported: LocalImportResult, favorite
   )
 }
 
+/** 仅回写曲目元数据（收藏 / 歌词等变更时），不触碰音频与封面数据 */
 export async function persistLocalTrackMeta(track: PulseTrack) {
   if (!isLocalish(track) || track.persistKind === 'session' || !track.persistKind) return
   await saveLocalRecord(
@@ -1052,10 +1110,12 @@ export async function persistLocalTrackMeta(track: PulseTrack) {
   )
 }
 
+/** 是否本地来源曲目（决定元数据能否回写本地曲库） */
 function isLocalish(track: PulseTrack) {
   return track.source === '本地' || !!track.file || !!track.localPath || !!track.persistKind
 }
 
+/** 释放曲目持有的 blob: URL（音频 / 封面 / MV），防止移除后内存泄漏 */
 export function revokeTrackUrls(track: PulseTrack) {
   if (track.url?.startsWith('blob:')) {
     try {
@@ -1080,18 +1140,22 @@ export function revokeTrackUrls(track: PulseTrack) {
   }
 }
 
+/** 从已持有的目录递归导入（记忆路径 / 恢复授权场景） */
 export async function importFromTauriDir(dir: string): Promise<LocalImportResult[]> {
   return collectTauriPackages(dir)
 }
 
+/** FSA 版：从已授权目录递归导入 */
 export async function importFromFsaDir(dir: FileSystemDirectoryHandle): Promise<LocalImportResult[]> {
   return collectFsaPackages(dir)
 }
 
+/** 读取歌词文件为文本 */
 export async function readLrcFile(file: File) {
   return file.text()
 }
 
+/** 请求恢复某曲目的文件读权限；成功返回 true */
 export async function requestHandlePermission(id: string) {
   const handle = fileHandles.get(id)
   if (!handle) return false

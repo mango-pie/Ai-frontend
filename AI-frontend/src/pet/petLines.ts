@@ -1,3 +1,7 @@
+/**
+ * 桌宠随机台词库：桌宠气泡、聊天等场景随机展示的中文语料
+ */
+// 台词池：随机抽取展示，尽量不与上一句重复
 const PET_LINES = [
   '又在摸鱼？',
   '实验室有新想法吗？',
@@ -30,8 +34,14 @@ const PET_LINES = [
   '诶嘿，被发现了～',
 ]
 
+/**
+ * 随机挑选一条桌宠台词
+ * @param exclude 需要排除的台词（通常传入上一次抽到的句子，避免连续重复）
+ * @returns 随机选中的台词；池中无可用项时兜底返回第一句
+ */
 export function pickRandomLine(exclude?: string): string {
   const pool = exclude ? PET_LINES.filter((line) => line !== exclude) : PET_LINES
+  // 排除后池子为空则退回完整池，保证一定有返回值
   const source = pool.length > 0 ? pool : PET_LINES
-  return source[Math.floor(Math.random() * source.length)] ?? PET_LINES[0]
+  return source[Math.floor(Math.random() * source.length)] ?? PET_LINES[0]!
 }

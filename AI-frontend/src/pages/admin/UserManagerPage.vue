@@ -3,12 +3,14 @@
  * 用户管理页（管理员） - 路径：/admin/userManage
  * 表格展示用户列表，支持分页、编辑用户信息、删除；头像、角色、创建时间自定义渲染。
  */
-import { onMounted, reactive, ref } from 'vue'
+import AdminRoomShell from '@/components/shared/AdminRoomShell.vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { message } from 'ant-design-vue'
 import { deleteUser, listUserVoByPage, updateUser } from '@/api/userController.ts'
 import { Modal } from 'ant-design-vue'
 import '@/assets/admin-theme.css'
 import { Users } from 'lucide-vue-next'
+import AdminIdCell from '@/components/admin/AdminIdCell.vue'
 
 /** 表格行数据类型，与后端 UserVO 对应 */
 type ManagerRow = API.UserVO
@@ -22,8 +24,13 @@ const ROLE_OPTIONS = [
 
 const dataSource = ref<ManagerRow[]>([])
 const total = ref(0)
+/** 页内管理人数量（hero 迷你统计用，随当前页数据刷新） */
+const adminCountOnPage = computed(() =>
+  dataSource.value.filter((row) => row.userRole === 'administrator' || row.userRole === 'admin').length,
+)
 const loading = ref(false)
 
+// 查询条件：按账号/用户名模糊搜索，无其它筛选维度
 const searchParams = reactive<API.UserQueryRequest>({
   pageNum: 1,
   pageSize: 10,
@@ -57,6 +64,7 @@ const columns = [
   { title: '操作', key: 'action', width: 160, fixed: 'right' },
 ]
 
+/** 拉取用户分页列表 */
 const fetchData = async () => {
   loading.value = true
   try {
@@ -73,6 +81,7 @@ const fetchData = async () => {
   }
 }
 
+/** 分页页码或每页条数变化后重新请求 */
 const onTableChange = (pag: { current?: number; pageSize?: number }) => {
   if (pag.current != null) searchParams.pageNum = pag.current
   if (pag.pageSize != null) searchParams.pageSize = pag.pageSize
@@ -86,6 +95,7 @@ const doSearch = () => {
   fetchData()
 }
 
+/** 清空筛选条件并回到第一页 */
 const doReset = () => {
   searchParams.userAccount = undefined
   searchParams.userName = undefined
@@ -98,7 +108,7 @@ onMounted(() => {
 })
 
 // 删除数据
-const doDelete = async (id: string) => {
+const doDelete = async (id: number) => {
   Modal.confirm({
     title: '确认删除用户吗？',
     okText: '确认',
@@ -127,6 +137,7 @@ const editForm = reactive<API.UserUpdateRequest>({
   userRole: undefined,
 })
 
+/** 打开编辑弹窗：把行数据回填到表单 */
 const openEdit = (record: ManagerRow) => {
   editForm.id = record.id
   editForm.userName = record.userName ?? ''
@@ -140,6 +151,7 @@ const closeEditModal = () => {
   editModalVisible.value = false
 }
 
+/** 提交编辑：空白字段 trim 后转 undefined，避免把空串覆盖到后端 */
 const doEditSubmit = async () => {
   if (editForm.id == null) return
   editSubmitting.value = true
@@ -163,6 +175,7 @@ const doEditSubmit = async () => {
   }
 }
 
+/** 角色标签颜色映射 */
 const roleColorMap: Record<string, string> = {
   admin: 'processing',
   administrator: 'error',
@@ -171,18 +184,17 @@ const roleColorMap: Record<string, string> = {
 </script>
 
 <template>
+  <AdminRoomShell note-label="Station · 用户管理">
   <div class="user-manager-page admin-theme-page">
-    <!-- 面包屑 -->
-    <a-breadcrumb class="admin-breadcrumb">
-      <a-breadcrumb-item>管理</a-breadcrumb-item>
-      <a-breadcrumb-item>用户管理</a-breadcrumb-item>
-    </a-breadcrumb>
-
     <!-- 页面头部 -->
     <div class="admin-page-hero">
       <div class="hero-left">
         <div class="hero-title"><Users :size="22" /> 用户管理</div>
-        <div class="hero-subtitle">共 {{ total }} 个用户 · 管理平台所有注册用户</div>
+        <div class="hero-subtitle">管理平台所有注册用户</div>
+      </div>
+      <div class="hero-extra admin-hero-stats">
+        <div class="stat"><b>{{ total }}</b><span>注册用户</span></div>
+        <div class="stat"><b>{{ adminCountOnPage }}</b><span>页内管理人</span></div>
       </div>
     </div>
 
@@ -217,7 +229,7 @@ const roleColorMap: Record<string, string> = {
           pageSize: searchParams.pageSize,
           total,
           showSizeChanger: true,
-          showTotal: (t) => `共 ${t} 条`,
+          showTotal: (t: number) => `共 ${t} 条`,
           pageSizeOptions: ['10', '20', '50'],
         }"
         :scroll="{ x: 900 }"
@@ -225,14 +237,19 @@ const roleColorMap: Record<string, string> = {
         @change="onTableChange"
       >
         <template #bodyCell="{ column, record }">
-          <template v-if="column.dataIndex === 'userAvatar'">
+          <template v-if="column.dataIndex === 'id'">
+            <AdminIdCell :id="record.id" />
+          </template>
+          <template v-else-if="column.dataIndex === 'userAvatar'">
             <a-avatar
               v-if="record.userAvatar"
               :src="record.userAvatar"
               :size="48"
               shape="square"
             />
-            <span v-else style="color: var(--color-text-muted); font-size: 12px">-</span>
+            <span v-else class="admin-avatar-fallback">
+              {{ (record.userName || record.userAccount || '?').slice(0, 1) }}
+            </span>
           </template>
           <template v-else-if="column.dataIndex === 'userRole'">
             <a-tag :color="roleColorMap[record.userRole ?? 'user']">
@@ -295,6 +312,7 @@ const roleColorMap: Record<string, string> = {
       </a-form>
     </a-modal>
   </div>
+  </AdminRoomShell>
 </template>
 
 <style scoped>

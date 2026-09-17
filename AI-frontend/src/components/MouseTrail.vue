@@ -1,7 +1,15 @@
 <script setup lang="ts">
+/**
+ * MouseTrail 鼠标轨迹特效
+ * 职责：全屏覆盖一层透明 canvas，跟随鼠标绘制拖尾光带、光标核心光晕和高速移动时
+ * 迸出的星形粒子。纯视觉组件，不承载业务逻辑。
+ * 性能策略：按需启停 requestAnimationFrame 循环（无指针且粒子耗尽时自动停止），
+ * 页面隐藏时暂停；移动端/系统开启"减少动态效果"时不启用。
+ */
 import { onMounted, onUnmounted, shallowRef } from 'vue'
 import { siteConfig } from '@/config/site'
 
+// 拖尾参数：最大点数、寿命衰减速率、采样间距、插值步长、跟随插值系数、线宽与透明度
 const MAX_TRAIL_POINTS = 42
 const TRAIL_LIFE_DECAY = 0.038
 const TRAIL_SAMPLE_DISTANCE = 1
@@ -12,10 +20,12 @@ const TRAIL_WIDTH_MIN = 6
 const TRAIL_WIDTH_MAX = 16
 const TRAIL_ALPHA = 0.38
 
+// 光标核心光晕参数（半径随移动速度在 MIN~MAX 间伸缩）
 const CORE_ALPHA = 0.42
 const CORE_RADIUS_MIN = 12
 const CORE_RADIUS_MAX = 28
 
+// 星形粒子参数：移动速度超过阈值才迸出，数量/尺寸/寿命均有上限防止性能劣化
 const STAR_SPAWN_THRESHOLD = 8
 const STAR_MAX_COUNT = 24
 const STAR_SIZE_MIN = 4
@@ -40,6 +50,7 @@ interface StarParticle {
   color: string
 }
 
+// canvas 与渲染循环句柄；颜色取自主题 CSS 变量，默认为品牌主/次色
 const canvasRef = shallowRef<HTMLCanvasElement | null>(null)
 let ctx: CanvasRenderingContext2D | null = null
 let rafId = 0
@@ -49,15 +60,18 @@ let colors = {
   secondary: '124, 156, 224',
 }
 
+// target 为真实指针位置，display 为 lerp 平滑后的绘制位置；两者配合产生"跟随感"
 const target = { x: 0, y: 0 }
 const display = { x: 0, y: 0 }
 let hasPointer = false
 let lastSampleX = 0
 let lastSampleY = 0
 
+// 拖尾点序列与星形粒子池
 const points: TrailPoint[] = []
 const stars: StarParticle[] = []
 
+// 是否启用特效：站点配置开关 + 用户偏好减少动效 + 非触屏设备三者同时满足
 function shouldEnable(): boolean {
   if (!siteConfig.effects.mouseTrail.enabled) return false
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false
@@ -65,6 +79,7 @@ function shouldEnable(): boolean {
   return true
 }
 
+// 通过临时 DOM 元素让浏览器解析任意 CSS 颜色值，再提取出 "r, g, b" 字符串供 canvas 使用
 function parseCssColorToRgb(cssColor: string): string | null {
   const el = document.createElement('div')
   el.style.color = cssColor
@@ -76,6 +91,7 @@ function parseCssColorToRgb(cssColor: string): string | null {
   return `${match[1]}, ${match[2]}, ${match[3]}`
 }
 
+// 读取主题 CSS 变量中的主/次色，解析失败时回退到硬编码的品牌色
 function readThemeColors(): { primary: string; secondary: string } {
   const root = getComputedStyle(document.documentElement)
   const primary =
@@ -105,6 +121,7 @@ function resize() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
 }
 
+// 向拖尾追加一个轨迹点（速度归一化为 speedFactor），超出上限时丢弃最旧的点
 function addTrailPoint(x: number, y: number, speed: number) {
   const speedFactor = Math.min(speed / 18, 1)
   points.push({ x, y, life: 1, speedFactor })
@@ -113,6 +130,7 @@ function addTrailPoint(x: number, y: number, speed: number) {
   }
 }
 
+// 高速移动时迸出星形粒子：速度越快数量越多，方向/大小/寿命随机，颜色主次随机
 function spawnStars(x: number, y: number, speed: number) {
   if (speed < STAR_SPAWN_THRESHOLD) return
   const baseCount = Math.min(3, 1 + Math.floor((speed - STAR_SPAWN_THRESHOLD) / 7))
@@ -135,6 +153,7 @@ function spawnStars(x: number, y: number, speed: number) {
   }
 }
 
+// 对两次采样之间的大位移做线性插值补点，保证拖尾连续不断裂；位移够大时顺带触发星形粒子
 function sampleTrailAt(x: number, y: number) {
   const dx = x - lastSampleX
   const dy = y - lastSampleY
@@ -159,6 +178,7 @@ function sampleTrailAt(x: number, y: number) {
   lastSampleY = y
 }
 
+// 指针移动：仅记录目标位置；首次捕获指针时初始化各坐标系并启动渲染循环
 function onPointerMove(e: PointerEvent) {
   target.x = e.clientX
   target.y = e.clientY
@@ -182,6 +202,7 @@ function onPointerLeave() {
   hasPointer = false
 }
 
+// 绘制径向渐变光晕（用于光标核心）
 function drawGlow(x: number, y: number, radius: number, rgb: string, alpha: number) {
   if (!ctx || alpha <= 0.01) return
   const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius)
@@ -199,6 +220,7 @@ function segmentWidth(life: number, speedFactor: number): number {
   return (TRAIL_WIDTH_MIN + (TRAIL_WIDTH_MAX - TRAIL_WIDTH_MIN) * life) * widthFactor
 }
 
+// 逐段绘制拖尾光带：线宽/透明度随点的剩余寿命和移动速度变化，颜色由主色渐变到次色
 function drawTrailRibbon() {
   if (!ctx || points.length < 2) return
 
@@ -235,6 +257,7 @@ function drawTrailRibbon() {
   ctx.restore()
 }
 
+// 绘制光标核心双层光晕，半径随最近移动速度伸缩
 function drawCoreGlow() {
   if (!ctx || !hasPointer) return
   const latest = points[points.length - 1]
@@ -248,6 +271,7 @@ function drawCoreGlow() {
   ctx.restore()
 }
 
+// 绘制八芒星光斑（四条过中心的线段），带缓慢自转
 function drawStarShape(x: number, y: number, size: number, alpha: number, rgb: string, phase: number) {
   if (!ctx || alpha <= 0.01) return
   const diagonal = size * 0.62
@@ -271,6 +295,7 @@ function drawStarShape(x: number, y: number, size: number, alpha: number, rgb: s
   ctx.restore()
 }
 
+// 绘制全部星形粒子，透明度随寿命与正弦闪烁（twinkle）变化
 function drawStars(nowMs: number) {
   if (!ctx) return
   ctx.save()
@@ -286,6 +311,7 @@ function drawStars(nowMs: number) {
   ctx.restore()
 }
 
+// 帧更新：衰减拖尾点寿命并移除耗尽的点
 function updateTrailPoints() {
   for (let i = points.length - 1; i >= 0; i--) {
     const point = points[i]
@@ -297,6 +323,7 @@ function updateTrailPoints() {
   }
 }
 
+// 帧更新：星形粒子按速度漂移并摩擦减速，寿命耗尽后移除
 function updateStars() {
   for (let i = stars.length - 1; i >= 0; i--) {
     const star = stars[i]
@@ -312,10 +339,13 @@ function updateStars() {
   }
 }
 
+// 是否还有内容需要继续渲染（指针在场或残留粒子未消散）
 function shouldKeepAnimating(): boolean {
   return hasPointer || points.length > 0 || stars.length > 0
 }
 
+// 渲染主循环：平滑跟随 -> 采样补点 -> 状态更新 -> 清屏重绘；
+// 无内容可绘时自动停帧以节省性能
 function tick(nowMs: number) {
   if (!running || !ctx) return
 
@@ -353,6 +383,7 @@ function stopLoop() {
   clearCanvas()
 }
 
+// 页面切到后台时停帧，回到前台且仍有内容时恢复，避免后台空转
 function onVisibilityChange() {
   if (document.hidden) {
     stopLoop()
@@ -384,6 +415,7 @@ function teardown() {
   hasPointer = false
 }
 
+// 挂载时按条件启用特效：读取主题色、初始化 canvas，并绑定 resize/指针/可见性事件
 onMounted(() => {
   if (!shouldEnable()) return
   colors = readThemeColors()
@@ -398,10 +430,12 @@ onUnmounted(teardown)
 </script>
 
 <template>
+  <!-- 全屏特效画布：不拦截任何鼠标事件，仅作视觉层 -->
   <canvas ref="canvasRef" class="mouse-trail-canvas" />
 </template>
 
 <style scoped>
+/* 固定全屏、置于最顶层且不阻挡交互 */
 .mouse-trail-canvas {
   position: fixed;
   inset: 0;

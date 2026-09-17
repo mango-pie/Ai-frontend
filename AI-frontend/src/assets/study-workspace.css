@@ -1,3 +1,11 @@
+/* ============================================================
+   study-workspace.css — 学习工作台（书房房间）样式表
+   对应模块：学习页 .study-page 三栏布局
+   （左栏导航 / 中栏任务清单 / 右栏工具面板），
+   含番茄钟、统计图表、习惯打卡日历、专注历史、移动端 Tab 降级
+   ============================================================ */
+
+/* 页面容器与页头 */
 .study-page {
   max-width: 1400px;
   margin: 0 auto;
@@ -21,6 +29,7 @@
   font-size: 0.95rem;
 }
 
+/* 三栏布局：240px 导航栏 + 自适应主列 + 300px 工具栏 */
 .study-layout {
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr) 300px;
@@ -28,6 +37,7 @@
   min-height: 560px;
 }
 
+/* 通用面板：卡片底 + 头部 + 可滚动主体 */
 .study-panel {
   background: var(--color-bg-card);
   border: 1px solid var(--color-border);
@@ -60,6 +70,7 @@
   letter-spacing: 0.04em;
 }
 
+/* 左栏导航项：圆点 + 名称 + 数量徽标，激活态主色底 */
 .study-nav-item {
   display: flex;
   align-items: center;
@@ -137,6 +148,7 @@
   padding: 4px 8px 12px;
 }
 
+/* 任务清单：条目左侧 3px 优先级色条，完成后标题划线置灰 */
 .study-task-item {
   display: flex;
   align-items: flex-start;
@@ -192,6 +204,7 @@
   color: var(--color-text-muted);
 }
 
+/* 任务标签语义色：逾期（粉）/ 今日（蓝）/ 博客关联（金） */
 .study-task-item__tag--overdue {
   background: rgba(232, 121, 169, 0.2);
   color: #f4a8c8;
@@ -236,6 +249,7 @@
   padding: 8px 0 16px;
 }
 
+/* 番茄钟：conic-gradient 圆环进度，--progress（0~1）由 JS 驱动 1turn 扫过 */
 .study-pomodoro__ring {
   --progress: 0;
   width: 160px;
@@ -290,6 +304,7 @@
   justify-content: center;
 }
 
+/* 统计卡片网格与数字卡 */
 .study-stats-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -319,6 +334,7 @@
   margin-top: 16px;
 }
 
+/* 区间柱状图：底部对齐的迷你柱条，高度 0.3s 过渡 */
 .study-range-chart__bars {
   display: flex;
   align-items: flex-end;
@@ -391,6 +407,7 @@
   color: #e879a9;
 }
 
+/* 习惯打卡：7 列日历网格，已打卡格子主色高亮 */
 .study-habit-calendar {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -450,6 +467,8 @@
   border: 1px solid var(--color-border);
 }
 
+/* 响应式断点 ≤1023px：布局降为单列，顶部显示移动端 Tab，
+   并按 --mobile-* 修饰类只显示当前 Tab 对应面板 */
 @media (max-width: 1023px) {
   .study-mobile-tabs {
     display: block;
@@ -475,6 +494,7 @@
   }
 }
 
+/* 抽屉（antd）暗色覆盖与清单条目完成态 */
 .study-page :deep(.ant-drawer-content) {
   background: var(--color-bg-card);
 }

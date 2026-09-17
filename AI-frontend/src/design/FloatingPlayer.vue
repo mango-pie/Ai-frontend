@@ -1,17 +1,26 @@
 <script setup lang="ts">
+/**
+ * 悬浮音乐播放器：提供底部停靠栏、悬浮迷你条、可拖拽缩放的展开面板三种形态
+ * 整合网易云搜索、扫码登录与播放列表抽屉，并通过 openLyric 事件把歌词窗交给父组件
+ */
 import { ref, onMounted, onUnmounted, computed, defineComponent, h, nextTick, watch } from 'vue';
 import { usePulsePlayer } from '@/composables/usePulsePlayer';
 import { searchMusic, type Song } from '@/integrations/neteaseMusic';
 import { useNeteaseLogin } from './useNeteaseLogin';
 import { applyCoverFallback } from '@/utils/musicCover';
 
+// ===== 对外事件 =====
+// 打开歌词窗：歌词浮窗由父组件渲染，组件内只负责触发
 const emit = defineEmits<{
   (e: 'openLyric'): void;
 }>();
 
+// ===== 播放器核心状态与视图聚合 =====
 const p = usePulsePlayer();
+// 进度条拖动中的预览值（0~1），null 表示当前未在拖动
 const seekingProgress = ref<number | null>(null);
 
+// 将播放队列、进度、音量等聚合为模板可直接使用的扁平状态
 const state = computed(() => {
   const track = p.currentTrack.value;
   const queue = p.queueTracks.value;
@@ -51,6 +60,7 @@ const state = computed(() => {
   };
 });
 
+// ===== 适配层：把 usePulsePlayer 单例的 API 包装成旧模板使用的函数名 =====
 const togglePlay = () => void p.togglePlay();
 const playNext = () => p.nextTrack();
 const playPrev = () => p.prevTrack();
@@ -64,6 +74,7 @@ const removeFromPlaylist = (index: number) => {
   if (track) p.removeFromQueue(track.id);
 };
 
+// ===== 进度拖动预览：拖动中只更新预览值，松手才真正跳转播放进度 =====
 function setSeekingProgress(percent: number) {
   seekingProgress.value = Math.max(0, Math.min(1, percent));
 }
@@ -76,8 +87,10 @@ function cancelSeekingProgress() {
   seekingProgress.value = null;
 }
 
+// ===== 网易云扫码登录 =====
 const { isLoggedIn, loginStatus, loginError, loginStatusText, qrCodeUrl, handleLogin, handleLogout } = useNeteaseLogin();
 
+// ===== 悬浮位置 / 显示模式 / 停靠长按交互状态 =====
 const position = ref({ x: 20, y: 100 });
 const displayMode = ref<'float' | 'dock'>('dock');
 const isDragging = ref(false);
@@ -95,6 +108,7 @@ const dockLongPressTimer = ref<ReturnType<typeof setTimeout> | null>(null);
 const dockProgressTimer = ref<ReturnType<typeof setInterval> | null>(null);
 const dockPressProgress = ref(0);
 const dockPressPoint = ref({ x: 0, y: 0 });
+// 停靠栏交互常量：栏高、吸附/脱离阈值、长按时长与进度环几何参数
 const dockHeight = 76;
 const dockSnapThreshold = 24;
 const dockUndockDragThreshold = 10;
@@ -103,6 +117,7 @@ const dockProgressRadius = 18;
 const dockProgressCircumference = 2 * Math.PI * dockProgressRadius;
 const dockProgressRingSize = 48;
 
+// ===== 内联 SVG 图标集与 UiIcon 渲染组件（免引入图标库） =====
 type IconName =
   | 'music'
   | 'previous'
@@ -183,6 +198,7 @@ const baseMinSize = { width: 260, height: 320 };
 const baseMaxSize = { width: 600, height: 800 };
 const viewportPadding = 10;
 
+// 依据视口计算面板宽高上下限（小屏时上限收敛，且下限不超过上限）
 const getSizeBounds = () => {
   const viewportMaxWidth = Math.max(280, window.innerWidth - viewportPadding * 2);
   const viewportMaxHeight = Math.max(360, window.innerHeight - viewportPadding * 2);
@@ -208,6 +224,7 @@ const clampPanelSize = (nextSize: { width: number; height: number }) => {
   };
 };
 
+// 位置越界修正：拖拽、缩放或窗口变化后把面板拉回视口内
 const clampPosition = (nextPosition: { x: number; y: number }) => {
   const panelWidth = isExpanded.value ? size.value.width : (playerRef.value?.offsetWidth || 300);
   const panelHeight = isExpanded.value ? size.value.height : (playerRef.value?.offsetHeight || 80);
@@ -266,6 +283,7 @@ const normalizePanelInViewport = () => {
   position.value = clampPosition(position.value);
 };
 
+// 依据面板尺寸推导显示密度（常规/紧凑/极简），用于隐藏次要元素
 const panelDensity = computed<'regular' | 'compact' | 'ultra'>(() => {
   if (size.value.height < 390 || size.value.width < 320) return 'ultra';
   if (size.value.height < 470 || size.value.width < 360) return 'compact';
@@ -282,10 +300,12 @@ const playerInlineStyle = computed(() => {
     top: `${position.value.y}px`,
   };
 });
+// 长按进度环的 SVG 弧长偏移：进度 0 -> 完整一圈空缺，进度 1 -> 0 空缺（画满圆环）
 const dockProgressOffset = computed(
   () => dockProgressCircumference * (1 - Math.max(0, Math.min(1, dockPressProgress.value))),
 );
 
+// ===== 网易云搜索：关键词 / 分页结果 / 各抽屉开关 =====
 const SEARCH_PAGE_SIZE = 30;
 const searchKey = ref('');
 const searchResults = ref<Song[]>([]);
@@ -335,6 +355,7 @@ const handleDockDrawerOutsidePointerDown = (e: PointerEvent) => {
   closeDockDrawers();
 };
 
+// 抽屉打开时在捕获阶段监听全局 pointerdown，点击抽屉与停靠栏以外的区域即关闭
 watch(isDockDrawerOpen, (open) => {
   if (open) {
     document.addEventListener('pointerdown', handleDockDrawerOutsidePointerDown, true);
@@ -343,6 +364,7 @@ watch(isDockDrawerOpen, (open) => {
   }
 });
 
+// ===== 时间格式化与图标映射 =====
 const formatTime = (seconds: number): string => {
   if (!seconds || isNaN(seconds)) return '0:00';
   const mins = Math.floor(seconds / 60);
@@ -370,11 +392,13 @@ const volumeIconName = computed<IconName>(() => {
   return 'volumeHigh';
 });
 
+// 窗口尺寸变化时校正悬浮面板位置与尺寸，避免停留在视口外
 const handleWindowResize = () => {
   if (displayMode.value === 'dock') return;
   normalizePanelInViewport();
 };
 
+// ===== 进度条交互：点击直接跳转，按住拖动仅更新预览 =====
 const handleProgressClick = (e: MouseEvent) => {
   const target = e.currentTarget as HTMLElement;
   const rect = target.getBoundingClientRect();
@@ -407,6 +431,7 @@ const dockSearchInputRef = ref<HTMLInputElement | null>(null);
 const dockVolumeTrackRef = ref<HTMLElement | null>(null);
 const isDockVolumeDragging = ref(false);
 
+// ===== 停靠栏音量：竖向音量条的拖动与滚轮调节 =====
 const dockVolumePercent = computed(() => (state.value.isMuted ? 0 : state.value.volume));
 
 const setDockVolumeFromTrackY = (clientY: number) => {
@@ -444,6 +469,7 @@ const handleVolumeChange = (e: Event) => {
   setVolume(Number.parseFloat(target.value));
 };
 
+// ===== 悬浮面板拖拽（兼容鼠标与触摸） =====
 const handleDragStart = (e: MouseEvent | TouchEvent) => {
   if (displayMode.value === 'dock') return;
   isDragging.value = true;
@@ -467,6 +493,7 @@ const handleDragMove = (e: MouseEvent | TouchEvent) => {
 };
 
 const handleDragEnd = () => {
+  // 拖拽结束时面板贴近视口底部，则自动吸附回停靠栏
   if (isDragging.value && displayMode.value === 'float') {
     const panelHeight = isExpanded.value ? size.value.height : (playerRef.value?.offsetHeight || dockHeight);
     const panelBottom = position.value.y + panelHeight;
@@ -521,6 +548,8 @@ const handleResizeEnd = () => {
   normalizePanelInViewport();
 };
 
+// ===== 形态切换：停靠栏 ⇄ 悬浮展开面板 =====
+// 脱离停靠并展开悬浮面板，初始位置在停靠栏上方水平居中（可顺带打开搜索）
 const exitDockToFloatExpanded = (options?: { openSearch?: boolean }) => {
   if (displayMode.value !== 'dock') return;
   resetDockPressState();
@@ -558,6 +587,8 @@ const toggleExpand = () => {
   void nextTick(() => normalizePanelInViewport());
 };
 
+// ===== 停靠栏长按 / 拖出状态机 =====
+// 短按 = 常规点击；长按满 500ms 进入就绪态；就绪后位移超阈值即脱离停靠转为悬浮迷你条
 const teardownDockPointerListeners = () => {
   window.removeEventListener('pointermove', handleDockPointerMove);
   window.removeEventListener('pointerup', handleDockPointerUp);
@@ -585,6 +616,7 @@ const handleDockPointerDown = (e: PointerEvent) => {
   dockPressPoint.value = { x: e.clientX, y: e.clientY };
   clearDockLongPressTimer();
   clearDockProgressTimer();
+  // 高频刷新长按进度环，满 500ms 后置位长按标志进入可拖动态
   const pressStartAt = Date.now();
   dockPressProgress.value = 0;
   dockProgressTimer.value = setInterval(() => {
@@ -613,8 +645,10 @@ function handleDockPointerMove(e: PointerEvent) {
   const deltaY = e.clientY - dockPressStart.value.y;
   const dragDistance = Math.hypot(deltaX, deltaY);
 
+  // 长按未就绪前的位移一律忽略，避免误触脱离
   if (!isDockDragReady.value) return;
 
+  // 就绪后位移达到阈值才真正脱离停靠：切换为悬浮迷你条并接管拖拽
   if (!isDockDragging.value && dragDistance >= dockUndockDragThreshold) {
     isDockDragging.value = true;
     displayMode.value = 'float';
@@ -645,6 +679,7 @@ function handleDockPointerUp() {
 
 const handleCoverError = (e: Event) => applyCoverFallback(e);
 
+// 关闭播放器：整体移出视口隐藏（保留组件实例与播放状态）
 const closePlayer = () => {
   position.value = { x: -1000, y: -1000 };
 };
@@ -654,6 +689,10 @@ const resetSearchPagination = () => {
   searchHasMore.value = false;
 };
 
+// ===== 搜索执行与结果播放 =====
+/**
+ * 执行网易云搜索；append 为 true 时在现有结果后追加下一页（按歌曲 id 去重）
+ */
 const handleSearch = async (append = false) => {
   const keyword = searchKey.value.trim();
   if (!keyword) return;
@@ -694,6 +733,7 @@ const loadMoreSearch = () => {
   void handleSearch(true);
 };
 
+// 搜索抽屉打开时按回车直接触发搜索
 const handleKeydown = (e: KeyboardEvent) => {
   if (e.key === 'Enter' && (showSearchPanel.value || showDockSearchDrawer.value)) {
     e.preventDefault();
@@ -701,6 +741,7 @@ const handleKeydown = (e: KeyboardEvent) => {
   }
 };
 
+// 将搜索到的歌曲写入播放队列并立即播放
 const playSong = async (song: Song) => {
   const [track] = p.upsertNeteaseTracks([song]);
   if (track) await p.playTrack(track.id);
@@ -710,6 +751,7 @@ const toggleSearchPanel = () => {
   showSearchPanel.value = !showSearchPanel.value;
 };
 
+// ===== 全局事件监听的挂载与清理（拖拽 / 缩放 / 进度 / 音量 / 键盘） =====
 onMounted(() => {
   document.addEventListener('mousemove', handleDragMove);
   document.addEventListener('mouseup', handleDragEnd);
@@ -755,6 +797,7 @@ onUnmounted(() => {
   teardownDockPointerListeners();
   document.removeEventListener('pointerdown', handleDockDrawerOutsidePointerDown, true);
   clearDockLongPressTimer();
+  // 卸载时若仍处于拖动预览态，丢弃未提交的预览值
   if (state.value.isSeeking) {
     cancelSeekingProgress();
   }
@@ -774,6 +817,7 @@ onUnmounted(() => {
     }"
     :style="playerInlineStyle"
   >
+    <!-- 区块：停靠模式 —— 底部播放栏（长按可拖出恢复悬浮） -->
     <div
       v-if="displayMode === 'dock'"
       class="player-dock"
@@ -904,7 +948,7 @@ onUnmounted(() => {
         </button>
         <button
           class="control-btn dock-action-btn"
-          @click.stop="exitDockToFloatExpanded"
+          @click.stop="exitDockToFloatExpanded()"
           title="展开播放器"
           aria-label="展开播放器"
         >
@@ -915,6 +959,7 @@ onUnmounted(() => {
       <div class="player-dock__hint" aria-hidden="true">长按并拖动可恢复悬浮</div>
     </div>
 
+    <!-- 区块：悬浮迷你条（点击封面/信息区可展开面板） -->
     <div v-else-if="!isExpanded" class="player-mini" @mousedown="handleDragStart" @touchstart="handleDragStart">
       <div class="mini-cover" @click.stop="toggleExpand">
         <img 
@@ -946,6 +991,7 @@ onUnmounted(() => {
       </button>
     </div>
 
+    <!-- 区块：悬浮展开面板（可拖拽移动、右下角可缩放） -->
     <div
       v-else
       class="player-expanded-shell"
@@ -988,6 +1034,7 @@ onUnmounted(() => {
         </div>
       </div>
 
+      <!-- 搜索面板（展开态内嵌，含分页加载） -->
       <div v-else-if="showSearchPanel" class="player-search">
         <div class="search-bar">
           <input
@@ -1041,6 +1088,7 @@ onUnmounted(() => {
         </div>
       </div>
 
+      <!-- 播放主内容：封面 / 歌曲信息 / 进度条 / 控制按钮 / 音量 -->
       <div v-else class="player-content" :class="{ 'is-compact': isCompactMode, 'is-ultra': panelDensity === 'ultra' }">
         <button class="search-toggle-btn" @click.stop="toggleSearchPanel" title="打开搜索" aria-label="打开搜索">
           <UiIcon name="search" />
@@ -1150,6 +1198,7 @@ onUnmounted(() => {
       <UiIcon name="expand" />
     </div>
 
+    <!-- 区块：播放列表抽屉（悬浮展开与停靠两种模式共用） -->
     <transition name="playlist-drawer-fade">
     <div
       v-if="showPlaylistDrawer && ((displayMode === 'float' && isExpanded) || displayMode === 'dock')"
@@ -1210,6 +1259,7 @@ onUnmounted(() => {
     </div>
     </transition>
 
+    <!-- 区块：停靠模式搜索抽屉（从右侧滑入） -->
     <transition name="dock-drawer-slide">
       <div
         v-if="displayMode === 'dock' && showDockSearchDrawer"
@@ -1290,6 +1340,7 @@ onUnmounted(() => {
     </transition>
   </div>
 
+  <!-- 停靠长按进度提示环（Teleport 到 body，避免被停靠栏裁剪） -->
   <Teleport to="body">
     <div
       v-if="isDockPressing"
@@ -1325,6 +1376,7 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+/* ===== 根容器与形态类 ===== */
 .floating-player {
   position: fixed;
   z-index: 9999;
@@ -1345,6 +1397,7 @@ onUnmounted(() => {
   transform: none !important;
 }
 
+/* ===== 底部停靠栏 ===== */
 .player-dock {
   position: relative;
   height: calc(var(--player-dock-height) + var(--player-dock-safe-bottom));
@@ -1455,6 +1508,7 @@ onUnmounted(() => {
   opacity: 0.85;
 }
 
+/* ===== 停靠长按进度环 ===== */
 .dock-longpress-ring {
   position: fixed;
   left: 0;
@@ -1492,6 +1546,7 @@ onUnmounted(() => {
   filter: drop-shadow(0 0 6px rgba(232, 121, 169, 0.55));
 }
 
+/* ===== 悬浮迷你条 ===== */
 .player-mini {
   width: clamp(280px, 34vw, var(--player-mini-width));
   height: clamp(62px, 8vh, var(--player-mini-height));
@@ -1590,6 +1645,7 @@ onUnmounted(() => {
   color: var(--player-icon-color-active);
 }
 
+/* ===== 悬浮展开面板（头部 / 操作按钮 / 侧边播放列表开关） ===== */
 .player-expanded-shell {
   position: relative;
 }
@@ -1689,6 +1745,7 @@ onUnmounted(() => {
   height: 11px;
 }
 
+/* ===== 登录面板 ===== */
 .login-panel,
 .player-search,
 .player-content {
@@ -1726,6 +1783,7 @@ onUnmounted(() => {
   font-size: 12px;
 }
 
+/* ===== 音乐搜索（展开面板与停靠抽屉共用） ===== */
 .search-bar {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -1842,6 +1900,7 @@ onUnmounted(() => {
   margin-top: 16px;
 }
 
+/* ===== 播放主内容：搜索入口 / 封面 / 进度条 / 控制按钮 / 音量 ===== */
 .search-toggle-btn {
   height: 34px;
   border-radius: 999px;
@@ -1944,6 +2003,7 @@ onUnmounted(() => {
   flex-wrap: wrap;
 }
 
+/* ===== 停靠栏音量：hover 弹出的竖向音量条 ===== */
 .player-dock .dock-volume-control {
   position: relative;
   flex: none;
@@ -2033,6 +2093,7 @@ onUnmounted(() => {
   width: 100%;
 }
 
+/* ===== 拖拽提示与缩放手柄 ===== */
 .drag-hint {
   position: absolute;
   top: -8px;
@@ -2063,6 +2124,7 @@ onUnmounted(() => {
   font-size: 12px;
 }
 
+/* ===== 播放列表抽屉（悬浮贴边 + 停靠浮动两种定位） ===== */
 .playlist-drawer {
   position: absolute;
   top: 0;
@@ -2092,6 +2154,7 @@ onUnmounted(() => {
   z-index: 10001;
 }
 
+/* ===== 停靠模式搜索抽屉与滑入动效 ===== */
 .dock-search-drawer {
   position: fixed;
   top: 0;
@@ -2176,6 +2239,7 @@ onUnmounted(() => {
   opacity: 0;
 }
 
+/* ===== 播放列表条目 ===== */
 .playlist-header {
   display: flex;
   justify-content: space-between;
@@ -2276,6 +2340,7 @@ onUnmounted(() => {
   flex: none;
 }
 
+/* ===== 紧凑 / 极简密度适配：缩小控件与图标 ===== */
 .player-content.is-compact .control-btn,
 .floating-player.density-compact .control-btn {
   width: var(--player-touch-target-compact);
@@ -2304,6 +2369,7 @@ onUnmounted(() => {
   display: none;
 }
 
+/* ===== 移动端响应式 ===== */
 @media (max-width: 768px) {
   .player-dock {
     gap: 8px;
@@ -2361,6 +2427,7 @@ onUnmounted(() => {
   }
 }
 
+/* ===== 播放列表抽屉过渡动画 ===== */
 .playlist-drawer-fade-enter-active,
 .playlist-drawer-fade-leave-active {
   transition: opacity var(--player-duration-normal) var(--player-ease), transform var(--player-duration-normal) var(--player-ease);

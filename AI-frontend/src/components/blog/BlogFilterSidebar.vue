@@ -1,4 +1,9 @@
 <script setup lang="ts">
+/**
+ * BlogFilterSidebar 博客筛选侧栏
+ * 职责：博客列表页左侧栏——展示"关于我"卡片、文章分类列表与标签云，
+ * 点击分类/标签向父组件抛出事件完成筛选；有管理权限时还可就地新建分类/标签（弹窗表单）。
+ */
 import { ref } from 'vue'
 import { PlusOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
@@ -21,14 +26,17 @@ const emit = defineEmits<{
   metaCreated: [type: 'category' | 'tag']
 }>()
 
+// 新建分类/标签弹窗的开合与提交中状态
 const categoryModalOpen = ref(false)
 const tagModalOpen = ref(false)
 const categorySubmitting = ref(false)
 const tagSubmitting = ref(false)
 
+// 弹窗表单数据（每次打开前重置）
 const categoryForm = ref({ name: '', description: '' })
 const tagForm = ref({ name: '', color: '#e879a9' })
 
+// 按标签下文章数决定标签云字号档位，数量越多字越大
 function getTagSize(count: number | undefined) {
   if (!count) return 'small'
   if (count >= 10) return 'large'
@@ -46,6 +54,7 @@ function openTagModal() {
   tagModalOpen.value = true
 }
 
+// 提交新建分类：校验名称后调接口，成功后关闭弹窗并通知父组件刷新元数据
 async function submitCategoryForm() {
   const name = categoryForm.value.name.trim()
   if (!name) {
@@ -74,6 +83,7 @@ async function submitCategoryForm() {
   }
 }
 
+// 提交新建标签：逻辑同分类，额外支持自定义颜色
 async function submitTagForm() {
   const name = tagForm.value.name.trim()
   if (!name) {
@@ -105,6 +115,7 @@ async function submitTagForm() {
 
 <template>
   <div class="blog-filter-sidebar">
+    <!-- 关于我卡片（可通过 showAbout 隐藏） -->
     <div v-if="showAbout !== false" class="sidebar-section">
       <div class="sidebar-section__head">
         <h3 class="sidebar-section__title">关于我</h3>
@@ -118,6 +129,7 @@ async function submitTagForm() {
       </div>
     </div>
 
+    <!-- 文章分类列表：首项"全部"表示清除分类筛选，点击抛出 categoryClick -->
     <div class="sidebar-section">
       <div class="sidebar-section__head">
         <h3 class="sidebar-section__title">文章分类</h3>
@@ -152,6 +164,7 @@ async function submitTagForm() {
       </ul>
     </div>
 
+    <!-- 标签云：字号随文章数分档，点击抛出 tagClick 切换筛选 -->
     <div class="sidebar-section">
       <div class="sidebar-section__head">
         <h3 class="sidebar-section__title">标签云</h3>
@@ -189,6 +202,7 @@ async function submitTagForm() {
       </div>
     </div>
 
+    <!-- 新建分类弹窗（仅有管理权限时可通过入口打开） -->
     <a-modal
       v-model:open="categoryModalOpen"
       title="新建分类"
@@ -211,6 +225,7 @@ async function submitTagForm() {
       </a-form>
     </a-modal>
 
+    <!-- 新建标签弹窗：名称 + 颜色选择器 -->
     <a-modal
       v-model:open="tagModalOpen"
       title="新建标签"

@@ -11,7 +11,7 @@ const loginUserStore = useLoginUserStore()
 const isScrolled = ref(false)
 const { layerA, layerB, activeLayer, hasImages, fadeDuration } = useBackgroundSlideshow()
 
-const STATION_ROOMS = new Set(['blog', 'diary', 'knowledge', 'reading', 'worklog', 'lab', 'chat', 'auth', 'settings'])
+const STATION_ROOMS = new Set(['blog', 'diary', 'knowledge', 'library', 'reading', 'worklog', 'lab', 'chat', 'auth', 'settings', 'about', 'admin', 'study', 'profile'])
 
 const room = computed(() => (route.meta.room as string) || 'public')
 /** 主页与各房间自管 chrome，跳过公开壳的顶栏/页脚/暗色背景 */

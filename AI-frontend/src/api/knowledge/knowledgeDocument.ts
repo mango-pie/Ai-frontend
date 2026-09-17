@@ -1,7 +1,11 @@
+/**
+ * 知识库文档 API — 接口前缀 /kb
+ * 覆盖知识库文档的上传（multipart）、解析、分块查看、下载与删除等全流程。
+ */
 import request from '@/request'
 import type { AxiosProgressEvent } from 'axios'
 
-/** GET /kb/knowledge-bases/{kbId}/documents */
+/** GET /kb/knowledge-bases/{kbId}/documents — 分页查询知识库内文档 */
 export async function listKnowledgeDocuments(
   kbId: number | string,
   params?: API.KnowledgeDocumentQueryRequest,
@@ -14,7 +18,7 @@ export async function listKnowledgeDocuments(
   })
 }
 
-/** POST /kb/knowledge-bases/{kbId}/documents — multipart field: file */
+/** POST /kb/knowledge-bases/{kbId}/documents — multipart field: file — 上传文档并支持进度回调 */
 export async function uploadKnowledgeDocument(
   kbId: number | string,
   file: File,
@@ -31,7 +35,7 @@ export async function uploadKnowledgeDocument(
   })
 }
 
-/** GET /kb/documents/{id} */
+/** GET /kb/documents/{id} — 获取文档详情（含解析/向量化状态） */
 export async function getKnowledgeDocument(id: number | string, options?: { [key: string]: unknown }) {
   return request<API.BaseResponseKnowledgeDocumentVO>(`/kb/documents/${id}`, {
     method: 'GET',
@@ -39,7 +43,7 @@ export async function getKnowledgeDocument(id: number | string, options?: { [key
   })
 }
 
-/** DELETE /kb/documents/{id} */
+/** DELETE /kb/documents/{id} — 删除文档 */
 export async function deleteKnowledgeDocument(
   id: number | string,
   options?: { [key: string]: unknown },
@@ -50,7 +54,7 @@ export async function deleteKnowledgeDocument(
   })
 }
 
-/** GET /kb/documents/{id}/download-url */
+/** GET /kb/documents/{id}/download-url — 获取文档临时下载链接 */
 export async function getKnowledgeDocumentDownloadUrl(
   id: number | string,
   options?: { [key: string]: unknown },
@@ -61,7 +65,7 @@ export async function getKnowledgeDocumentDownloadUrl(
   })
 }
 
-/** POST /kb/documents/{id}/parse */
+/** POST /kb/documents/{id}/parse — 触发文档解析（切块 → 向量化入库） */
 export async function parseKnowledgeDocument(
   id: number | string,
   options?: { [key: string]: unknown },
@@ -72,7 +76,7 @@ export async function parseKnowledgeDocument(
   })
 }
 
-/** GET /kb/documents/{id}/chunks */
+/** GET /kb/documents/{id}/chunks — 分页查看文档切块结果（默认每页 20 条） */
 export async function listKnowledgeDocumentChunks(
   id: number | string,
   params?: { pageNum?: number; pageSize?: number },

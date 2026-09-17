@@ -24,10 +24,12 @@ const emit = defineEmits<{
 }>()
 
 const inputRef = ref<HTMLInputElement | null>(null)
+/** 本地编辑副本：确认前不回写父组件，取消时直接丢弃 */
 const text = ref(props.modelValue)
 /** 防止 Enter 确认后紧接着 blur 再触发一次 */
 const settled = ref(false)
 
+/** 聚焦并全选文本，方便直接覆盖输入 */
 function focusIt() {
   void nextTick(() => {
     inputRef.value?.focus()
@@ -58,6 +60,7 @@ function finishCancel() {
   emit('cancel')
 }
 
+/** 键盘交互：Enter 提交（空值忽略），Esc 取消 */
 function onKeydown(e: KeyboardEvent) {
   if (e.key === 'Enter') {
     e.preventDefault()
@@ -69,6 +72,7 @@ function onKeydown(e: KeyboardEvent) {
   }
 }
 
+/** 失焦兜底：有内容视为保存，空内容视为取消 */
 function onBlur() {
   const v = text.value.trim()
   if (v) finishConfirm(v)

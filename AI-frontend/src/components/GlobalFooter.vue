@@ -1,12 +1,19 @@
 <script setup lang="ts">
+/**
+ * GlobalFooter 全局页脚
+ * 职责：展示站点品牌、页脚快捷链接（站内路由 / 外链新窗口打开）与版权/备案信息，
+ * 内容全部读取自 siteConfig 配置，组件本身不持有业务状态。
+ */
 import type { Component } from 'vue'
 import { useRouter } from 'vue-router'
 import { BookOpen, FlaskConical, Info, Link as LinkIcon, Sparkles } from 'lucide-vue-next'
 import { siteConfig } from '@/config/site'
 
 const router = useRouter()
+// 版权年份动态取当前年份，避免每年手动更新
 const currentYear = new Date().getFullYear()
 
+// 根据链接文案/路径匹配对应图标，未匹配时兜底为 Sparkles
 const iconFor = (link: { label?: string; path?: string }): Component => {
   const label = link.label ?? ''
   if (label.includes('关于') || link.path === '/about') return Info
@@ -16,6 +23,7 @@ const iconFor = (link: { label?: string; path?: string }): Component => {
   return Sparkles
 }
 
+// 链接点击分发：站内 path 走路由跳转；外部 href 新标签打开；'#' 占位链接忽略
 const navigate = (link: { path?: string; href?: string }) => {
   if (link.path) {
     router.push(link.path)
@@ -28,10 +36,12 @@ const navigate = (link: { path?: string; href?: string }) => {
 <template>
   <div class="global-footer">
     <div class="global-footer__content">
+      <!-- 品牌区：站名 + 标语 -->
       <div class="global-footer__brand">
         <span class="global-footer__brand-text">{{ siteConfig.siteName }}</span>
         <span class="global-footer__brand-sub">{{ siteConfig.footer.tagline }}</span>
       </div>
+      <!-- 快捷链接区：站内路由与外链统一渲染 -->
       <div class="global-footer__links">
         <a
           v-for="(link, i) in siteConfig.footer.links"
@@ -44,6 +54,7 @@ const navigate = (link: { path?: string; href?: string }) => {
           <span>{{ link.label }}</span>
         </a>
       </div>
+      <!-- 版权与备案号（备案号未配置时不渲染） -->
       <div class="global-footer__copyright">
         © {{ currentYear }} {{ siteConfig.siteName }}
         <span v-if="siteConfig.footer.icp" class="global-footer__icp"> · {{ siteConfig.footer.icp }}</span>

@@ -1,3 +1,13 @@
+/* ============================================================
+   base.css — 全局基础样式表（入口通用层）
+   适用于所有页面/房间，定义内容包括：
+   1. :root 全局设计令牌（颜色 / 阴影 / 圆角 / 过渡 / 渐变 / 播放器 / 代码块变量）
+   2. 各房间 [data-room='xxx'] 的主题强调色覆盖
+   3. 全局 reset、body 背景（渐变 + 噪点贴图）与字体
+   4. 通用玻璃卡片、meta 图标微动效、封面旋转动画、滚动条样式
+   ============================================================ */
+
+/* ---------- 全局设计令牌：主色 / 辅色 / 强调色 / 语义色 ---------- */
 :root {
   --color-primary: #e879a9;
   --color-primary-light: #f0a3c4;
@@ -42,6 +52,7 @@
   --shadow-glow: 0 0 40px rgba(232, 121, 169, 0.15);
   --shadow-glow-lg: 0 0 60px rgba(124, 156, 224, 0.2);
 
+  /* 圆角档位（小→特大） */
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 12px;
@@ -51,6 +62,7 @@
   --transition-normal: 0.3s ease;
   --transition-slow: 0.5s ease;
 
+  /* 品牌渐变：主渐变 / 卡片渐变 / 页面背景渐变 */
   --gradient-primary: linear-gradient(135deg, #e879a9 0%, #7c9ce0 50%, #f4b8c1 100%);
   --gradient-card: linear-gradient(145deg, rgba(45, 36, 56, 0.85) 0%, rgba(26, 22, 37, 0.9) 100%);
   --gradient-bg: linear-gradient(160deg, #1a1625 0%, #2d2438 45%, #1a1625 100%);
@@ -63,6 +75,7 @@
   --room-accent-soft: var(--color-primary-12);
   --room-radius: var(--radius-lg);
 
+  /* 播放器专用令牌：迷你条 / 展开面板尺寸、控件背景、进度条、歌词、面板阴影与动效时长 */
   --player-mini-width: 360px;
   --player-mini-height: 72px;
   --player-panel-width: 360px;
@@ -104,6 +117,7 @@
   --player-duration-slow: 420ms;
   --player-ease: cubic-bezier(0.2, 0.65, 0.2, 1);
 
+  /* 文章排版 / 代码块配色令牌，以及博客封面缺省渐变 */
   --prose-bg: rgba(45, 36, 56, 0.82);
   --prose-max-width: 72ch;
   --code-bg: #120f1a;
@@ -114,6 +128,7 @@
   --code-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 8px 24px rgba(0, 0, 0, 0.35);
   --blog-cover-fallback: linear-gradient(135deg, rgba(232, 121, 169, 0.35) 0%, rgba(124, 156, 224, 0.25) 100%);
 
+  /* 全局字体与字号基准 */
   --font-sans: 'ZCOOL KuaiLe', 'PingFang SC', 'Microsoft YaHei', sans-serif;
 
   --font-size-base: 17px;
@@ -123,6 +138,7 @@
   --font-size-xl: 20px;
 }
 
+/* ---------- 房间主题：按 [data-room] 覆盖强调色与圆角，实现同色系下各房间微差 ---------- */
 [data-room='blog'] {
   --room-accent: #f0a3c4;
   --room-accent-soft: rgba(232, 121, 169, 0.14);
@@ -171,6 +187,7 @@
   --room-accent-soft: var(--color-primary-12);
 }
 
+/* ---------- 全局 reset：盒模型 / 外边距 / 字重归一 ---------- */
 *,
 *::before,
 *::after {
@@ -184,6 +201,7 @@ html {
   font-size: var(--font-size-base);
 }
 
+/* ---------- body：页面固定背景（噪点 + 渐变）与全局排版 ---------- */
 body {
   min-height: 100vh;
   color: var(--color-text-primary);
@@ -199,6 +217,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* ---------- 通用玻璃卡片与页面容器 ---------- */
 .theme-glass-card {
   background: var(--color-bg-card);
   border: 1px solid var(--color-border);
@@ -229,6 +248,7 @@ body {
   color: var(--color-secondary-light);
 }
 
+/* 心跳关键帧：多次缩放回弹，配合点赞心图标 */
 @keyframes metaHeartBeat {
   0%,
   100% {
@@ -245,6 +265,7 @@ body {
   }
 }
 
+/* 无障碍：用户偏好减弱动效时关闭图标微动效 */
 @media (prefers-reduced-motion: reduce) {
   :hover > .meta-icon-beat,
   .meta-icon-beat:hover,
@@ -255,6 +276,7 @@ body {
   }
 }
 
+/* 播放器封面匀速旋转关键帧（播放中唱片效果） */
 @keyframes player-cover-spin {
   from {
     transform: rotate(0deg);
@@ -264,6 +286,7 @@ body {
   }
 }
 
+/* ---------- 全局滚动条（WebKit 内核）配色 ---------- */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;

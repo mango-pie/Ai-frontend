@@ -10,8 +10,10 @@ import type {
   PetRendererKind,
 } from '@/pet/types'
 
+// 站点头像：借助 Vite 的 import.meta.url 直接引用 assets 下的图片资源
 export const siteAvatarSrc = new URL('../assets/head.jpg', import.meta.url).href
 
+// 站点全局配置（文案 / 链接 / 各分区标题 / 背景轮换 / 视觉特效 / 桌宠参数），`as const` 保证类型精确
 export const siteConfig = {
   siteName: '某某の小站',
   siteSubtitle: '在代码、笔记与灵感实验间穿梭',
@@ -25,6 +27,7 @@ export const siteConfig = {
   bio: '在代码与日常之间慢慢摸索的普通人。喜欢记录技术笔记，偶尔用 AI 做点有趣的小实验。',
   avatar: siteAvatarSrc,
 
+  // 各“房间”（功能分区）的标题与副标提示，供首页房间导航卡片等使用
   rooms: {
     blog: { title: '随笔', hint: '杂志式阅读与记录' },
     diary: { title: '日记', hint: '写给自己的手账' },
@@ -107,6 +110,7 @@ export const siteConfig = {
     fadeMs: 1200,
   },
 
+  // 全站视觉特效开关与参数：鼠标拖尾、气泡菜单、桌宠（GIF 渲染模式的状态映射与贴图别名）
   effects: {
     mouseTrail: {
       enabled: true,

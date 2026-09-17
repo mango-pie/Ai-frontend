@@ -7,6 +7,7 @@ export const MODULE_KEYS = [
   'ops',
   'blog',
   'knowledge',
+  'library',
   'reading',
   'chat',
   'study',
@@ -18,10 +19,12 @@ export const MODULE_KEYS = [
 
 export type ModuleKey = (typeof MODULE_KEYS)[number]
 
+/** 模块 key -> 中文显示名（用于菜单、提示等 UI 展示） */
 export const MODULE_LABELS: Record<ModuleKey, string> = {
   ops: '运维',
   blog: '博客',
   knowledge: '知识库',
+  library: '资料库',
   reading: '精读任务',
   chat: '对话',
   study: '学习',
@@ -38,6 +41,7 @@ const MODULE_PATH_PREFIXES: Array<{ prefix: string; module: ModuleKey }> = [
   { prefix: '/admin/appManage', module: 'app-lab' },
   { prefix: '/administrator/study', module: 'study' },
   { prefix: '/knowledge', module: 'knowledge' },
+  { prefix: '/library', module: 'library' },
   { prefix: '/category', module: 'blog' },
   { prefix: '/tag', module: 'blog' },
   { prefix: '/blog', module: 'blog' },
@@ -49,12 +53,14 @@ const MODULE_PATH_PREFIXES: Array<{ prefix: string; module: ModuleKey }> = [
   { prefix: '/app', module: 'app-lab' },
 ]
 
+/** 归一化模块 key：去空白、转小写、下划线转连字符，并兼容 app/applab/lab 等历史写法 */
 export function normalizeModuleKey(name: string): string {
   const key = name.trim().toLowerCase().replace(/_/g, '-')
   if (key === 'app' || key === 'applab' || key === 'lab') return 'app-lab'
   return key
 }
 
+/** 将后端返回的模块开关对象归一化为 { 模块key: 是否启用 }；非 true 一律视为关闭 */
 export function parseModulesPayload(input: unknown): Record<string, boolean> {
   if (!input || typeof input !== 'object') return {}
   const out: Record<string, boolean> = {}
@@ -64,6 +70,7 @@ export function parseModulesPayload(input: unknown): Record<string, boolean> {
   return out
 }
 
+/** 判断模块表中某模块是否启用（key 先做归一化再匹配） */
 export function isModuleEnabled(
   modules: Record<string, boolean>,
   name: string,
@@ -71,6 +78,7 @@ export function isModuleEnabled(
   return modules[normalizeModuleKey(name)] === true
 }
 
+/** 按路径前缀推断所属模块（去掉 query 与尾部斜杠后做前缀匹配，供路由守卫做模块门控） */
 export function getRequiredModuleByPath(path: string): ModuleKey | undefined {
   const pathname = (path.split('?')[0] ?? path).replace(/\/+$/, '') || '/'
   return MODULE_PATH_PREFIXES.find((item) => {
@@ -79,6 +87,7 @@ export function getRequiredModuleByPath(path: string): ModuleKey | undefined {
   })?.module
 }
 
+/** 取模块中文显示名；未知模块原样返回 key */
 export function getModuleLabel(name: string): string {
   const key = normalizeModuleKey(name)
   return MODULE_LABELS[key as ModuleKey] ?? name

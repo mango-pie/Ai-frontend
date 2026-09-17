@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Specimen 07 — Y2K</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800&family=Orbitron:wght@700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ice: #A3D5FF;
+      --chrome: #E0E4EA;
+      --cyan: #5FC9F8;
+      --magenta: #FF66C4;
+      --acid: #A8FF00;
+      --ground: var(--ice);
+      --ink: #000000;
+      --r: 24px;
+      --r-pill: 999px;
+    }
+
+    [data-ground="chrome"] {
+      --ground: var(--chrome);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      min-height: 100%;
+      background: var(--ground);
+      color: var(--ink);
+      font-family: Nunito, "Trebuchet MS", sans-serif;
+      overflow: hidden;
+      text-wrap: pretty;
+    }
+
+    body {
+      min-height: 100vh;
+      background-image:
+        radial-gradient(circle at 18% 20%, rgba(255,102,196,0.45), transparent 36%),
+        radial-gradient(circle at 82% 18%, rgba(95,201,248,0.55), transparent 40%),
+        linear-gradient(125deg, color-mix(in srgb, var(--cyan) 40%, var(--ground)), color-mix(in srgb, var(--magenta) 28%, var(--ground)));
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    .orbs {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 28%, rgba(255,255,255,0.95), rgba(95,201,248,0.35) 42%, rgba(255,102,196,0.45) 70%, rgba(255,255,255,0.1));
+      box-shadow: 0 16px 32px rgba(95, 201, 248, 0.4), inset 0 8px 18px rgba(255,255,255,0.55);
+      animation: drift 8s ease-in-out infinite;
+    }
+
+    .orb:nth-child(1) { width: 180px; height: 180px; left: 8%; top: 58%; }
+    .orb:nth-child(2) { width: 90px; height: 90px; right: 14%; top: 22%; animation-delay: -2s; }
+    .orb:nth-child(3) { width: 240px; height: 240px; right: -40px; bottom: -50px; animation-delay: -4s; }
+
+    @keyframes drift {
+      50% { transform: translateY(-18px); }
+    }
+
+    header {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      justify-content: space-between;
+      padding: 20px 28px;
+      font-weight: 800;
+      font-size: 13px;
+    }
+
+    header a:hover,
+    header a:focus-visible {
+      text-decoration: underline;
+      text-decoration-color: var(--acid);
+      outline: none;
+    }
+
+    main {
+      position: relative;
+      z-index: 2;
+      min-height: calc(100vh - 72px);
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      text-align: center;
+    }
+
+    .lcd {
+      font-family: Orbitron, sans-serif;
+      font-weight: 800;
+      font-size: clamp(42px, 9vw, 96px);
+      letter-spacing: 0.06em;
+      line-height: 1;
+      background: linear-gradient(180deg, #fff 10%, #c4c9d2 45%, #fff 55%, #8aa 90%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      filter: drop-shadow(0 8px 0 rgba(255,255,255,0.35)) drop-shadow(0 18px 24px rgba(95,201,248,0.45));
+      margin-bottom: 16px;
+    }
+
+    .lede {
+      font-size: 16px;
+      max-width: 28em;
+      margin: 0 auto 28px;
+      font-weight: 700;
+    }
+
+    .btn {
+      position: relative;
+      font-family: Nunito, sans-serif;
+      font-weight: 800;
+      font-size: 16px;
+      color: #fff;
+      border: 0;
+      border-radius: var(--r-pill);
+      padding: 14px 32px;
+      cursor: pointer;
+      background: linear-gradient(180deg, #9be7ff 0%, var(--cyan) 42%, #3aa8e6 100%);
+      box-shadow: 0 16px 32px rgba(95, 201, 248, 0.4), inset 0 2px 0 rgba(255,255,255,0.85);
+      overflow: hidden;
+    }
+
+    .btn::before {
+      content: "";
+      position: absolute;
+      left: 16%;
+      right: 16%;
+      top: 3px;
+      height: 42%;
+      border-radius: 999px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,0.15));
+      pointer-events: none;
+    }
+
+    .btn:hover,
+    .btn:focus-visible {
+      transform: scale(1.04);
+      outline: 3px solid var(--acid);
+      outline-offset: 4px;
+    }
+
+    .acid {
+      display: inline-block;
+      margin-top: 18px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #111;
+      background: var(--acid);
+      border-radius: var(--r-pill);
+      padding: 4px 10px;
+    }
+
+    .tweaks-toggle,
+    .tweaks {
+      position: fixed;
+      z-index: 20;
+      bottom: 20px;
+      right: 20px;
+      font-family: Nunito, sans-serif;
+    }
+
+    .tweaks-toggle {
+      background: rgba(255,255,255,0.55);
+      backdrop-filter: blur(10px);
+      border: 0;
+      border-radius: var(--r-pill);
+      font-weight: 800;
+      padding: 10px 16px;
+      cursor: pointer;
+      box-shadow: 0 12px 24px rgba(95, 201, 248, 0.35);
+    }
+
+    .tweaks {
+      width: 250px;
+      background: rgba(255,255,255,0.72);
+      backdrop-filter: blur(12px);
+      border-radius: var(--r);
+      padding: 16px;
+      display: none;
+      box-shadow: 0 16px 32px rgba(95, 201, 248, 0.4);
+    }
+
+    .tweaks.is-open { display: block; }
+
+    .tweaks h2 {
+      font-family: Orbitron, sans-serif;
+      font-size: 12px;
+      margin-bottom: 12px;
+    }
+
+    .tweaks label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .tweaks select {
+      width: 100%;
+      border: 0;
+      border-radius: 12px;
+      padding: 8px;
+      font-family: Nunito, sans-serif;
+      font-weight: 700;
+    }
+
+    .tweaks-close {
+      margin-top: 12px;
+      background: none;
+      border: 0;
+      font-family: Nunito, sans-serif;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .orb { animation: none; }
+      .btn:hover { transform: none; }
+    }
+  </style>
+</head>
+<body data-ground="ice">
+  <div class="orbs" aria-hidden="true">
+    <div class="orb"></div>
+    <div class="orb"></div>
+    <div class="orb"></div>
+  </div>
+
+  <header>
+    <a href="index.html">SPECIMEN 07</a>
+    <span>AQUA / 2001</span>
+  </header>
+
+  <main>
+    <div>
+      <h1 class="lcd">ONLINE</h1>
+      <p class="lede">Chrome, jelly, lens flare. Optimism that still thinks the future is a bubble you can click.</p>
+      <button class="btn" type="button">Enter</button>
+      <div><span class="acid">signal</span></div>
+    </div>
+  </main>
+
+  <button class="tweaks-toggle" type="button" id="tweaksOpen">Tweaks</button>
+  <aside class="tweaks" id="tweaks" hidden>
+    <h2>Tweaks</h2>
+    <label for="ground">Ground</label>
+    <select id="ground">
+      <option value="ice">Ice blue</option>
+      <option value="chrome">Chrome silver</option>
+    </select>
+    <button class="tweaks-close" type="button" id="tweaksClose">Close</button>
+  </aside>
+
+  <script>
+    const root = document.body;
+    const panel = document.getElementById("tweaks");
+    const openBtn = document.getElementById("tweaksOpen");
+    const closeBtn = document.getElementById("tweaksClose");
+    const ground = document.getElementById("ground");
+
+    function setOpen(open) {
+      panel.hidden = !open;
+      panel.classList.toggle("is-open", open);
+      openBtn.hidden = open;
+    }
+
+    openBtn.addEventListener("click", () => setOpen(true));
+    closeBtn.addEventListener("click", () => setOpen(false));
+    ground.addEventListener("change", () => root.setAttribute("data-ground", ground.value));
+  </script>
+</body>
+</html>

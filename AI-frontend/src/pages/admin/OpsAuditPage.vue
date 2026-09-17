@@ -3,6 +3,7 @@
  * 运维中心 · 操作审计
  * 路由：/admin/ops/audit
  */
+import AdminRoomShell from '@/components/shared/AdminRoomShell.vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { message } from 'ant-design-vue'
 import type { Dayjs } from 'dayjs'
@@ -163,30 +164,11 @@ onMounted(async () => {
 </script>
 
 <template>
+  <AdminRoomShell note-label="Station · 运维中心">
+    <template #nav>
+      <OpsCenterNav active-key="操作审计" />
+    </template>
   <div class="ops-center-page admin-theme-page">
-    <a-breadcrumb class="admin-breadcrumb">
-      <a-breadcrumb-item>
-        <router-link to="/">首页</router-link>
-      </a-breadcrumb-item>
-      <a-breadcrumb-item>
-        <router-link to="/admin/ops">运维中心</router-link>
-      </a-breadcrumb-item>
-      <a-breadcrumb-item>操作审计</a-breadcrumb-item>
-    </a-breadcrumb>
-
-    <div class="admin-page-hero">
-      <div class="hero-left">
-        <div class="hero-title">操作审计</div>
-        <div class="hero-subtitle">
-          登录与高危业务操作记录；设置项变更请看
-          <router-link to="/admin/settings/audit">设置变更审计</router-link>
-        </div>
-      </div>
-    </div>
-
-    <div class="ops-layout">
-      <OpsCenterNav active-key="audit" />
-
       <section class="ops-main">
         <a-alert
           v-if="!switchLoading && !opsAuditEnabled"
@@ -277,8 +259,8 @@ onMounted(async () => {
           </a-table>
         </a-card>
       </section>
-    </div>
   </div>
+  </AdminRoomShell>
 </template>
 
 <style scoped>
