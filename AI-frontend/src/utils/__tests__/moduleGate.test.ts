@@ -22,21 +22,17 @@ describe('moduleForPath', () => {
     expect(moduleForPath('/blog/post/123')).toBe('blog')
     expect(moduleForPath('/category/3')).toBe('blog')
     expect(moduleForPath('/tag/7/')).toBe('blog')
-    expect(moduleForPath('/chat')).toBe('chat')
-    expect(moduleForPath('/chat/42')).toBe('chat')
     expect(moduleForPath('/diary/write')).toBe('diary')
     expect(moduleForPath('/knowledge')).toBe('knowledge')
     expect(moduleForPath('/knowledge/9/chat')).toBe('knowledge')
     expect(moduleForPath('/worklog')).toBe('worklog')
     expect(moduleForPath('/worklog/2026-09-12')).toBe('worklog')
-    expect(moduleForPath('/app/mini/foo')).toBe('app-lab')
   })
 
   it('最长前缀优先', () => {
     expect(moduleForPath('/admin/knowledge/notes')).toBe('knowledge')
     expect(moduleForPath('/admin/ops/stats')).toBe('ops')
     expect(moduleForPath('/admin/blogManage')).toBe('blog')
-    expect(moduleForPath('/admin/chatHistoryManage/1')).toBe('chat')
     expect(moduleForPath('/administrator/study/tree')).toBe('study')
   })
 
@@ -54,9 +50,15 @@ describe('moduleForPath', () => {
     expect(moduleForPath('/blogx/1')).toBeUndefined()
   })
 
+  it('已下线模块的路径不再归属任何模块', () => {
+    expect(moduleForPath('/chat')).toBeUndefined()
+    expect(moduleForPath('/lab')).toBeUndefined()
+    expect(moduleForPath('/app/mini/foo')).toBeUndefined()
+  })
+
   it('忽略查询串并容忍首尾空白', () => {
     expect(moduleForPath('/blog?page=2')).toBe('blog')
-    expect(moduleForPath(' /chat ')).toBe('chat')
+    expect(moduleForPath(' /blog ')).toBe('blog')
   })
 })
 
@@ -85,16 +87,16 @@ describe('decide40100Action', () => {
 
   it('模块关闭优先于登录跳转', () => {
     const action = decide40100Action({
-      pathname: '/chat',
+      pathname: '/diary',
       loaded: true,
-      enabled: (name) => name !== 'chat',
+      enabled: (name) => name !== 'diary',
     })
     expect(action).toBe('unavailable')
   })
 
   it('能力未加载时不抢跳登录，交给路由守卫', () => {
     const action = decide40100Action({
-      pathname: '/chat',
+      pathname: '/diary',
       loaded: false,
       enabled: () => false,
     })
@@ -103,7 +105,7 @@ describe('decide40100Action', () => {
 
   it('模块开启或常驻路径时回到登录跳转', () => {
     expect(
-      decide40100Action({ pathname: '/chat', loaded: true, enabled: () => true }),
+      decide40100Action({ pathname: '/diary', loaded: true, enabled: () => true }),
     ).toBe('login')
     expect(
       decide40100Action({ pathname: '/user/profile', loaded: true, enabled: () => false }),
@@ -115,7 +117,7 @@ describe('filterGatedEntries', () => {
   it('按 requireModule 字段过滤', () => {
     const items = [
       { path: '/diary', label: '日记', requireModule: 'diary' },
-      { path: '/lab', label: '实验室', requireModule: 'app-lab' },
+      { path: '/games', label: '游戏舱', requireModule: 'games' },
     ]
     const visible = filterGatedEntries(items, gate(true, { diary: true }))
     expect(visible).toHaveLength(1)
@@ -133,8 +135,8 @@ describe('filterGatedEntries', () => {
 
 describe('moduleUnavailableLocation', () => {
   it('携带来源与模块参数', () => {
-    expect(moduleUnavailableLocation('/chat', 'chat')).toBe(
-      '/module-unavailable?from=%2Fchat&module=chat',
+    expect(moduleUnavailableLocation('/diary', 'diary')).toBe(
+      '/module-unavailable?from=%2Fdiary&module=diary',
     )
   })
 
@@ -148,6 +150,6 @@ describe('isModuleUnavailablePath', () => {
     expect(isModuleUnavailablePath('/module-unavailable')).toBe(true)
     expect(isModuleUnavailablePath('/module-unavailable/')).toBe(true)
     expect(isModuleUnavailablePath('/module-unavailableX')).toBe(false)
-    expect(isModuleUnavailablePath('/chat')).toBe(false)
+    expect(isModuleUnavailablePath('/diary')).toBe(false)
   })
 })

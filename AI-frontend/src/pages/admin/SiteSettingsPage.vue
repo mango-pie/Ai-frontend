@@ -17,7 +17,6 @@ import {
 } from '@/api/siteSettings'
 import SiteSettingsNav from '@/components/admin/SiteSettingsNav.vue'
 import StationRoomShell from '@/components/shared/StationRoomShell.vue'
-import { clearAppSettingsCache } from '@/utils/appSettings'
 import { clearBlogSettingsCache } from '@/utils/blogSettings'
 import { clearDiarySettingsCache } from '@/utils/diarySettings'
 import { clearReadingUxSettingsCache } from '@/utils/readingSettings'
@@ -45,20 +44,8 @@ const MODULE_GROUPS: Record<string, SettingGroup[]> = {
   integration: [
     { key: 'knowledge_ai', title: '知识库 AI', prefixes: ['knowledge.ai.'], testTarget: 'knowledge_ai' },
     { key: 'jina', title: 'Jina', prefixes: ['knowledge.jina.'], testTarget: 'jina' },
-    {
-      key: 'chat',
-      title: '聊天 / Agent / 图片转述 / 分段',
-      prefixes: ['chat.'],
-      testTarget: 'agent',
-    },
     { key: 'codegen', title: '代码生成', prefixes: ['codegen.'], testTarget: 'codegen' },
     { key: 'astrbot', title: 'AstrBot', prefixes: ['astrbot.'], testTarget: 'astrbot' },
-    {
-      key: 'tts',
-      title: 'GPT-SoVITS / TTS',
-      prefixes: ['tts.'],
-      testTarget: 'tts',
-    },
     {
       key: 'upload_deploy',
       title: '上传与部署路径',
@@ -66,25 +53,6 @@ const MODULE_GROUPS: Record<string, SettingGroup[]> = {
       tip: '变更 upload.path 后静态资源映射可能仍用启动时路径，需重启生效',
     },
     { key: 'minio', title: 'MinIO', prefixes: ['knowledge.minio.'], testTarget: 'minio' },
-  ],
-  chat: [
-    { key: 'agent', title: 'Agent', prefixes: ['agent.'] },
-    { key: 'image_caption', title: '图片转述', prefixes: ['image_caption.'] },
-    { key: 'segmentation', title: '朗读分段', prefixes: ['segmentation.'] },
-    { key: 'attachment', title: '附件', prefixes: ['attachment_cache_ttl_minutes'] },
-  ],
-  tts: [
-    {
-      key: 'general',
-      title: '总开关与语言',
-      prefixes: ['enabled', 'default_'],
-    },
-    { key: 'seed', title: 'Seed 音色', prefixes: ['seed_voice.'] },
-    {
-      key: 'limits',
-      title: '超时与上传限制',
-      prefixes: ['connect_', 'read_', 'ref_audio.'],
-    },
   ],
   knowledge: [
     { key: 'ai', title: '模型运行参数', prefixes: ['ai.'] },
@@ -116,10 +84,6 @@ const MODULE_GROUPS: Record<string, SettingGroup[]> = {
     { key: 'privacy_export', title: '隐私与导出', prefixes: ['privacy.', 'export.'] },
     { key: 'list', title: '列表', prefixes: ['list.'] },
   ],
-  app: [
-    { key: 'codegen', title: '代码生成', prefixes: ['codegen.'] },
-    { key: 'deploy', title: '部署', prefixes: ['deploy.'] },
-  ],
   ops: [
     {
       key: 'switches',
@@ -129,12 +93,10 @@ const MODULE_GROUPS: Record<string, SettingGroup[]> = {
   ],
 }
 
-const CREDENTIAL_TIP_MODULES = new Set(['chat', 'tts', 'knowledge', 'reading', 'app'])
+const CREDENTIAL_TIP_MODULES = new Set(['knowledge', 'reading'])
 
 const TEXTAREA_KEYS = new Set([
   'frontend_public_notice',
-  'tts.seed_voice.prompt_text',
-  'image_caption.prompt',
   'distill.system_prompt',
 ])
 
@@ -485,7 +447,6 @@ function clearModuleConsumerCache(moduleCode: string) {
   if (moduleCode === 'blog') clearBlogSettingsCache()
   if (moduleCode === 'study') clearStudySettingsCache()
   if (moduleCode === 'diary') clearDiarySettingsCache()
-  if (moduleCode === 'app') clearAppSettingsCache()
 }
 
 function apiErrorMessage(e: unknown, fallback: string) {
@@ -580,7 +541,7 @@ watch(
                 </template>
               </a-alert>
 
-              <!-- 分组表单（integration / chat / tts / knowledge / reading） -->
+              <!-- 分组表单（integration / knowledge / reading） -->
               <template v-if="hasGroups">
                 <div
                   v-for="group in visibleGroups"

@@ -29,13 +29,11 @@ const subtitle = computed(() =>
 /** 模块 → 房间强调色（与各房间 data-room 主题一致） */
 const MODULE_ROOM_COLOR: Record<string, string> = {
   blog: '#f08cb0',
-  chat: '#9b8ce8',
   diary: '#c79ae0',
   knowledge: '#6aaee8',
   reading: '#9b8ce8',
   study: '#6aaee8',
   worklog: '#5fc4a5',
-  'app-lab': '#c79ae0',
 }
 const roomColor = computed(() => MODULE_ROOM_COLOR[moduleKey.value] || '')
 

@@ -2,7 +2,7 @@
 /**
  * 工作台布局（WorkspaceLayout）
  * 由 App.vue 按 route.meta.shell === 'workspace' 挂载，包裹登录后的工作台路由
- * （阅读/学习/个人中心/管理后台/实验室等房间）：左侧 WorkspaceRail 常驻，
+ * （阅读/学习/个人中心/管理后台等房间）：左侧 WorkspaceRail 常驻，
  * 主区独立滚动并附底部版权条；背景保持夜航底色，辉光随时段偏移色温。
  */
 import { computed, onMounted, onUnmounted, ref } from 'vue'
@@ -41,9 +41,9 @@ onUnmounted(() => {
     <WorkspaceRail />
     <div class="workspace-layout__main">
       <div class="workspace-layout__content">
-        <!-- 路由视图：meta.keepAlive 的页面（如 ChatPage）走 KeepAlive 缓存，其余按 fullPath 重建 -->
+        <!-- 路由视图：meta.keepAlive 的页面（如 GamesRoom）走 KeepAlive 缓存，其余按 fullPath 重建 -->
         <RouterView v-slot="{ Component, route: viewRoute }">
-          <KeepAlive include="ChatPage">
+          <KeepAlive>
             <component
               :is="Component"
               v-if="viewRoute.meta.keepAlive"
@@ -84,9 +84,6 @@ onUnmounted(() => {
 }
 .workspace-layout[data-room='admin'] {
   --ws-accent: #8f9bb3;
-}
-.workspace-layout[data-room='lab'] {
-  --ws-accent: #c79ae0;
 }
 
 .workspace-layout__bg {

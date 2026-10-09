@@ -18,7 +18,6 @@ const AdministratorRoles = ['administrator'] as const
 export const ROUTE_PERMISSIONS: Record<string, RequiredRole | undefined> = {
   '/user/profile': 'user',
   '/admin/userManage': 'admin',
-  '/admin/appManage': 'admin',
   '/admin/blogManage': 'admin',
   '/admin/knowledge': 'admin',
   '/admin/knowledge/ingest': 'admin',
@@ -30,7 +29,6 @@ export const ROUTE_PERMISSIONS: Record<string, RequiredRole | undefined> = {
   '/admin/ops/stats': 'admin',
   '/admin/ops/access-logs': 'admin',
   '/administrator/study': 'administrator',
-  '/chat': 'user',
   '/diary': 'user',
   '/worklog': 'user',
   '/knowledge': 'user',
@@ -72,7 +70,6 @@ export const MENU_ITEMS: MenuItemConfig[] = [
   { key: 'diary', label: '日记', path: '/diary', requiredRole: 'user', requireModule: 'diary' },
   /** 工作日志独立模块（与 diary 分离） */
   { key: 'worklog', label: '工作日志', path: '/worklog', requiredRole: 'user', requireModule: 'worklog' },
-  { key: 'lab', label: '实验室', path: '/lab', requireModule: 'app-lab' },
   { key: 'games', label: '游戏舱', path: '/games', requireModule: 'games' },
   {
     key: 'readingWorkbench',
@@ -90,7 +87,6 @@ export const MENU_ITEMS: MenuItemConfig[] = [
     requiredRole: 'admin',
     children: [
       { key: 'userManage', label: '用户管理', path: '/admin/userManage', requiredRole: 'admin' },
-      { key: 'appManage', label: '应用管理', path: '/admin/appManage', requiredRole: 'admin', requireModule: 'app-lab' },
       { key: 'blogManage', label: '博客管理', path: '/admin/blogManage', requiredRole: 'admin', requireModule: 'blog' },
       { key: 'siteSettings', label: '站点设置', path: '/admin/settings/site', requiredRole: 'admin' },
     ],
@@ -99,7 +95,6 @@ export const MENU_ITEMS: MenuItemConfig[] = [
   { key: 'about', label: '关于', path: '/about' },
   { key: 'study', label: '学习', path: '/administrator/study', requiredRole: 'administrator', requireModule: 'study' },
   { key: 'test', label: '测试', path: '/test', requiredRole: 'administrator' },
-  { key: 'chat', label: '对话', path: '/chat', requiredRole: 'user', requireModule: 'chat' },
 ]
 
 /** 当前用户是否具备管理员角色 */
@@ -117,7 +112,6 @@ export function getRequiredRole(path: string): RequiredRole | undefined {
   if (ROUTE_PERMISSIONS[path] !== undefined) return ROUTE_PERMISSIONS[path]
   if (path.startsWith('/admin')) return 'admin'
   if (path.startsWith('/administrator')) return 'administrator'
-  if (path === '/chat' || path.startsWith('/chat/')) return 'user'
   if (path === '/diary' || path.startsWith('/diary/')) return 'user'
   if (path === '/worklog' || path.startsWith('/worklog/')) return 'user'
   if (path === '/knowledge' || path.startsWith('/knowledge/')) return 'user'

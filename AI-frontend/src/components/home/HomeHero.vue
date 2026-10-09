@@ -1,12 +1,10 @@
 <script setup lang="ts">
 /**
- * 首页首屏 Hero 区：问候徽标、站点标题、一言纸条、AI 实验室快捷输入卡。
- * 问候文案与图标随主题（props.theme）切换；实验室输入框可直跳 /lab 并携带 prompt。
+ * 首页首屏 Hero 区：问候徽标、站点标题、一言纸条。
+ * 问候文案与图标随主题（props.theme）切换。
  */
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
 import { siteConfig } from '@/config/site'
-import { useLoginUserStore } from '@/stores/loginUser'
 import { fetchHitokoto } from '@/integrations/hitokoto'
 import type { HomeTheme } from '@/composables/useHomeTheme'
 import { HOME_GREET } from '@/composables/useHomeTheme'
@@ -15,11 +13,7 @@ const props = defineProps<{
   theme: HomeTheme
 }>()
 
-const router = useRouter()
-const loginUserStore = useLoginUserStore()
-
-// 实验室快捷输入 + 一言文案（默认占位句，加载成功后替换）
-const labPrompt = ref('')
+// 一言文案（默认占位句，加载成功后替换）
 const hitokotoText = ref('风把云揉成棉花糖的形状，落在窗台上的光是今天下午茶。')
 const hitokotoFrom = ref('—— 每日一言')
 // 透明度用于一言/徽标切换时的淡出淡入过渡
@@ -58,37 +52,6 @@ async function loadHitokoto(force = false) {
       textOpacity.value = 1
     }, 250)
   }
-}
-
-// 点击快捷词条：自动拼成「做一个xxx」填入输入框
-const onChip = (chip: string) => {
-  labPrompt.value = `做一个${chip}`
-}
-
-// 跳转实验室；未登录先去登录页，有输入则带 prompt 查询参数
-const goLab = () => {
-  const prompt = labPrompt.value.trim()
-  if (!loginUserStore.loginUser.id) {
-    router.push('/user/login')
-    return
-  }
-  if (prompt) router.push({ path: '/lab', query: { prompt } })
-  else router.push('/lab')
-}
-
-// 点击「生成」按钮：先播放水波纹特效再跳转，提升点击反馈
-const onLabGo = (e: MouseEvent) => {
-  const btn = e.currentTarget as HTMLElement
-  const r = btn.getBoundingClientRect()
-  const rip = document.createElement('span')
-  rip.className = 'ripple'
-  const size = Math.max(r.width, r.height)
-  rip.style.width = rip.style.height = `${size}px`
-  rip.style.left = `${e.clientX - r.left - size / 2}px`
-  rip.style.top = `${e.clientY - r.top - size / 2}px`
-  btn.appendChild(rip)
-  setTimeout(() => rip.remove(), 650)
-  goLab()
 }
 
 onMounted(() => loadHitokoto(true))
@@ -130,26 +93,6 @@ onMounted(() => loadHitokoto(true))
       </button>
       <p class="hitokoto-text" :style="{ opacity: textOpacity }">{{ hitokotoText }}</p>
       <p class="hitokoto-from">{{ hitokotoFrom }}</p>
-    </div>
-
-    <!-- 实验室快捷卡：输入框 + 快捷词条，回车或点「生成」跳转 /lab -->
-    <div class="lab-card anim" style="animation-delay: 0.55s">
-      <div class="lab-head">
-        <span class="lab-title font-display">{{ siteConfig.heroLabTitle }}</span>
-        <span class="lab-desc">{{ siteConfig.heroLabDesc }}</span>
-      </div>
-      <div class="lab-inputrow">
-        <input
-          v-model="labPrompt"
-          class="lab-input"
-          :placeholder="siteConfig.heroLabPlaceholder"
-          @keydown.enter.prevent="goLab"
-        />
-        <button type="button" class="lab-go" @click="onLabGo">生成 ✦</button>
-      </div>
-      <div class="lab-chips">
-        <span v-for="chip in siteConfig.quickPrompts" :key="chip" @click="onChip(chip)">{{ chip }}</span>
-      </div>
     </div>
   </div>
 </template>

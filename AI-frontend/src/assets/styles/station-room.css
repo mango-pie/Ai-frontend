@@ -16,17 +16,9 @@
   --room: #5fc4a5;
   --room-soft: #d6f2e8;
 }
-.station-room-root[data-room='lab'] {
-  --room: #c79ae0;
-  --room-soft: #f0e4fa;
-}
 .station-room-root[data-room='library'] {
   --room: #6aaee8;
   --room-soft: #d8ebfb;
-}
-.station-room-root[data-room='chat'] {
-  --room: #9b8ce8;
-  --room-soft: #e4dffd;
 }
 .station-room-root[data-room='auth'] {
   --room: #f490ad;

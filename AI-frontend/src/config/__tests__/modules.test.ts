@@ -17,9 +17,8 @@ import {
 } from '../modules'
 
 describe('normalizeModuleKey', () => {
-  it('aliases lab keys to app-lab', () => {
-    expect(normalizeModuleKey('lab')).toBe('app-lab')
-    expect(normalizeModuleKey('appLab')).toBe('app-lab')
+  it('normalizes case and underscores', () => {
+    expect(normalizeModuleKey('Blog')).toBe('blog')
     expect(normalizeModuleKey('app_lab')).toBe('app-lab')
   })
 })
@@ -40,9 +39,6 @@ describe('getRequiredModuleByPath', () => {
     expect(getRequiredModuleByPath('/blog/123')).toBe('blog')
     expect(getRequiredModuleByPath('/category/vue')).toBe('blog')
     expect(getRequiredModuleByPath('/diary/write')).toBe('diary')
-    expect(getRequiredModuleByPath('/chat/9')).toBe('chat')
-    expect(getRequiredModuleByPath('/lab')).toBe('app-lab')
-    expect(getRequiredModuleByPath('/app/chat/1')).toBe('app-lab')
     expect(getRequiredModuleByPath('/knowledge/notes')).toBe('knowledge')
     expect(getRequiredModuleByPath('/library')).toBe('library')
     expect(getRequiredModuleByPath('/library/recycle')).toBe('library')
@@ -51,9 +47,10 @@ describe('getRequiredModuleByPath', () => {
     expect(getRequiredModuleByPath('/administrator/study')).toBe('study')
   })
 
-  it('does not confuse /library with /lab', () => {
-    expect(getRequiredModuleByPath('/library')).not.toBe('app-lab')
-    expect(getRequiredModuleByPath('/lab')).toBe('app-lab')
+  it('does not confuse /library with lab routes', () => {
+    expect(getRequiredModuleByPath('/library')).toBe('library')
+    expect(getRequiredModuleByPath('/lab')).toBeUndefined()
+    expect(getRequiredModuleByPath('/chat')).toBeUndefined()
   })
 
   it('does not treat platform routes as modules', () => {
@@ -71,7 +68,6 @@ describe('filterMenuItems requireModule', () => {
     const keys = collectKeys(items)
     expect(keys).toContain('home')
     expect(keys).toContain('about')
-    expect(keys).toContain('lab')
     expect(keys).not.toContain('blogHome')
   })
 
@@ -89,7 +85,6 @@ describe('filterMenuItems requireModule', () => {
 describe('getModuleLabel', () => {
   it('returns Chinese labels for known keys', () => {
     expect(getModuleLabel('blog')).toBe('博客')
-    expect(getModuleLabel('app-lab')).toBe('实验室')
     expect(getModuleLabel('worklog')).toBe('工作日志')
     expect(getModuleLabel('library')).toBe('资料库')
     expect(getModuleLabel('games')).toBe('游戏舱')

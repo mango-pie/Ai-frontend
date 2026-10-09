@@ -44,8 +44,9 @@ describe('capabilities store', () => {
     expect(store.probeFailed).toBe(false)
     expect(store.enabled('blog')).toBe(true)
     expect(store.enabled('diary')).toBe(false)
-    // 响应中缺省的 key 视为关闭
+    // 响应中缺省的 key 视为关闭（含已下线的模块）
     expect(store.enabled('chat')).toBe(false)
+    expect(store.enabled('unknown-module')).toBe(false)
     expect(syncCapabilitySnapshot).toHaveBeenCalled()
   })
 

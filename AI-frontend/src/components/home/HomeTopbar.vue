@@ -12,7 +12,6 @@ import { isAdminRole } from '@/config/permission'
 import { useLoginUserStore } from '@/stores/loginUser'
 import { userLogout } from '@/api/userController'
 import { resolveBlogMenuClickPath } from '@/composables/useBlogLastPost'
-import { getChatEntryPath } from '@/utils/chatSession'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 import {
   TOP_NAV_GROUPS,
@@ -39,7 +38,7 @@ const loginUserStore = useLoginUserStore()
 const capsStore = useCapabilitiesStore()
 const logoSrc = new URL('../../assets/logo.svg', import.meta.url).href
 
-/** 顶栏导航组：首页 / 创作▾ / 智能▾ / 实验室 / 音乐 / 游戏舱 / 管理▾(admin)，按角色与模块能力过滤 */
+/** 顶栏导航组：首页 / 创作▾ / 智能▾ / 音乐 / 游戏舱 / 管理▾(admin)，按角色与模块能力过滤 */
 const navGroups = computed<NavGroupItem[]>(() => {
   const user = loginUserStore.loginUser.id ? loginUserStore.loginUser : null
   const isAdmin = isAdminRole(loginUserStore.loginUser.userRole)
@@ -107,9 +106,8 @@ const movePill = async () => {
   }
 }
 
-// 特殊入口解析：/chat 回到上次会话，/blog 回到上次看过的随笔
+// 特殊入口解析：/blog 回到上次看过的随笔
 const resolvePath = (item: WorkspaceNavItem): string => {
-  if (item.path === '/chat' && isLoggedIn.value) return getChatEntryPath()
   if (item.path === '/blog') return resolveBlogMenuClickPath(route.path)
   return item.path
 }

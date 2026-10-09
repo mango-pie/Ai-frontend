@@ -18,20 +18,15 @@ export function isModuleHidden(requireModule: string | undefined, caps?: Capabil
 /** 路径前缀 → 模块 key（最长前缀优先） */
 export const PATH_REQUIRE_MODULE: Array<{ prefix: string; requireModule: string }> = [
   { prefix: '/admin/blogManage', requireModule: 'blog' },
-  { prefix: '/admin/appManage', requireModule: 'app-lab' },
-  { prefix: '/admin/chatHistoryManage', requireModule: 'chat' },
   { prefix: '/admin/knowledge', requireModule: 'knowledge' },
   { prefix: '/admin/ops', requireModule: 'ops' },
   { prefix: '/administrator/study', requireModule: 'study' },
   { prefix: '/blog', requireModule: 'blog' },
   { prefix: '/category/', requireModule: 'blog' },
   { prefix: '/tag/', requireModule: 'blog' },
-  { prefix: '/chat', requireModule: 'chat' },
   { prefix: '/diary', requireModule: 'diary' },
   { prefix: '/worklog', requireModule: 'worklog' },
   { prefix: '/knowledge', requireModule: 'knowledge' },
-  { prefix: '/lab', requireModule: 'app-lab' },
-  { prefix: '/app/', requireModule: 'app-lab' },
 ]
 
 const MODULE_UNAVAILABLE_PATH = '/module-unavailable'

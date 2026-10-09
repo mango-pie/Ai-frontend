@@ -9,12 +9,9 @@ export const MODULE_KEYS = [
   'knowledge',
   'library',
   'reading',
-  'chat',
   'study',
   'diary',
   'worklog',
-  'tts',
-  'app-lab',
   'games',
 ] as const
 
@@ -27,20 +24,15 @@ export const MODULE_LABELS: Record<ModuleKey, string> = {
   knowledge: '知识库',
   library: '资料库',
   reading: '精读任务',
-  chat: '对话',
   study: '学习',
   diary: '日记',
   worklog: '工作日志',
-  tts: '语音合成',
-  'app-lab': '实验室',
   games: '游戏舱',
 }
 
 /** 路径前缀 → 模块。更长前缀需排在前面。 */
 const MODULE_PATH_PREFIXES: Array<{ prefix: string; module: ModuleKey }> = [
   { prefix: '/admin/blogManage', module: 'blog' },
-  { prefix: '/admin/chatHistoryManage', module: 'app-lab' },
-  { prefix: '/admin/appManage', module: 'app-lab' },
   { prefix: '/administrator/study', module: 'study' },
   { prefix: '/knowledge', module: 'knowledge' },
   { prefix: '/library', module: 'library' },
@@ -50,17 +42,11 @@ const MODULE_PATH_PREFIXES: Array<{ prefix: string; module: ModuleKey }> = [
   { prefix: '/blog', module: 'blog' },
   { prefix: '/diary', module: 'diary' },
   { prefix: '/worklog', module: 'worklog' },
-  { prefix: '/chat', module: 'chat' },
-  { prefix: '/lab', module: 'app-lab' },
-  { prefix: '/app/', module: 'app-lab' },
-  { prefix: '/app', module: 'app-lab' },
 ]
 
-/** 归一化模块 key：去空白、转小写、下划线转连字符，并兼容 app/applab/lab 等历史写法 */
+/** 归一化模块 key：去空白、转小写、下划线转连字符 */
 export function normalizeModuleKey(name: string): string {
-  const key = name.trim().toLowerCase().replace(/_/g, '-')
-  if (key === 'app' || key === 'applab' || key === 'lab') return 'app-lab'
-  return key
+  return name.trim().toLowerCase().replace(/_/g, '-')
 }
 
 /** 将后端返回的模块开关对象归一化为 { 模块key: 是否启用 }；非 true 一律视为关闭 */

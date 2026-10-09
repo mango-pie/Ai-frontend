@@ -1,17 +1,14 @@
 <script setup lang="ts">
 /**
  * 站点门厅首页（路由 /）
- * - v3 全屏翻页舞台：门厅 → 随笔刊 → 灵感窗 → 落款，翻页交互由 useHomePager 接管
+ * - v3 全屏翻页舞台：门厅 → 随笔刊 → 落款，翻页交互由 useHomePager 接管
  * - 氛围（主题/季节/粒子/云朵/视差）来自 useHomeTheme 等组合式函数
- * - 数据源：已发布随笔（最新 3 篇 + 总数）、我的应用数、精选应用
+ * - 数据源：已发布随笔（最新 3 篇 + 总数）
  */
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { listFeaturedAppByPage, listMyAppByPage } from '@/api/appController'
 import { getPublishedBlogPostPage } from '@/api/blogPostController'
-import { useLoginUserStore } from '@/stores/loginUser'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 import { isGatedEntryVisible } from '@/utils/moduleGate'
-import { siteConfig } from '@/config/site'
 import { useHomeStageScale } from '@/composables/useHomeStageScale'
 import { useHomeTheme, type HomeSeason } from '@/composables/useHomeTheme'
 import { useInkMode } from '@/composables/useInkMode'
@@ -21,7 +18,6 @@ import HomeHero from '@/components/home/HomeHero.vue'
 import HomeSkyWindow from '@/components/home/HomeSkyWindow.vue'
 import HomeRooms from '@/components/home/HomeRooms.vue'
 import HomePageJournal from '@/components/home/HomePageJournal.vue'
-import HomePageShowcase from '@/components/home/HomePageShowcase.vue'
 import HomePageClosing from '@/components/home/HomePageClosing.vue'
 import HomePageDots from '@/components/home/HomePageDots.vue'
 import HomePetals from '@/components/home/HomePetals.vue'
@@ -29,9 +25,8 @@ import StationTweaks from '@/components/shared/StationTweaks.vue'
 import BackgroundCarousel from '@/components/shared/BackgroundCarousel.vue'
 import PeriodAtmosphere from '@/components/shared/PeriodAtmosphere.vue'
 import { useBackgroundMode } from '@/composables/useBackgroundMode'
-import type { HomePostCard, HomeShowCard } from '@/components/home/homeTypes'
+import type { HomePostCard } from '@/components/home/homeTypes'
 
-const loginUserStore = useLoginUserStore()
 const capsStore = useCapabilitiesStore()
 // blog 模块关闭时整屏隐藏“随笔刊”，总页数随之减一
 const blogRoomVisible = computed(() =>
@@ -87,12 +82,10 @@ const clockDate = ref('----年--月--日')
 const diaryDay = ref('--')
 const diaryYM = ref('---- / --<br>星期-')
 
-// 随笔刊/灵感窗展示数据
+// 随笔刊展示数据
 const latestTitle = ref('')
 const postTotal = ref(0)
-const labTotal = ref(0)
 const posts = ref<HomePostCard[]>([])
-const shows = ref<HomeShowCard[]>([])
 
 // 挂钟每秒刷新定时器，卸载时清理
 let clockTimer: ReturnType<typeof setInterval> | null = null
@@ -117,7 +110,7 @@ const formatPostMeta = (post: API.BlogPostVO) => {
   return datePart ? `${datePart} · 阅读` : '阅读全文'
 }
 
-/** 拉取门厅展示数据；三块接口互相独立，任一失败都静默降级为占位内容，不阻断首屏 */
+/** 拉取门厅展示数据；接口失败静默降级为占位内容，不阻断首屏 */
 const loadData = async () => {
   // 最新随笔 + 总篇数（未登录也可见）
   try {
@@ -134,38 +127,6 @@ const loadData = async () => {
         meta: formatPostMeta(p),
         path: p.id ? `/blog/${p.id}` : '/blog',
       }))
-    }
-  } catch {
-    /* ignore */
-  }
-
-  // 我的实验总数（仅登录后统计）
-  try {
-    if (loginUserStore.loginUser.id) {
-      const res = await listMyAppByPage({ pageNum: 1, pageSize: 1 })
-      if (res.data.code === 0 && res.data.data) {
-        labTotal.value = Number(res.data.data.totalRow) || 0
-      }
-    }
-  } catch {
-    /* ignore */
-  }
-
-  // 精选实验：灵感窗只取第一名
-  try {
-    const res = await listFeaturedAppByPage({ pageNum: 1, pageSize: 1 })
-    const app = res.data.code === 0 ? res.data.data?.records?.[0] : undefined
-    if (app) {
-      shows.value = [
-        {
-          id: app.id,
-          title: app.appName || '精选实验',
-          desc: `${siteConfig.sections.recommendedAuthor} · 实验室作品`,
-          url: `lab.local / ${(app.appName || 'app').toLowerCase().replace(/\s+/g, '-')}`,
-          path: app.id ? `/app/chat/${app.id}` : '/lab',
-          kind: 'app',
-        },
-      ]
     }
   } catch {
     /* ignore */
@@ -236,7 +197,6 @@ onUnmounted(() => {
             <HomeRooms
               :latest-title="latestTitle"
               :post-total="postTotal"
-              :lab-total="labTotal"
               :diary-day="diaryDay"
               :diary-ym="diaryYM"
             />
@@ -260,14 +220,7 @@ onUnmounted(() => {
             @home="goTo(0)"
           />
 
-          <!-- 03 灵感窗 -->
-          <HomePageShowcase
-            :shows="shows"
-            :page-label="pageLabel"
-            @home="goTo(0)"
-          />
-
-          <!-- 04 落款 -->
+          <!-- 03 落款 -->
           <HomePageClosing :page-label="pageLabel" @home="goTo(0)" />
         </div>
 

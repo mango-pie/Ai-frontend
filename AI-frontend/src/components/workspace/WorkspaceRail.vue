@@ -20,7 +20,6 @@ import {
   type WorkspaceNavItem,
 } from '@/config/workspaceNav'
 import { resolveDiaryMenuClickPath } from '@/composables/useDiaryNav'
-import { getChatEntryPath } from '@/utils/chatSession'
 
 const router = useRouter()
 const route = useRoute()
@@ -52,11 +51,9 @@ const hoverGroup = ref<NavGroupKey | null>(null)
 
 /**
  * 解析导航项的真实跳转路径：
- * - /chat：恢复/创建最近一次会话后落到具体会话页
  * - /diary：按当前日记路由上下文决定落点（详见 useDiaryNav）
  */
 const resolvePath = (item: WorkspaceNavItem): string => {
-  if (item.path === '/chat') return getChatEntryPath()
   if (item.path === '/diary') return resolveDiaryMenuClickPath(route.path)
   return item.path
 }

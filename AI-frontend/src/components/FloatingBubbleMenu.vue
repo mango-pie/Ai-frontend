@@ -12,12 +12,10 @@ import type { Component } from 'vue'
 import {
   AppstoreOutlined,
   BookOutlined,
-  ExperimentOutlined,
   HomeOutlined,
   InfoCircleOutlined,
   LinkOutlined,
   SettingOutlined,
-  MessageOutlined,
   ReadOutlined,
   BugOutlined,
 } from '@ant-design/icons-vue'
@@ -25,7 +23,6 @@ import { useLoginUserStore } from '@/stores/loginUser'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 import { MENU_ITEMS, filterMenuItems, type MenuItemConfig } from '@/config/permission'
 import { siteConfig } from '@/config/site'
-import { getChatEntryPath } from '@/utils/chatSession'
 
 // 悬浮球及菜单项的几何尺寸、内外圈半径（单位 px），展开区域需外扩一圈半径加半个 item
 const BUBBLE_SIZE = 56
@@ -39,7 +36,7 @@ const ZONE_EXPANDED = BUBBLE_SIZE + EXPAND_PAD * 2
 const STORAGE_KEY = 'bubble_menu_position_v2'
 
 // 内圈固定放这几个高频入口，其余菜单项（含管理后台等）落到外圈
-const INNER_PATHS = new Set(['/', '/blog', '/lab', '/about'])
+const INNER_PATHS = new Set(['/', '/blog', '/about'])
 
 interface BubbleMenuItem {
   key: string
@@ -67,14 +64,11 @@ const pointerId = ref<number | null>(null)
 const iconByPath: Record<string, Component> = {
   '/': HomeOutlined,
   '/blog': BookOutlined,
-  '/lab': ExperimentOutlined,
   '/about': InfoCircleOutlined,
   '/admin/userManage': SettingOutlined,
-  '/admin/appManage': SettingOutlined,
   '/admin/blogManage': SettingOutlined,
   '/administrator/study': ReadOutlined,
   '/test': BugOutlined,
-  '/chat': MessageOutlined,
 }
 
 // 递归拍平树形菜单配置，只保留带 path 的叶子节点（子菜单也展开成独立入口）
@@ -239,9 +233,9 @@ function onPointerUp(e: PointerEvent) {
   savePosition()
 }
 
-// 点击菜单项跳转；聊天入口需经由 getChatEntryPath 决定（恢复会话或新建会话）
+// 点击菜单项跳转
 function onItemClick(path: string) {
-  router.push(path === '/chat' ? getChatEntryPath() : path)
+  router.push(path)
 }
 
 // 窗口尺寸变化时把球重新夹回视口并保存，防止遗留在可视区域外

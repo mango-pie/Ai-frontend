@@ -19,11 +19,9 @@ const TARGET_LABELS: Record<string, string> = {
   redis: 'Redis',
   vector: '向量库',
   knowledge_ai: '知识库 AI',
-  agent: 'Agent',
   codegen: '代码生成',
   jina: 'Jina',
   astrbot: 'AstrBot',
-  tts: 'TTS / GPT-SoVITS',
   minio: 'MinIO',
 }
 

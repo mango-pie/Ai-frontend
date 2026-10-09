@@ -48,7 +48,7 @@ const handleSubmit = async (values: API.UserLoginRequest) => {
       <div id="userLoginPage" class="auth-card station-glass">
         <span class="auth-card__tape font-display" aria-hidden="true">Station · 入站</span>
         <h2 class="title font-display">{{ siteConfig.siteName }} · 登录</h2>
-        <p class="desc">用同一套导航走进日记、实验室和对话</p>
+        <p class="desc">用同一套导航走进日记、随笔和知识库</p>
         <a-form :model="formState" name="basic" autocomplete="off" @finish="handleSubmit">
           <a-form-item name="userAccount" :rules="[{ required: true, message: '请输入账号' }]">
             <a-input v-model:value="formState.userAccount" placeholder="请输入账号" size="large">

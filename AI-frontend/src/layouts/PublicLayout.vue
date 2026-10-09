@@ -19,7 +19,7 @@ const isScrolled = ref(false)
 const { layerA, layerB, activeLayer, hasImages, fadeDuration } = useBackgroundSlideshow()
 
 // 自管 chrome 的房间名单：这些路由自带顶栏/页脚/背景，公开壳不再叠加公共外框
-const STATION_ROOMS = new Set(['blog', 'diary', 'knowledge', 'library', 'reading', 'worklog', 'lab', 'chat', 'auth', 'settings', 'about', 'admin', 'study', 'profile'])
+const STATION_ROOMS = new Set(['blog', 'diary', 'knowledge', 'library', 'reading', 'worklog', 'auth', 'settings', 'about', 'admin', 'study', 'profile'])
 
 const room = computed(() => (route.meta.room as string) || 'public')
 /** 主页与各房间自管 chrome，跳过公开壳的顶栏/页脚/暗色背景 */

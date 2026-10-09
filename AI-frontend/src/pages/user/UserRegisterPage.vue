@@ -44,7 +44,7 @@ const handleSubmit = async (values: API.UserRegisterRequest) => {
       <div class="auth-welcome">
         <p class="auth-kana">{{ siteConfig.brandKana }}</p>
         <h1 class="font-display">加入小站</h1>
-        <p>创建账号后即可写日记、做实验、继续未完的对话。</p>
+        <p>创建账号后即可写日记、记随笔、建自己的知识库。</p>
       </div>
       <div id="userRegisterPage" class="auth-card station-glass">
         <span class="auth-card__tape font-display" aria-hidden="true">Station · 登记</span>

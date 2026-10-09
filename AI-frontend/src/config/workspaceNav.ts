@@ -7,24 +7,19 @@
 import type { Component } from 'vue'
 import {
   Home,
-  MessagesSquare,
   LibraryBig,
   Archive,
   NotebookPen,
-  FlaskConical,
   GraduationCap,
   Settings,
   Sparkles,
   Activity,
   BookOpen,
   Users,
-  AppWindowMac,
   PenTool,
   Info,
-  ListChecks,
   ListTree,
   ClipboardList,
-  MessageSquareLock,
   Music2,
   PenLine,
   User,
@@ -53,18 +48,6 @@ export interface WorkspaceNavItem {
 export type NavGroupKey = 'create' | 'ai' | 'admin' | 'account'
 
 /* ================= 叶子页面 ================= */
-
-const chat: WorkspaceNavItem = {
-  key: 'chat',
-  label: '对话',
-  path: '/chat',
-  icon: MessagesSquare,
-  requiredRole: 'user',
-  requireModule: 'chat',
-  matchPrefix: '/chat',
-  requireLogin: true,
-  group: 'ai',
-}
 
 const knowledge: WorkspaceNavItem = {
   key: 'knowledge',
@@ -162,15 +145,6 @@ const worklog: WorkspaceNavItem = {
   group: 'create',
 }
 
-const lab: WorkspaceNavItem = {
-  key: 'lab',
-  label: '实验室',
-  path: '/lab',
-  icon: FlaskConical,
-  requireModule: 'app-lab',
-  matchPrefix: '/lab',
-}
-
 const music: WorkspaceNavItem = {
   key: 'music',
   label: '音乐',
@@ -209,17 +183,6 @@ const userManage: WorkspaceNavItem = {
   group: 'admin',
 }
 
-const appManage: WorkspaceNavItem = {
-  key: 'appManage',
-  label: '应用管理',
-  path: '/admin/appManage',
-  icon: AppWindowMac,
-  requiredRole: 'admin',
-  requireModule: 'app-lab',
-  matchPrefix: '/admin/appManage',
-  group: 'admin',
-}
-
 const blogManage: WorkspaceNavItem = {
   key: 'blogManage',
   label: '博客管理',
@@ -228,17 +191,6 @@ const blogManage: WorkspaceNavItem = {
   requiredRole: 'admin',
   requireModule: 'blog',
   matchPrefix: '/admin/blogManage',
-  group: 'admin',
-}
-
-const chatHistoryManage: WorkspaceNavItem = {
-  key: 'chatHistoryManage',
-  label: '对话管理',
-  path: '/admin/chatHistoryManage',
-  icon: MessageSquareLock,
-  requiredRole: 'admin',
-  requireModule: 'chat',
-  matchPrefix: '/admin/chatHistoryManage',
   group: 'admin',
 }
 
@@ -293,8 +245,7 @@ export interface NavGroupItem {
 export const TOP_NAV_GROUPS: NavGroupItem[] = [
   { key: 'home', label: '首页', type: 'link', path: '/' },
   { key: 'create', label: '创作', type: 'menu', children: [blog, diary, worklog] },
-  { key: 'ai', label: '智能', type: 'menu', children: [chat, knowledge, library, reading] },
-  { key: 'lab', label: '实验室', type: 'link', path: '/lab', matchPrefix: '/lab' },
+  { key: 'ai', label: '智能', type: 'menu', children: [knowledge, library, reading] },
   { key: 'music', label: '音乐', type: 'link', path: '/music', matchPrefix: '/music' },
   { key: 'games', label: '游戏舱', type: 'link', path: '/games', matchPrefix: '/games', requireModule: 'games' },
   {
@@ -302,7 +253,7 @@ export const TOP_NAV_GROUPS: NavGroupItem[] = [
     label: '管理',
     type: 'menu',
     adminOnly: true,
-    children: [study, userManage, appManage, blogManage, chatHistoryManage, opsCenter, siteSettings],
+    children: [study, userManage, blogManage, opsCenter, siteSettings],
   },
 ]
 
@@ -311,7 +262,7 @@ export const TOP_NAV_GROUPS: NavGroupItem[] = [
 export const RAIL_HOME: WorkspaceNavItem = { key: 'hall', label: '门厅', path: '/', icon: Home }
 
 /** rail 独立入口（不分组，直接图标） */
-export const RAIL_QUICK: WorkspaceNavItem[] = [lab, music, games]
+export const RAIL_QUICK: WorkspaceNavItem[] = [music, games]
 
 export interface RailGroup {
   key: NavGroupKey
@@ -322,12 +273,12 @@ export interface RailGroup {
 
 export const RAIL_GROUPS: RailGroup[] = [
   { key: 'create', label: '创作', icon: PenLine, children: [blog, diary, worklog] },
-  { key: 'ai', label: '智能', icon: Sparkles, children: [chat, knowledge, library, reading] },
+  { key: 'ai', label: '智能', icon: Sparkles, children: [knowledge, library, reading] },
   {
     key: 'admin',
     label: '管理',
     icon: Settings,
-    children: [study, userManage, appManage, blogManage, chatHistoryManage, opsCenter, siteSettings],
+    children: [study, userManage, blogManage, opsCenter, siteSettings],
   },
   { key: 'account', label: '账户', icon: User, children: [profile] },
 ]
@@ -335,7 +286,6 @@ export const RAIL_GROUPS: RailGroup[] = [
 /** 公开顶栏导航（PublicHeader 用，保持原样） */
 export const PUBLIC_NAV: WorkspaceNavItem[] = [
   { key: 'blog', label: '随笔', path: '/blog', icon: BookOpen, matchPrefix: '/blog', requireModule: 'blog' },
-  { key: 'lab', label: '实验室', path: '/lab', icon: FlaskConical, matchPrefix: '/lab', requireModule: 'app-lab' },
   { key: 'about', label: '关于', path: '/about', icon: Info, matchPrefix: '/about' },
 ]
 

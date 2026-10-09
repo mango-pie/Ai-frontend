@@ -6,7 +6,7 @@
  */
 import type { Component } from 'vue'
 import { useRouter } from 'vue-router'
-import { BookOpen, FlaskConical, Info, Link as LinkIcon, Sparkles } from 'lucide-vue-next'
+import { BookOpen, Info, Link as LinkIcon, Sparkles } from 'lucide-vue-next'
 import { siteConfig } from '@/config/site'
 
 const router = useRouter()
@@ -18,7 +18,6 @@ const iconFor = (link: { label?: string; path?: string }): Component => {
   const label = link.label ?? ''
   if (label.includes('关于') || link.path === '/about') return Info
   if (label.includes('随笔') || link.path === '/blog') return BookOpen
-  if (label.includes('实验') || link.path === '/lab') return FlaskConical
   if (label.includes('友链') || label.includes('链接')) return LinkIcon
   return Sparkles
 }

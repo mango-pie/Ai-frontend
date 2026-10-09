@@ -33,8 +33,6 @@ export const siteConfig = {
     diary: { title: '日记', hint: '写给自己的手账' },
     worklog: { title: '工作日志', hint: '每日事务与进度留痕' },
     knowledge: { title: '知识库', hint: '文档与问答' },
-    lab: { title: '实验室', hint: '一句话生成小应用' },
-    chat: { title: '对话', hint: '继续未完的交谈' },
     music: { title: '音乐', hint: 'Pulse 舞台播放器' },
   },
 
@@ -47,31 +45,8 @@ export const siteConfig = {
   worklogTitle: '工作日志',
   worklogSubtitle: '每日事务与进度留痕（登录可云端同步；与日记完全独立）',
 
-  heroLabTitle: 'AI 实验室',
-  heroLabDesc: '用一句话描述想法，生成可运行的小应用',
-  heroLabPlaceholder: '例如：做一个简洁的个人待办清单，支持添加和勾选完成……',
-  quickPrompts: ['个人主页', '待办清单', '读书笔记卡片', '暗黑风格仪表盘'],
-
-  labPage: {
-    subtitle: '描述你的想法，一键生成可运行的小应用',
-    entryTitle: '进入 AI 实验室',
-    entryDesc: '用一句话生成可运行的小应用，探索 AI 创作的可能',
-    entryAction: '进入实验室',
-  },
-
   sections: {
     latestPosts: '最新随笔',
-    myExperiments: '我的小实验',
-    inspiration: '灵感橱窗',
-    emptyMyApps: '还没有实验作品，去实验室创建一个吧',
-    emptyFeatured: '暂无推荐作品',
-    recommendedAuthor: '站主推荐',
-  },
-
-  statsLabels: {
-    posts: '文章',
-    experiments: '实验',
-    uptime: '站点运行',
   },
 
   about: {
@@ -90,7 +65,6 @@ export const siteConfig = {
     links: [
       { label: '关于', path: '/about' },
       { label: '随笔', path: '/blog' },
-      { label: '实验室', path: '/lab' },
       { label: '友链', href: '#' },
     ],
     icp: '备案号占位',

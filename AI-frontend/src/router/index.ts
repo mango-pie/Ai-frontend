@@ -13,10 +13,9 @@ const workspaceMeta = { shell: 'workspace' as const }
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
-    // ---------- 公开门户：主页 / 实验室 / 博客 / 音乐等 ----------
+    // ---------- 公开门户：主页 / 博客 / 音乐 / 游戏舱 ----------
 
     { path: '/', name: '主页', component: () => import('@/pages/HomePage.vue'), meta: { ...publicMeta, room: 'hall' } },
-    { path: '/lab', name: '实验室', component: () => import('@/pages/lab/LabPage.vue'), meta: { ...publicMeta, room: 'lab', requireModule: 'app-lab' } },
     { path: '/blog', name: '博客首页', component: () => import('@/pages/blog/home/BlogHomePage.vue'), meta: { ...publicMeta, room: 'blog', requireModule: 'blog' } },
     { path: '/blog/create', name: '发布文章', component: () => import('@/pages/blog/create/BlogCreatePage.vue'), meta: { ...publicMeta, room: 'blog', requireModule: 'blog' } },
     { path: '/blog/edit/:id', name: '编辑文章', component: () => import('@/pages/blog/create/BlogCreatePage.vue'), meta: { ...publicMeta, room: 'blog', requireModule: 'blog' } },
@@ -44,22 +43,11 @@ const router = createRouter({
     { path: '/knowledge/:kbId', name: '知识库详情', component: () => import('@/pages/knowledge/KnowledgeDetailPage.vue'), meta: { ...publicMeta, room: 'knowledge', requireModule: 'knowledge' } },
     { path: '/knowledge/:kbId/chat', name: '知识库问答', component: () => import('@/pages/knowledge/KnowledgeChatPage.vue'), meta: { ...publicMeta, room: 'knowledge', requireModule: 'knowledge' } },
     { path: '/user/profile', name: '个人信息', component: () => import('@/pages/user/UserProfilePage.vue'), meta: { ...publicMeta, room: 'profile' } },
-    { path: '/chat', name: '对话首页', component: () => import('@/pages/chat/ChatHomePage.vue'), meta: { ...publicMeta, room: 'chat', requireModule: 'chat' } },
-    {
-      path: '/chat/:conversationId',
-      name: '对话页面',
-      component: () => import('@/pages/chat/ChatPage.vue'),
-      // keepAlive：对话页切走再回来时保留输入与滚动状态
-      meta: { ...publicMeta, room: 'chat', keepAlive: true, requireModule: 'chat' },
-    },
-    { path: '/app/chat/:appId', name: '应用对话', component: () => import('@/pages/app/AppChatPage.vue'), meta: { ...publicMeta, room: 'lab', requireModule: 'app-lab' } },
-    { path: '/app/edit/:appId', name: '编辑应用', component: () => import('@/pages/app/AppEditPage.vue'), meta: { ...publicMeta, room: 'lab', requireModule: 'app-lab' } },
     { path: '/administrator/study', name: '学习', component: () => import('@/pages/admin/StudyView.vue'), meta: { ...publicMeta, room: 'study', requireModule: 'study' } },
 
-    // ---------- 管理后台：用户/应用/博客/知识库采集/站点设置/运维（角色权限由 access.ts 校验） ----------
+    // ---------- 管理后台：用户/博客/知识库采集/站点设置/运维（角色权限由 access.ts 校验） ----------
 
     { path: '/admin/userManage', name: '用户管理', component: () => import('@/pages/admin/UserManagerPage.vue'), meta: { ...publicMeta, room: 'admin' } },
-    { path: '/admin/appManage', name: '应用管理', component: () => import('@/pages/admin/AppManagerPage.vue'), meta: { ...publicMeta, room: 'admin', requireModule: 'app-lab' } },
     { path: '/admin/blogManage', name: '博客管理', component: () => import('@/pages/admin/BlogManagePage.vue'), meta: { ...publicMeta, room: 'admin', requireModule: 'blog' } },
     { path: '/admin/knowledge', redirect: '/admin/knowledge/ingest' },
     { path: '/admin/knowledge/ingest', name: '内容采集', component: () => import('@/pages/admin/KnowledgeIngestPage.vue'), meta: { ...publicMeta, room: 'reading', requireModule: 'knowledge' } },
@@ -67,7 +55,6 @@ const router = createRouter({
     { path: '/admin/knowledge/notes', name: '我的文章', component: () => import('@/pages/admin/KnowledgeNoteListPage.vue'), meta: { ...publicMeta, room: 'reading', requireModule: 'knowledge' } },
     { path: '/admin/knowledge/notes/:noteId', name: '审阅文章', component: () => import('@/pages/admin/KnowledgeNoteDetailPage.vue'), meta: { ...publicMeta, room: 'reading', requireModule: 'knowledge' } },
     { path: '/admin/knowledge/learning', name: '领域知识树', component: () => import('@/components/learning/LearningView.vue'), meta: { ...publicMeta, room: 'reading', requireModule: 'knowledge' } },
-    { path: '/admin/chatHistoryManage', name: '对话管理', component: () => import('@/pages/admin/ChatHistoryManagerPage.vue'), meta: { ...publicMeta, room: 'admin', requireModule: 'chat' } },
     { path: '/admin/settings', redirect: '/admin/settings/site' },
     { path: '/admin/settings/audit', name: '变更审计', component: () => import('@/pages/admin/SiteSettingsAuditPage.vue'), meta: { ...publicMeta, room: 'settings' } },
     { path: '/admin/settings/health', name: '依赖健康', component: () => import('@/pages/admin/SiteSettingsHealthPage.vue'), meta: { ...publicMeta, room: 'settings' } },

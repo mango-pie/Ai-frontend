@@ -150,11 +150,6 @@
   --room-accent-soft: rgba(124, 156, 224, 0.16);
 }
 
-[data-room='chat'] {
-  --room-accent: #e879a9;
-  --room-accent-soft: rgba(232, 121, 169, 0.16);
-}
-
 [data-room='diary'] {
   --room-accent: #c9a0dc;
   --room-accent-soft: rgba(201, 160, 220, 0.14);
@@ -165,11 +160,6 @@
   --room-accent: #7fd8c8;
   --room-accent-soft: rgba(127, 216, 200, 0.14);
   --room-radius: 10px;
-}
-
-[data-room='lab'] {
-  --room-accent: #a78bfa;
-  --room-accent-soft: rgba(167, 139, 250, 0.16);
 }
 
 [data-room='study'] {

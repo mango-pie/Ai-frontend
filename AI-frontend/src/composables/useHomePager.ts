@@ -5,7 +5,7 @@
 import { computed, onMounted, onUnmounted, ref, type Ref } from 'vue'
 
 /** 默认页数（可按模块开关传响应式数量动态增减） */
-export const HOME_PAGE_COUNT = 4
+export const HOME_PAGE_COUNT = 3
 /** 单页高度（px），即轨道每次 translateY 的距离 */
 export const HOME_PAGE_H = 1080
 
