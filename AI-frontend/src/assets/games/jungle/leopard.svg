@@ -1,0 +1,32 @@
+<!-- 自绘豹头（本仓库原创） -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- 自绘豹头：圆脸 + 圆耳 + 斑点/眼鼻镂空，风格衔接 game-icons 白色剪影徽章用法 -->
+  <defs>
+    <mask id="holes">
+      <rect width="512" height="512" fill="#fff"/>
+      <g fill="#000">
+        <ellipse cx="182" cy="252" rx="24" ry="28"/>
+        <ellipse cx="330" cy="252" rx="24" ry="28"/>
+        <path d="M256 322l-30 26c0 18 13 30 30 30s30-12 30-30z"/>
+        <rect x="247" y="366" width="18" height="40" rx="9"/>
+        <circle cx="132" cy="186" r="16"/>
+        <circle cx="96" cy="272" r="13"/>
+        <circle cx="118" cy="358" r="14"/>
+        <circle cx="172" cy="136" r="11"/>
+        <circle cx="380" cy="186" r="16"/>
+        <circle cx="416" cy="272" r="13"/>
+        <circle cx="394" cy="358" r="14"/>
+        <circle cx="340" cy="136" r="11"/>
+        <circle cx="256" cy="102" r="12"/>
+        <circle cx="196" cy="438" r="10"/>
+        <circle cx="316" cy="438" r="10"/>
+      </g>
+    </mask>
+  </defs>
+  <g fill="#fff" mask="url(#holes)">
+    <circle cx="118" cy="140" r="74"/>
+    <circle cx="394" cy="140" r="74"/>
+    <path d="M256 62c118 0 208 86 208 202 0 118-92 186-208 186S48 382 48 264C48 148 138 62 256 62z"/>
+    <ellipse cx="256" cy="392" rx="104" ry="78"/>
+  </g>
+</svg>

@@ -1,0 +1,2426 @@
+/**
+ * 游戏舱（/games）房间样式 —— 全部 .arc- 前缀独占，避免与 knowledge-v17.css /
+ * home-v3.css 等全局样式撞车（.panel/.row/.meta/.lib- 等通用词一律不用）
+ * 页面运行在 1920×1080 固定舞台（fill=frame），尺寸按舞台逻辑像素调校，
+ * 棋盘自适应由各组件的 ResizeObserver 写 CSS 变量完成，因此不写媒体查询
+ */
+
+.arc-root {
+  --arc-side-w: 264px;
+  --arc-r-xl: 24px;
+  --arc-r-lg: 20px;
+  --arc-r-md: 14px;
+  --arc-ease-spring: cubic-bezier(0.34, 1.56, 0.5, 1);
+  --arc-ease-out: cubic-bezier(0.22, 0.8, 0.32, 1);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  color: var(--ink);
+  font-size: 14.5px;
+  line-height: 1.5;
+  /* 让出左侧悬浮 WorkspaceRail 的宽度（rail 右缘约 64px，station-page 左内边距 40px） */
+  padding-left: 28px;
+}
+.arc-root[data-density='compact'] {
+  font-size: 13.5px;
+}
+
+/* ============ 标题带 ============ */
+.arc-hero {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin: 2px 0 14px;
+}
+.arc-heroleft {
+  position: relative;
+  flex: 1;
+  min-width: 320px;
+  padding: 12px 0 2px;
+}
+.arc-kana {
+  position: absolute;
+  top: -8px;
+  left: 2px;
+  font-size: 22px;
+  letter-spacing: 7px;
+  font-family: 'ZCOOL KuaiLe', sans-serif;
+  color: transparent;
+  -webkit-text-stroke: 1.2px color-mix(in srgb, var(--room) 46%, transparent);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.arc-herorow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.arc-herotitle {
+  font-family: 'ZCOOL KuaiLe', 'PingFang SC', sans-serif;
+  font-size: 40px;
+  line-height: 1.15;
+  letter-spacing: 3px;
+  background: linear-gradient(120deg, var(--c-sakura) 10%, var(--c-orange, #ffb28c) 55%, var(--c-violet) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 3px 8px rgba(200, 120, 170, 0.18));
+}
+.arc-tape {
+  display: inline-block;
+  transform: rotate(-3deg);
+  background: color-mix(in srgb, var(--room) 82%, white);
+  color: #fff;
+  font-size: 13px;
+  letter-spacing: 1.5px;
+  padding: 4px 14px;
+  border-radius: 3px;
+  box-shadow: 0 2px 6px rgba(70, 55, 90, 0.22);
+  font-family: 'ZCOOL KuaiLe', sans-serif;
+  white-space: nowrap;
+}
+.arc-herosub {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+.arc-herosub .stat b {
+  color: var(--room);
+  font-family: 'Chakra Petch', 'DIN Alternate', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+}
+.arc-herosub .stat {
+  color: var(--ink-faint);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.arc-lastchip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 340px;
+  background: var(--glass-chip);
+  backdrop-filter: blur(10px);
+  border: 1.5px solid var(--glass-border);
+  border-radius: 999px;
+  box-shadow: var(--shadow-1);
+  padding: 6px 8px 6px 9px;
+  flex-shrink: 0;
+  transition: box-shadow 0.2s var(--arc-ease-out), transform 0.2s var(--arc-ease-spring);
+}
+.arc-lastchip:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-2);
+}
+.arc-lastchip .dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  background: linear-gradient(140deg, var(--c-sun), var(--c-sakura));
+}
+.arc-lastchip .main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  text-align: left;
+  line-height: 1.3;
+}
+.arc-lastchip .t {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.arc-lastchip .s {
+  font-size: 10.5px;
+  color: var(--ink-faint);
+}
+.arc-lastchip .ico {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--glass);
+  box-shadow: var(--shadow-1);
+  display: grid;
+  place-items: center;
+  color: var(--room);
+}
+
+/* ============ 布局 ============ */
+.arc-layout {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 16px;
+}
+.arc-root[data-density='compact'] .arc-layout {
+  gap: 12px;
+}
+
+/* ---- 左侧机台列 ---- */
+.arc-sidepanel {
+  width: var(--arc-side-w);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+.arc-sectitle {
+  font-size: 11.5px;
+  letter-spacing: 2.5px;
+  color: var(--ink-faint);
+  font-family: 'ZCOOL KuaiLe', sans-serif;
+  padding: 2px 4px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.arc-sectitle .en {
+  letter-spacing: 1.5px;
+  font-size: 9px;
+  opacity: 0.7;
+  margin-left: 2px;
+  font-family: 'Chakra Petch', 'DIN Alternate', sans-serif;
+}
+.arc-cabinet {
+  position: relative;
+  width: 100%;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--glass-soft);
+  border: 1.5px solid transparent;
+  border-radius: var(--arc-r-lg);
+  padding: 12px 14px;
+  transition: all 0.25s var(--arc-ease-spring);
+}
+.arc-cabinet:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-1);
+}
+.arc-cabinet.is-active {
+  background: var(--glass);
+  border-color: color-mix(in srgb, var(--room) 55%, transparent);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--room) 22%, transparent);
+}
+.arc-cabinet.is-active::before {
+  content: '';
+  position: absolute;
+  left: -3px;
+  top: 22%;
+  bottom: 22%;
+  width: 4px;
+  border-radius: 4px;
+  background: var(--room);
+}
+.arc-cabinet .plays {
+  position: absolute;
+  right: 13px;
+  top: 7px;
+  font-size: 9.5px;
+  color: var(--ink-faint);
+  letter-spacing: 0.5px;
+}
+.arc-cabinet .ico {
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.4), 0 3px 8px rgba(96, 116, 168, 0.18);
+}
+.arc-cabinet .main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+.arc-cabinet .name {
+  font-size: 15.5px;
+  font-family: 'ZCOOL KuaiLe', sans-serif;
+  letter-spacing: 1px;
+  color: var(--ink);
+}
+.arc-cabinet .sub {
+  font-size: 9.5px;
+  color: var(--ink-faint);
+  letter-spacing: 1.5px;
+  font-family: 'Chakra Petch', 'DIN Alternate', sans-serif;
+}
+.arc-cabinet .best {
+  text-align: right;
+  flex-shrink: 0;
+  line-height: 1.25;
+  margin-top: 10px;
+}
+.arc-cabinet .best b {
+  display: block;
+  font-size: 15px;
+  color: var(--room);
+  font-family: 'Chakra Petch', 'DIN Alternate', sans-serif;
+  font-weight: 600;
+}
+.arc-cabinet .best span {
+  font-size: 10px;
+  color: var(--ink-faint);
+}
+.arc-mini {
+  background: var(--glass-soft);
+  border-radius: var(--arc-r-lg);
+  padding: 12px 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.arc-mini .row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+.arc-mini .row b {
+  font-size: 15px;
+  color: var(--ink);
+  font-family: 'Chakra Petch', 'DIN Alternate', sans-serif;
+  font-weight: 600;
+}
+.arc-mini .row b em {
+  font-style: normal;
+  font-size: 10px;
+  color: var(--ink-faint);
+  margin-left: 2px;
+}
+.arc-cta {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border-radius: var(--arc-r-lg);
+  padding: 12px;
+  background: linear-gradient(140deg, var(--room), var(--c-sakura));
+  color: #fff;
+  font-size: 14px;
+  letter-spacing: 1px;
+  font-family: 'ZCOOL KuaiLe', sans-serif;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--room) 38%, transparent);
+  transition: transform 0.25s var(--arc-ease-spring), box-shadow 0.25s var(--arc-ease-out);
+}
+.arc-cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--room) 45%, transparent);
+}
+
+/* ---- 右侧主面板 ---- */
+.arc-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--glass);
+  backdrop-filter: blur(12px);
+  border: 1.5px solid var(--glass-border);
+  border-radius: var(--arc-r-xl);
+  box-shadow: var(--shadow-1);
+  overflow: hidden;
+}
+.arc-crumbbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px 10px;
+}
+.arc-root[data-density='compact'] .arc-crumbbar {
+  padding: 10px 16px 8px;
+}
+.arc-crumb {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+.arc-crumb .t {
+  font-family: 'ZCOOL KuaiLe', sans-serif;
+  font-size: 17px;
+  color: var(--ink);
+  letter-spacing: 1px;
+}
+.arc-crumb .d {
+  font-size: 12px;
+  color: var(--ink-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.arc-crumbbar .right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.arc-stage {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+/* ============ 通用控件 ============ */
+.arc-pane {
+  position: absolute;
+  inset: 0;
+}
+.arc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--glass-chip);
+  border: 1.5px solid var(--glass-border);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  box-shadow: var(--shadow-1);
+  transition: all 0.25s var(--arc-ease-spring);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.arc-btn:hover {
+  color: var(--ink);
+  transform: translateY(-1.5px);
+  box-shadow: var(--shadow-2);
+}
+.arc-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+.arc-btn.is-primary {
+  background: linear-gradient(140deg, var(--room), var(--c-sakura));
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--room) 40%, transparent);
+}
+.arc-btn.is-danger {
+  color: var(--c-danger, #e0567a);
+}
+.arc-btn.is-danger:hover {
+  border-color: color-mix(in srgb, var(--c-danger, #e0567a) 40%, transparent);
+}
+.arc-btn.is-block {
+  width: 100%;
+  justify-content: center;
+}
+.arc-btn.is-toggled {
+  background: color-mix(in srgb, var(--room) 16%, var(--glass));
+  color: var(--room);
+  border-color: color-mix(in srgb, var(--room) 40%, transparent);
+}
+.arc-seg {
+  display: flex;
+  gap: 2px;
+  background: var(--glass-chip);
+  border: 1.5px solid var(--glass-border);
+  border-radius: 999px;
+  padding: 3px;
+  box-shadow: var(--shadow-1);
+  flex-shrink: 0;
+}
+.arc-seg span {
+  padding: 5px 13px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--ink-soft);
+  transition: all 0.25s var(--arc-ease-spring);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.arc-seg span.is-active {
+  background: var(--room);
+  color: #fff;
+  box-shadow: 0 3px 8px color-mix(in srgb, var(--room) 40%, transparent);
+}
+.arc-seg.is-kids span.is-active {
+  background: color-mix(in srgb, var(--room) 16%, var(--glass));
+  color: var(--room);
+  box-shadow: none;
+}
+.arc-hint {
+  font-size: 11.5px;
+  color: var(--ink-faint);
+  text-align: center;
+  line-height: 1.7;
+}
+.arc-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: stretch;
+}
+.arc-toolbar .arc-btn {
+  justify-content: center;
+}
+.arc-side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 176px;
+  flex-shrink: 0;
+}
+.arc-scorecard {
+  background: var(--glass-soft);
+  border-radius: var(--arc-r-lg);
+  padding: 10px 16px 12px;
+  text-align: center;
+}
+.arc-scorecard .arc-scorelab {
+  font-size: 10.5px;
+  letter-spacing: 2px;
+  color: var(--ink-faint);
+  font-family: 'ZCOOL KuaiLe', sans-serif;
+}
+.arc-scorecard .arc-scoreval {
+  font-size: 26px;
+  font-family: 'Chakra Petch', 'DIN Alternate', sans-serif;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.2;
+}
+.arc-scorecard.is-room .arc-scoreval {
+  color: var(--room);
+}
+
+/* ============ 2048 ============ */
+.arc-p2048 {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  padding: 8px 24px 18px;
+  overflow: auto;
+}
+.arc-gamecol {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+  min-width: 0;
+}
+.arc-board2048 {
+  --cell: 128px;
+  --gap: 12px;
+  position: relative;
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  border-radius: var(--arc-r-lg);
+  padding: var(--gap);
+  width: calc(var(--cell) * 4 + var(--gap) * 5);
+  height: calc(var(--cell) * 4 + var(--gap) * 5);
+  touch-action: none;
+  box-shadow: inset 0 2px 8px rgba(96, 116, 168, 0.1);
+}
+.arc-cellbg {
+  position: absolute;
+  width: var(--cell);
+  height: var(--cell);
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  transform: translate(
+    calc(var(--c) * (var(--cell) + var(--gap))),
+    calc(var(--r) * (var(--cell) + var(--gap)))
+  );
+}
+.arc-tile {
+  position: absolute;
+  width: var(--cell);
+  height: var(--cell);
+  transition: transform 0.13s var(--arc-ease-out);
+  z-index: 1;
+}
+.arc-tile.is-eat {
+  z-index: 2;
+}
+.arc-tin {
+  width: 100%;
+  height: 100%;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  font-family: 'Chakra Petch', 'DIN Alternate', sans-serif;
+  font-weight: 700;
+}
+.arc-tile.is-new .arc-tin {
+  animation: arcTileIn 0.22s var(--arc-ease-spring);
+}
+.arc-tile.is-pop .arc-tin {
+  animation: arcTilePop 0.2s var(--arc-ease-spring);
+}
+@keyframes arcTileIn {
+  from {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@keyframes arcTilePop {
+  0% {
+    transform: scale(1);
+  }
+  55% {
+    transform: scale(1.16);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.arc-tin.v2 {
+  background: #ffeed0;
+  color: #8a6a3f;
+}
+.arc-tin.v4 {
+  background: #ffd9e4;
+  color: #a05477;
+}
+.arc-tin.v8 {
+  background: #f490ad;
+  color: #fff;
+}
+.arc-tin.v16 {
+  background: #c79ae0;
+  color: #fff;
+}
+.arc-tin.v32 {
+  background: #9b8ce8;
+  color: #fff;
+}
+.arc-tin.v64 {
+  background: #6aaee8;
+  color: #fff;
+}
+.arc-tin.v128 {
+  background: #5fc4a5;
+  color: #fff;
+}
+.arc-tin.v256 {
+  background: #ffa45c;
+  color: #fff;
+}
+.arc-tin.v512 {
+  background: #e0699b;
+  color: #fff;
+}
+.arc-tin.v1024 {
+  background: linear-gradient(140deg, #9b8ce8, #c79ae0);
+  color: #fff;
+  box-shadow: 0 0 14px rgba(155, 140, 232, 0.5);
+}
+.arc-tin.v2048 {
+  background: linear-gradient(140deg, #f490ad, #ffcf6e);
+  color: #fff;
+  box-shadow: 0 0 18px rgba(244, 144, 173, 0.65);
+  animation: arcGlow 1.6s ease-in-out infinite;
+}
+.arc-tin.vbig {
+  background: linear-gradient(140deg, #6b5bd6, #4c5570);
+  color: #fff;
+  box-shadow: 0 0 18px rgba(107, 91, 214, 0.6);
+}
+@keyframes arcGlow {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.12);
+  }
+}
+.arc-dpad {
+  display: grid;
+  grid-template-columns: repeat(3, 42px);
+  grid-template-rows: repeat(2, 36px);
+  gap: 5px;
+  justify-content: center;
+  margin-top: 2px;
+}
+.arc-dpad button {
+  background: var(--glass-chip);
+  border: 1.5px solid var(--glass-border);
+  border-radius: 10px;
+  color: var(--ink-soft);
+  display: grid;
+  place-items: center;
+  box-shadow: var(--shadow-1);
+  transition: all 0.2s var(--arc-ease-spring);
+  cursor: pointer;
+}
+.arc-dpad button:hover {
+  color: var(--room);
+  transform: translateY(-1px);
+}
+.arc-dpad button:active {
+  transform: scale(0.92);
+}
+
+/* ============ 扫雷 ============ */
+.arc-pmine {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 8px 24px 18px;
+  overflow: auto;
+}
+.arc-mboard {
+  display: grid;
+  gap: 4px;
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  padding: 8px;
+  border-radius: var(--arc-r-lg);
+  box-shadow: inset 0 2px 8px rgba(96, 116, 168, 0.1);
+}
+/* 未翻开 = 凸起按钮；已翻开 = 凹陷平底；插旗 = 房间色 */
+.arc-mcell {
+  width: var(--mc);
+  height: var(--mc);
+  border-radius: 9px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--ink) 6%, var(--glass)),
+    color-mix(in srgb, var(--ink) 17%, var(--glass))
+  );
+  box-shadow:
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.55),
+    0 2px 0 color-mix(in srgb, var(--ink) 16%, transparent),
+    0 5px 9px rgba(96, 116, 168, 0.16);
+  display: grid;
+  place-items: center;
+  font-family: 'Chakra Petch', 'DIN Alternate', sans-serif;
+  font-weight: 700;
+  font-size: calc(var(--mc) * 0.44);
+  transition: background 0.15s var(--arc-ease-out), transform 0.15s var(--arc-ease-spring), box-shadow 0.15s var(--arc-ease-out);
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: pointer;
+}
+:root[data-ink='night'] .arc-mcell {
+  box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, 0.12), 0 2px 0 rgba(0, 0, 0, 0.3), 0 5px 9px rgba(0, 0, 0, 0.28);
+}
+.arc-mcell:not(.is-open):hover {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--room) 30%, var(--glass)),
+    color-mix(in srgb, var(--room) 18%, var(--glass))
+  );
+  transform: translateY(-1px);
+}
+.arc-mcell:not(.is-open):active {
+  transform: translateY(1px) scale(0.97);
+  box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, 0.4), 0 1px 0 color-mix(in srgb, var(--ink) 16%, transparent);
+}
+.arc-mcell.is-flag {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--room) 30%, var(--glass)),
+    color-mix(in srgb, var(--room) 16%, var(--glass))
+  );
+}
+.arc-mcell.is-open {
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+  box-shadow: inset 0 2px 6px rgba(96, 116, 168, 0.14);
+  transform: none;
+  cursor: default;
+}
+:root[data-ink='night'] .arc-mcell.is-open {
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+.arc-mcell.is-mine {
+  background: #f8dbe6;
+  box-shadow: inset 0 2px 6px rgba(224, 86, 122, 0.18);
+  color: #e0567a;
+}
+.arc-flagico {
+  color: var(--room);
+  display: grid;
+  place-items: center;
+}
+.n1 {
+  color: #6aaee8;
+}
+.n2 {
+  color: #5fc4a5;
+}
+.n3 {
+  color: #f490ad;
+}
+.n4 {
+  color: #9b8ce8;
+}
+.n5 {
+  color: #c79ae0;
+}
+.n6 {
+  color: #ffa45c;
+}
+.n7 {
+  color: #7a83a0;
+}
+.n8 {
+  color: #e0567a;
+}
+.arc-counter {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--glass-soft);
+  border-radius: var(--arc-r-md);
+  padding: 7px 14px;
+  font-size: 17px;
+  font-family: 'Chakra Petch', 'DIN Alternate', sans-serif;
+  font-weight: 700;
+  color: var(--ink);
+}
+.arc-counter svg {
+  color: var(--c-violet);
+}
+.arc-counter.is-dead {
+  color: var(--c-danger, #e0567a);
+}
+.arc-counter.is-win {
+  color: var(--c-mint);
+}
+.arc-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--glass-soft);
+  border-radius: var(--arc-r-lg);
+  padding: 11px 15px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.arc-status .dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--c-sun);
+  animation: arcBlink 1.4s ease-in-out infinite;
+  flex-shrink: 0;
+}
+.arc-status.is-win .dot {
+  background: var(--c-mint);
+  animation: none;
+}
+.arc-status.is-dead .dot {
+  background: var(--c-danger, #e0567a);
+  animation: none;
+}
+@keyframes arcBlink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+/* ============ 记忆翻牌 ============ */
+.arc-pmem {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  padding: 8px 24px 18px;
+  overflow: auto;
+}
+.arc-mgrid {
+  display: grid;
+  gap: 11px;
+}
+.arc-root[data-density='compact'] .arc-mgrid {
+  gap: 8px;
+}
+.arc-mcard {
+  width: var(--mcard);
+  height: var(--mcard);
+  perspective: 600px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+}
+.arc-mcard .arc-minner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.38s var(--arc-ease-spring);
+  display: block;
+}
+.arc-mcard.is-flipped .arc-minner,
+.arc-mcard.is-matched .arc-minner {
+  transform: rotateY(180deg);
+}
+.arc-mface {
+  position: absolute;
+  inset: 0;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.arc-mface.is-back {
+  background: linear-gradient(140deg, var(--c-violet), var(--c-sakura));
+  color: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 4px 10px rgba(155, 140, 232, 0.35), inset 0 2px 4px rgba(255, 255, 255, 0.4);
+}
+.arc-mcard:not(.is-flipped):not(.is-matched):hover .is-back {
+  filter: brightness(1.07);
+}
+.arc-mcard:not(.is-flipped):not(.is-matched):active .arc-minner {
+  transform: scale(0.94);
+}
+.arc-mface.is-front {
+  background: var(--glass);
+  border: 1.5px solid var(--glass-border);
+  transform: rotateY(180deg);
+  box-shadow: var(--shadow-1);
+}
+.arc-mcard.is-matched .is-front {
+  border-color: color-mix(in srgb, var(--c-mint) 55%, transparent);
+  background: color-mix(in srgb, var(--c-mint) 10%, var(--glass));
+  animation: arcTilePop 0.3s var(--arc-ease-spring);
+}
+.arc-mfaceimg {
+  width: 74%;
+  height: 74%;
+  pointer-events: none;
+}
+
+/* ============ 贪吃蛇 ============ */
+.arc-psnake {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  padding: 8px 24px 18px;
+  overflow: auto;
+}
+.arc-snakeboard {
+  position: relative;
+  border-radius: var(--arc-r-lg);
+  touch-action: none;
+  overflow: hidden;
+  box-shadow: inset 0 2px 8px rgba(96, 116, 168, 0.1);
+  background-color: color-mix(in srgb, var(--ink) 5%, transparent);
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--ink) 4%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--ink) 4%, transparent) 1px, transparent 1px);
+  background-size: var(--scell) var(--scell);
+}
+.arc-snakeseg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: calc(var(--scell) - 4px);
+  height: calc(var(--scell) - 4px);
+  margin: 2px;
+  border-radius: 7px;
+  background: linear-gradient(140deg, #7ec8b0, #5fc4a5);
+}
+.arc-snakeseg.is-head {
+  background: none;
+  overflow: visible;
+  z-index: 3;
+}
+.arc-snakehead {
+  position: absolute;
+  width: 150%;
+  height: 150%;
+  left: -25%;
+  top: -25%;
+  filter: drop-shadow(0 2px 4px rgba(96, 116, 168, 0.35));
+}
+.arc-snakefood {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--scell);
+  height: var(--scell);
+  display: grid;
+  place-items: center;
+  z-index: 2;
+}
+.arc-snakefood img {
+  width: 86%;
+  height: 86%;
+  filter: drop-shadow(0 0 8px rgba(244, 144, 173, 0.65));
+  animation: arcFoodPulse 0.9s ease-in-out infinite;
+}
+@keyframes arcFoodPulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.18);
+  }
+}
+
+/* ============ 数字华容道 ============ */
+.arc-ppuzzle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  padding: 8px 24px 18px;
+  overflow: auto;
+}
+.arc-puzzleboard {
+  position: relative;
+  width: calc(var(--pcell) * 4 + 27px + 16px);
+  height: calc(var(--pcell) * 4 + 27px + 16px);
+  padding: 8px;
+  border-radius: var(--arc-r-lg);
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  box-shadow: inset 0 2px 8px rgba(96, 116, 168, 0.1);
+}
+.arc-ptile {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: var(--pcell);
+  height: var(--pcell);
+  border: none;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  font-family: 'Chakra Petch', 'DIN Alternate', sans-serif;
+  font-weight: 700;
+  font-size: calc(var(--pcell) * 0.34);
+  box-shadow: 0 3px 8px rgba(96, 116, 168, 0.22), inset 0 2px 3px rgba(255, 255, 255, 0.4);
+  transition: transform 0.18s var(--arc-ease-spring), filter 0.15s var(--arc-ease-out);
+  cursor: pointer;
+}
+.arc-ptile:hover {
+  filter: brightness(1.07);
+}
+.arc-ptile:active {
+  transform: scale(0.95) !important;
+}
+
+/* ============ 打砖块 ============ */
+.arc-pbreak {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  padding: 8px 24px 18px;
+  overflow: auto;
+}
+.arc-breakcanvas {
+  border-radius: var(--arc-r-lg);
+  border: 1.5px solid var(--glass-border);
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
+  box-shadow: inset 0 2px 8px rgba(96, 116, 168, 0.1);
+  touch-action: none;
+  cursor: crosshair;
+}
+.arc-scorehearts {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  padding: 3px 0;
+}
+.arc-scorehearts .is-on {
+  color: #e0567a;
+}
+.arc-scorehearts .is-off {
+  color: color-mix(in srgb, var(--ink) 18%, transparent);
+}
+
+/* ============ 俄罗斯方块 ============ */
+.arc-ptetris {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  padding: 8px 24px 18px;
+  overflow: auto;
+}
+.arc-tetrisboard {
+  position: relative;
+  border-radius: var(--arc-r-lg);
+  overflow: hidden;
+  box-shadow: inset 0 2px 8px rgba(96, 116, 168, 0.1);
+  background-color: color-mix(in srgb, var(--ink) 5%, transparent);
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--ink) 4%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--ink) 4%, transparent) 1px, transparent 1px);
+  background-size: var(--tcell) var(--tcell);
+}
+.arc-tcell {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: calc(var(--tcell) - 3px);
+  height: calc(var(--tcell) - 3px);
+  margin: 1.5px;
+  border-radius: 6px;
+  box-shadow: inset 0 1.5px 2px rgba(255, 255, 255, 0.4);
+}
+.arc-tcell.is-clearing {
+  animation: arcClearBlink 0.24s ease-in-out infinite;
+}
+@keyframes arcClearBlink {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(2.2);
+  }
+}
+/* 方块配色（索引对应 PIECE_COLORS） */
+.pc1 {
+  background: #6aaee8;
+}
+.pc2 {
+  background: #ffcf6e;
+}
+.pc3 {
+  background: #c79ae0;
+}
+.pc4 {
+  background: #5fc4a5;
+}
+.pc5 {
+  background: #f490ad;
+}
+.pc6 {
+  background: #9b8ce8;
+}
+.pc7 {
+  background: #ffa45c;
+}
+.arc-nextpreview {
+  position: relative;
+  width: 58px;
+  height: 40px;
+  margin: 4px auto 0;
+}
+.arc-minicell {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--mini);
+  height: var(--mini);
+  border-radius: 3px;
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.4);
+}
+.arc-subval {
+  font-size: 11px;
+  color: var(--ink-faint);
+  font-family: 'Chakra Petch', 'DIN Alternate', sans-serif;
+  font-weight: 600;
+}
+
+/* ============ 打地鼠 ============ */
+.arc-pmole {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  padding: 8px 24px 18px;
+  overflow: auto;
+}
+.arc-molegrid {
+  display: grid;
+  grid-template-columns: repeat(3, var(--mhole));
+  gap: 14px;
+}
+.arc-molehole {
+  position: relative;
+  width: var(--mhole);
+  height: var(--mhole);
+  border: none;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--ink) 10%, transparent);
+  box-shadow: inset 0 5px 10px rgba(96, 116, 168, 0.22);
+  cursor: pointer;
+  overflow: hidden;
+  padding: 0;
+}
+.arc-molehole .pit {
+  position: absolute;
+  bottom: 8%;
+  left: 12%;
+  right: 12%;
+  height: 18%;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--ink) 14%, transparent);
+}
+.arc-molepop {
+  position: absolute;
+  left: 14%;
+  right: 14%;
+  bottom: 10%;
+  height: 80%;
+  transform: translateY(105%);
+  transition: transform 0.16s var(--arc-ease-spring);
+  display: grid;
+  place-items: end center;
+}
+.arc-molepop.is-up {
+  transform: translateY(4%);
+}
+.arc-molepop.is-hit {
+  transform: translateY(60%) scale(0.94);
+  filter: brightness(1.15);
+}
+.arc-molepop.is-golden {
+  filter: drop-shadow(0 0 8px rgba(255, 207, 110, 0.8));
+}
+.arc-moleimg {
+  width: 88%;
+  filter: drop-shadow(0 3px 6px rgba(96, 116, 168, 0.3));
+}
+.arc-molehole:active .arc-molepop {
+  transform: translateY(70%) scale(0.92);
+}
+
+/* ============ 记忆节拍 ============ */
+.arc-psimon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  padding: 8px 24px 18px;
+  overflow: auto;
+}
+.arc-simongrid {
+  display: grid;
+  grid-template-columns: repeat(2, var(--spad));
+  gap: 14px;
+}
+.arc-simonpad {
+  width: var(--spad);
+  height: var(--spad);
+  border: none;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--padcolor) 42%, var(--glass));
+  box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.35), 0 4px 10px rgba(96, 116, 168, 0.15);
+  transition: all 0.15s var(--arc-ease-spring);
+  cursor: pointer;
+  position: relative;
+}
+.arc-simonpad:hover {
+  filter: brightness(1.06);
+}
+.arc-simonpad.is-active {
+  background: var(--padcolor);
+  transform: scale(1.06);
+  box-shadow: 0 0 22px color-mix(in srgb, var(--padcolor) 70%, transparent);
+}
+.arc-simonpad.is-idle {
+  opacity: 0.65;
+}
+.arc-simonpad .keyhint {
+  position: absolute;
+  right: 10px;
+  bottom: 8px;
+  font-family: 'Chakra Petch', 'DIN Alternate', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* ============ 像素飞行 / 接水果（共用画布外观） ============ */
+.arc-pflappy,
+.arc-pcatch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  padding: 8px 24px 18px;
+  overflow: auto;
+}
+.arc-flycanvas {
+  border-radius: var(--arc-r-lg);
+  border: 1.5px solid var(--glass-border);
+  background: color-mix(in srgb, var(--c-blue-soft) 34%, var(--glass));
+  box-shadow: inset 0 2px 8px rgba(96, 116, 168, 0.1);
+  touch-action: none;
+  cursor: pointer;
+}
+
+/* ============ 井字棋 ============ */
+.arc-ptictac {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  padding: 8px 24px 18px;
+  overflow: auto;
+}
+.arc-tictacboard {
+  display: grid;
+  grid-template-columns: repeat(3, var(--xcell));
+  gap: 10px;
+}
+.arc-tttcell {
+  width: var(--xcell);
+  height: var(--xcell);
+  border: none;
+  border-radius: 16px;
+  background: var(--glass-soft);
+  box-shadow: inset 0 2px 6px rgba(96, 116, 168, 0.1);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background 0.15s var(--arc-ease-out), transform 0.15s var(--arc-ease-spring);
+}
+.arc-tttcell:hover:empty {
+  background: color-mix(in srgb, var(--room) 14%, var(--glass));
+  transform: translateY(-2px);
+}
+.arc-tttcell.is-win {
+  background: color-mix(in srgb, var(--c-mint) 22%, var(--glass));
+  box-shadow: 0 0 14px color-mix(in srgb, var(--c-mint) 40%, transparent);
+}
+.arc-tttcell .mark-x {
+  color: var(--c-sakura);
+}
+.arc-tttcell .mark-o {
+  color: var(--c-blue);
+}
+.arc-tally {
+  font-size: 20px;
+  letter-spacing: 2px;
+}
+.arc-tally em {
+  font-style: normal;
+  color: var(--ink-faint);
+  font-size: 13px;
+  margin: 0 2px;
+}
+
+/* ============ 机台列紧凑模式（机台较多时） ============ */
+.arc-sidepanel.is-many {
+  --arc-side-w: 240px;
+}
+.arc-sidepanel.is-many .arc-cabinet {
+  padding: 8px 11px;
+  gap: 9px;
+}
+.arc-sidepanel.is-many .arc-cabinet .ico {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+}
+.arc-sidepanel.is-many .arc-cabinet .name {
+  font-size: 13.5px;
+}
+.arc-sidepanel.is-many .arc-cabinet .sub {
+  display: none;
+}
+.arc-sidepanel.is-many .arc-cabinet .best b {
+  font-size: 12.5px;
+}
+.arc-sidepanel.is-many .arc-cabinet .best {
+  margin-top: 4px;
+}
+
+/* ============ 叠塔方块 ============ */
+.arc-pstack {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  padding: 8px 24px 18px;
+  overflow: auto;
+}
+
+/* ============ 五子棋 ============ */
+.arc-pgomoku {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  padding: 8px 24px 18px;
+  overflow: auto;
+}
+.arc-gomokuboard {
+  display: grid;
+  grid-template-columns: repeat(11, var(--gcell));
+  border-radius: var(--arc-r-lg);
+  padding: 6px;
+  box-shadow: inset 0 2px 8px rgba(96, 116, 168, 0.1);
+  background-color: color-mix(in srgb, var(--ink) 5%, transparent);
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--ink) 7%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--ink) 7%, transparent) 1px, transparent 1px);
+  background-size: var(--gcell) var(--gcell);
+  background-position: calc(var(--gcell) / 2) calc(var(--gcell) / 2);
+}
+.arc-gcell {
+  width: var(--gcell);
+  height: var(--gcell);
+  border: none;
+  background: none;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+}
+.arc-gcell:hover {
+  background: color-mix(in srgb, var(--room) 14%, transparent);
+  border-radius: 6px;
+}
+.arc-stone {
+  width: 72%;
+  height: 72%;
+  border-radius: 50%;
+  box-shadow: 0 2px 5px rgba(96, 116, 168, 0.35), inset 0 1.5px 3px rgba(255, 255, 255, 0.45);
+}
+.arc-stone.is-me {
+  background: radial-gradient(circle at 32% 30%, #ffd9e4, #f490ad 62%, #d96a8f);
+}
+.arc-stone.is-ai {
+  background: radial-gradient(circle at 32% 30%, #d8ebfb, #6aaee8 62%, #4a86c4);
+}
+.arc-gcell.is-last .arc-stone {
+  outline: 2px solid var(--room);
+  outline-offset: 1px;
+}
+.arc-gcell.is-win .arc-stone {
+  box-shadow: 0 0 12px color-mix(in srgb, var(--c-mint) 60%, transparent);
+}
+
+/* ============ 连连看 ============ */
+.arc-plink {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  padding: 8px 24px 18px;
+  overflow: auto;
+}
+.arc-linkboard {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(10, var(--ltile));
+  gap: 6px;
+  padding: 10px;
+  width: fit-content;
+  margin: 0 auto;
+  border-radius: var(--arc-r-lg);
+  background: color-mix(in srgb, var(--ink) 6%, var(--glass));
+  box-shadow: inset 0 2px 8px rgba(96, 116, 168, 0.1);
+}
+.arc-linkcell {
+  width: var(--ltile);
+  height: var(--ltile);
+}
+.arc-linktile {
+  width: 100%;
+  height: 100%;
+  border: 1.5px solid var(--glass-border);
+  border-radius: 10px;
+  background: var(--glass);
+  color: var(--ink);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: all 0.15s var(--arc-ease-spring);
+  box-shadow: 0 2px 5px rgba(96, 116, 168, 0.12);
+}
+.arc-linktile:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--room) 45%, transparent);
+}
+.arc-linktile.is-selected {
+  background: color-mix(in srgb, var(--room) 18%, var(--glass));
+  border-color: var(--room);
+  transform: translateY(-2px) scale(1.04);
+}
+.arc-linkimg {
+  width: 62%;
+  height: 62%;
+  pointer-events: none;
+}
+.arc-linkpath {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* ============ 四子棋 ============ */
+.arc-pconnect {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  padding: 8px 24px 18px;
+  overflow: auto;
+}
+.arc-connectboard {
+  display: grid;
+  grid-template-columns: repeat(7, var(--ccell));
+  gap: 5px;
+  padding: 10px;
+  border-radius: var(--arc-r-lg);
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  box-shadow: inset 0 2px 8px rgba(96, 116, 168, 0.1);
+}
+.arc-ccell {
+  width: var(--ccell);
+  height: var(--ccell);
+  border: none;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--ink) 6%, var(--glass));
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s var(--arc-ease-out);
+}
+.arc-ccell.is-hover:not(.is-win) {
+  background: color-mix(in srgb, var(--room) 20%, var(--glass));
+}
+.arc-cdisc {
+  width: 82%;
+  height: 82%;
+  border-radius: 50%;
+  box-shadow: 0 2px 5px rgba(96, 116, 168, 0.3), inset 0 2px 3px rgba(255, 255, 255, 0.45);
+}
+.arc-cdisc.is-me {
+  background: radial-gradient(circle at 32% 30%, #ffd9e4, #f490ad 62%, #d96a8f);
+}
+.arc-cdisc.is-ai {
+  background: radial-gradient(circle at 32% 30%, #d8ebfb, #6aaee8 62%, #4a86c4);
+}
+.arc-ccell.is-win {
+  background: color-mix(in srgb, var(--c-mint) 24%, var(--glass));
+  box-shadow: 0 0 12px color-mix(in srgb, var(--c-mint) 45%, transparent);
+}
+.arc-chint {
+  width: 30%;
+  height: 30%;
+  border-radius: 50%;
+  border: 1.5px dashed color-mix(in srgb, var(--ink) 20%, transparent);
+}
+
+/* ============ 黑白棋 ============ */
+.arc-preversi {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  padding: 8px 24px 18px;
+  overflow: auto;
+}
+.arc-reversiboard {
+  display: grid;
+  grid-template-columns: repeat(8, var(--rcell));
+  gap: 4px;
+  padding: 8px;
+  border-radius: var(--arc-r-lg);
+  background: color-mix(in srgb, var(--c-mint) 16%, var(--glass));
+  box-shadow: inset 0 2px 8px rgba(96, 116, 168, 0.1);
+}
+.arc-rvccell {
+  width: var(--rcell);
+  height: var(--rcell);
+  border: none;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--c-mint) 10%, transparent);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s var(--arc-ease-out);
+}
+.arc-rvccell.is-playable {
+  cursor: pointer;
+}
+.arc-rvccell.is-playable:hover {
+  background: color-mix(in srgb, var(--room) 22%, transparent);
+}
+.arc-rvccell.is-last {
+  outline: 2px solid var(--room);
+  outline-offset: 1px;
+  border-radius: 8px;
+}
+.arc-rvdisc {
+  width: 82%;
+  height: 82%;
+  border-radius: 50%;
+  box-shadow: 0 2px 5px rgba(96, 116, 168, 0.3), inset 0 2px 3px rgba(255, 255, 255, 0.35);
+  transition: background 0.25s var(--arc-ease-out);
+}
+.arc-rvdisc.is-me {
+  background: radial-gradient(circle at 32% 30%, #ffd9e4, #f490ad 62%, #d96a8f);
+}
+.arc-rvdisc.is-ai {
+  background: radial-gradient(circle at 32% 30%, #d8ebfb, #6aaee8 62%, #4a86c4);
+}
+.arc-rvhint {
+  width: 26%;
+  height: 26%;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--room) 45%, transparent);
+  animation: arcBlink 1.4s ease-in-out infinite;
+}
+
+/* ============ 海战棋 ============ */
+.arc-pbattleship {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  padding: 8px 24px 18px;
+  overflow: auto;
+}
+.arc-bsboards {
+  display: flex;
+  gap: 22px;
+}
+.arc-bswrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.arc-bslabel {
+  font-size: 11.5px;
+  letter-spacing: 2px;
+  color: var(--ink-faint);
+  font-family: 'ZCOOL KuaiLe', sans-serif;
+  text-align: center;
+}
+.arc-bslabel .en {
+  font-size: 9px;
+  font-family: 'Chakra Petch', 'DIN Alternate', sans-serif;
+  opacity: 0.7;
+}
+.arc-bsboard {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(10, 32px);
+  gap: 2px;
+  padding: 8px;
+  border-radius: var(--arc-r-md);
+  background:
+    repeating-linear-gradient(180deg, color-mix(in srgb, var(--c-blue) 8%, transparent) 0 2px, transparent 2px 16px),
+    color-mix(in srgb, var(--c-blue) 14%, var(--glass));
+  box-shadow: inset 0 2px 8px rgba(96, 116, 168, 0.1);
+}
+.arc-bscell {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--c-blue) 12%, var(--glass));
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s var(--arc-ease-out), transform 0.15s var(--arc-ease-spring);
+}
+.arc-bsboard.is-enemy .arc-bscell:not(.is-miss):not(.is-hit):not(.is-sunk):hover {
+  background: color-mix(in srgb, var(--room) 26%, var(--glass));
+  transform: scale(1.08);
+}
+.arc-bsboard.is-mine .arc-bscell:not(.is-miss):not(.is-hit):not(.is-sunk):hover {
+  background: color-mix(in srgb, var(--room) 16%, var(--glass));
+}
+/* 命中 / 未中 / 击沉（水花与爆炸贴图由模板渲染） */
+.arc-bscell.is-miss {
+  background: color-mix(in srgb, var(--c-blue) 6%, var(--glass));
+  cursor: default;
+}
+.arc-bscell.is-hit {
+  background: linear-gradient(140deg, #f490ad, #e0567a);
+  box-shadow: 0 0 8px rgba(224, 86, 122, 0.45);
+  cursor: default;
+}
+.arc-bscell.is-sunk {
+  background: linear-gradient(140deg, #4c5570, #2f3752);
+  box-shadow: inset 0 0 0 2px rgba(224, 86, 122, 0.6);
+  cursor: default;
+}
+/* 舰船贴图（覆盖在占格上，格底仅保留水面色） */
+.arc-bsship {
+  position: absolute;
+  object-fit: contain;
+  z-index: 2;
+  filter: drop-shadow(0 3px 6px rgba(47, 55, 82, 0.4));
+}
+.arc-bsship.is-wreck {
+  filter: grayscale(0.55) brightness(0.72) drop-shadow(0 3px 6px rgba(47, 55, 82, 0.4));
+}
+.arc-bsboom {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  z-index: 4;
+  pointer-events: none;
+}
+.arc-bssplash {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  z-index: 3;
+  pointer-events: none;
+  opacity: 0.9;
+}
+/* 布阵预览 */
+.arc-bscell.is-place-ok {
+  background: color-mix(in srgb, var(--c-mint) 45%, var(--glass));
+}
+.arc-bscell.is-place-bad {
+  background: color-mix(in srgb, var(--c-danger, #e0567a) 30%, var(--glass));
+}
+.arc-bsfleet {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 2px;
+}
+.arc-bsfleet .row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.arc-bsfleet .nm {
+  font-family: 'ZCOOL KuaiLe', sans-serif;
+  letter-spacing: 1px;
+}
+.arc-bsfleet .st {
+  font-size: 10.5px;
+  color: var(--ink-faint);
+}
+
+/* ============ 结算浮层 ============ */
+.arc-over {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--paper, #fffdf8) 55%, transparent);
+  backdrop-filter: blur(4px);
+}
+.arc-overcard {
+  background: var(--glass);
+  border: 1.5px solid var(--glass-border);
+  border-radius: var(--arc-r-xl);
+  box-shadow: var(--shadow-pop);
+  padding: 28px 44px 26px;
+  text-align: center;
+  animation: arcCardIn 0.4s var(--arc-ease-spring);
+  max-width: 86%;
+}
+@keyframes arcCardIn {
+  from {
+    transform: translateY(18px) scale(0.92);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+.arc-overico {
+  width: 54px;
+  height: 54px;
+  border-radius: 17px;
+  margin: 0 auto 10px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+}
+.arc-overico.is-win {
+  background: linear-gradient(140deg, var(--c-mint), var(--c-blue));
+  box-shadow: 0 6px 16px rgba(95, 196, 165, 0.45);
+}
+.arc-overico.is-lose {
+  background: linear-gradient(140deg, var(--c-sakura), var(--c-violet));
+  box-shadow: 0 6px 16px rgba(244, 144, 173, 0.4);
+}
+.arc-overtitle {
+  font-family: 'ZCOOL KuaiLe', sans-serif;
+  font-size: 24px;
+  letter-spacing: 2px;
+}
+.arc-oversub {
+  font-size: 13px;
+  color: var(--ink-faint);
+  margin-top: 4px;
+}
+.arc-record {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 8px;
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--c-sun) 22%, var(--glass));
+  color: color-mix(in srgb, #d98e2b 70%, var(--ink));
+  font-size: 11.5px;
+  letter-spacing: 1px;
+  font-family: 'ZCOOL KuaiLe', sans-serif;
+}
+.arc-overnums {
+  display: flex;
+  justify-content: center;
+  gap: 26px;
+  margin: 15px 0 16px;
+}
+.arc-gn b {
+  display: block;
+  font-size: 24px;
+  font-family: 'Chakra Petch', 'DIN Alternate', sans-serif;
+  font-weight: 700;
+  color: var(--room);
+}
+.arc-gn span {
+  font-size: 10.5px;
+  color: var(--ink-faint);
+  letter-spacing: 1px;
+}
+.arc-overfoot {
+  display: flex;
+  gap: 9px;
+  justify-content: center;
+}
+
+/* ============ 战绩舱 ============ */
+.arc-pstats {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  padding: 6px 24px 16px;
+  overflow-y: auto;
+}
+.arc-pstats .arc-sectitle {
+  padding: 0;
+}
+.arc-pstats .arc-sectitle::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: color-mix(in srgb, var(--ink) 10%, transparent);
+}
+.arc-pstats .arc-sectitle .arc-btn {
+  margin-left: 10px;
+  padding: 4px 11px;
+  font-size: 11.5px;
+}
+.arc-overview {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+.arc-ovcard {
+  background: var(--glass-soft);
+  border-radius: var(--arc-r-lg);
+  padding: 14px 18px 13px;
+  position: relative;
+  overflow: hidden;
+}
+.arc-ovcard::after {
+  content: '';
+  position: absolute;
+  right: -14px;
+  top: -14px;
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
+  transform: rotate(18deg);
+  opacity: 0.5;
+}
+.arc-ovcard:nth-child(1)::after {
+  background: var(--c-sun-soft);
+}
+.arc-ovcard:nth-child(2)::after {
+  background: var(--c-sakura-soft);
+}
+.arc-ovcard:nth-child(3)::after {
+  background: var(--c-mint-soft);
+}
+.arc-ovcard:nth-child(4)::after {
+  background: var(--c-violet-soft);
+}
+.arc-ovcard .lab {
+  font-size: 11px;
+  color: var(--ink-faint);
+  letter-spacing: 1px;
+}
+.arc-ovcard .val {
+  font-size: 28px;
+  font-family: 'Chakra Petch', 'DIN Alternate', sans-serif;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.25;
+}
+.arc-ovcard .val em {
+  font-style: normal;
+  font-size: 12px;
+  color: var(--ink-faint);
+  font-weight: 600;
+  margin-left: 3px;
+}
+.arc-best {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.arc-bestcard {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--glass-soft);
+  border-radius: var(--arc-r-lg);
+  padding: 13px 16px;
+}
+.arc-bestcard .ico {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  color: #fff;
+}
+.arc-bestcard .main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.4;
+}
+.arc-bestcard .name {
+  font-size: 13.5px;
+  font-family: 'ZCOOL KuaiLe', sans-serif;
+  letter-spacing: 1px;
+  color: var(--ink);
+}
+.arc-bestcard .val {
+  font-size: 18px;
+  font-family: 'Chakra Petch', 'DIN Alternate', sans-serif;
+  font-weight: 700;
+  color: var(--room);
+}
+.arc-bestcard .val.is-none {
+  color: var(--ink-faint);
+  font-weight: 600;
+  font-size: 13px;
+}
+.arc-chartrow {
+  display: flex;
+  gap: 14px;
+  align-items: stretch;
+  min-height: 220px;
+}
+.arc-chartpanel {
+  flex: 1.35;
+  min-width: 0;
+  background: var(--glass-soft);
+  border-radius: var(--arc-r-lg);
+  padding: 14px 18px 10px;
+  display: flex;
+  flex-direction: column;
+}
+.arc-chartpanel svg {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+}
+.arc-recentpanel {
+  flex: 1;
+  min-width: 0;
+  background: var(--glass-soft);
+  border-radius: var(--arc-r-lg);
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+}
+.arc-chartpanel .lab,
+.arc-recentpanel .lab {
+  font-size: 11px;
+  color: var(--ink-faint);
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+.arc-recentlist {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+.arc-rrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px dashed color-mix(in srgb, var(--ink) 8%, transparent);
+}
+.arc-rrow:last-child {
+  border-bottom: none;
+}
+.arc-rrow .ric {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  color: #fff;
+}
+.arc-rrow .main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+.arc-rrow .t {
+  font-size: 12.5px;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.arc-rrow .s {
+  font-size: 10.5px;
+  color: var(--ink-faint);
+}
+.arc-rrow .when {
+  font-size: 10.5px;
+  color: var(--ink-faint);
+  flex-shrink: 0;
+}
+.arc-emptyhint {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  color: var(--ink-faint);
+  font-size: 12.5px;
+  text-align: center;
+  line-height: 1.8;
+}
+
+/* ============ 像素飘落 ============ */
+.arc-dust {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+.arc-dust i {
+  position: absolute;
+  top: -4vh;
+  display: block;
+  border-radius: 2px;
+  animation: arcDustFall linear infinite;
+}
+@keyframes arcDustFall {
+  0% {
+    transform: translate(0, -6vh) rotate(0deg);
+    opacity: 0;
+  }
+  8% {
+    opacity: 0.75;
+  }
+  50% {
+    transform: translate(4vw, 52vh) rotate(180deg);
+  }
+  92% {
+    opacity: 0.55;
+  }
+  100% {
+    transform: translate(-3vw, 108vh) rotate(350deg);
+    opacity: 0;
+  }
+}
+
+/* ============ 偏好弹层（Popover 渲染在 body 下） ============ */
+.arc-set {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  min-width: 218px;
+}
+.arc-set .row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+
+/* ============ 斗兽棋 ============ */
+.arc-pjungle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  padding: 8px 24px 18px;
+  overflow: auto;
+}
+.arc-jboard {
+  --jcell: 50px;
+  display: grid;
+  grid-template-columns: repeat(7, var(--jcell));
+  grid-auto-rows: var(--jcell);
+  gap: 2px;
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  border-radius: var(--arc-r-lg);
+  padding: 6px;
+  touch-action: manipulation;
+}
+.arc-jcell {
+  position: relative;
+  border: none;
+  padding: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  background: linear-gradient(145deg, #eaf1d8, #dce8c0);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55);
+  transition: box-shadow 0.2s var(--arc-ease-spring);
+}
+.arc-jcell.is-water {
+  background:
+    repeating-linear-gradient(180deg, transparent 0 5px, rgba(255, 255, 255, 0.4) 5px 6px),
+    linear-gradient(160deg, #b9dcf5, #9cc9ef);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+}
+.arc-jcell.is-den {
+  background: linear-gradient(160deg, #5d6480, #464d66);
+}
+.arc-jcell.is-den::after {
+  content: '';
+  position: absolute;
+  inset: 20% 26% 12%;
+  border-radius: 50% 50% 6px 6px / 78% 78% 6px 6px;
+  background: rgba(22, 26, 42, 0.6);
+  border: 2px solid rgba(255, 255, 255, 0.45);
+}
+.arc-jcell.is-den-top::after {
+  border-color: rgba(143, 127, 224, 0.75);
+}
+.arc-jcell.is-den-bottom::after {
+  border-color: rgba(239, 95, 142, 0.75);
+}
+.arc-jcell.is-trap {
+  background: repeating-linear-gradient(45deg, #f7ddc6 0 5px, #f2cdb0 5px 10px);
+}
+.arc-jcell.is-trap::before,
+.arc-jcell.is-trap::after {
+  content: '';
+  position: absolute;
+  left: 24%;
+  right: 24%;
+  top: 46.5%;
+  height: 7%;
+  border-radius: 3px;
+  background: rgba(224, 105, 123, 0.72);
+}
+.arc-jcell.is-trap::before {
+  transform: rotate(45deg);
+}
+.arc-jcell.is-trap::after {
+  transform: rotate(-45deg);
+}
+.arc-jcell.is-last {
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 196, 110, 0.95),
+    inset 0 0 10px rgba(255, 180, 80, 0.35);
+}
+.arc-jcell.is-capture {
+  box-shadow:
+    inset 0 0 0 2.5px rgba(239, 95, 142, 0.9),
+    inset 0 0 10px rgba(239, 95, 142, 0.3);
+}
+.arc-jcell.is-target.is-capture {
+  box-shadow:
+    inset 0 0 0 2.5px rgba(239, 95, 142, 0.9),
+    inset 0 0 10px rgba(239, 95, 142, 0.35);
+}
+.arc-jgpc {
+  position: absolute;
+  inset: 7%;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow:
+    0 2px 6px rgba(76, 85, 112, 0.35),
+    inset 0 1px 2px rgba(255, 255, 255, 0.5);
+  transition: transform 0.18s var(--arc-ease-spring);
+  z-index: 1;
+}
+.arc-jgpc.is-me {
+  background: linear-gradient(145deg, #ff9d7e, #ef5f8e);
+}
+.arc-jgpc.is-ai {
+  background: linear-gradient(145deg, #7fb5e8, #8f7fe0);
+}
+.arc-jgpc.is-sel {
+  transform: scale(1.1);
+  box-shadow:
+    0 0 0 2.5px #fff,
+    0 4px 12px rgba(76, 85, 112, 0.45);
+  z-index: 2;
+}
+.arc-jgface {
+  width: 66%;
+  height: 66%;
+  background: linear-gradient(180deg, #fff, #ffe9db);
+  -webkit-mask: var(--face) center / contain no-repeat;
+  mask: var(--face) center / contain no-repeat;
+}
+.arc-jgpc.is-ai .arc-jgface {
+  background: linear-gradient(180deg, #fff, #dfe8ff);
+}
+.arc-jgrank {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--ink);
+  font-size: 9.5px;
+  font-weight: 700;
+  font-family: 'Chakra Petch', 'DIN Alternate', sans-serif;
+  font-style: normal;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(76, 85, 112, 0.35);
+}
+.arc-jhint {
+  position: absolute;
+  inset: 34%;
+  border-radius: 50%;
+  background: rgba(95, 196, 165, 0.85);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.65);
+  animation: arc-jpulse 1.4s ease-in-out infinite;
+}
+@keyframes arc-jpulse {
+  0%,
+  100% {
+    transform: scale(0.82);
+    opacity: 0.75;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+}
+.arc-jrules {
+  margin: 0;
+  padding-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  max-width: 260px;
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--ink-soft);
+}
+
+/* ============ 飞行棋 ============ */
+.arc-paplane {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 26px;
+  padding: 4px 16px 8px;
+  overflow: auto;
+}
+.arc-apboard {
+  position: relative;
+  border-radius: var(--arc-r-lg);
+  padding: 4px;
+  flex-shrink: 0;
+  filter: drop-shadow(0 10px 26px rgba(76, 85, 112, 0.16));
+}
+.arc-apsvg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.arc-applane {
+  position: absolute;
+  width: 6.4%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow:
+    0 2px 6px rgba(76, 85, 112, 0.35),
+    inset 0 1px 2px rgba(255, 255, 255, 0.5);
+  transition:
+    left 0.45s var(--arc-ease-spring),
+    top 0.45s var(--arc-ease-spring),
+    transform 0.2s var(--arc-ease-spring),
+    box-shadow 0.2s;
+  cursor: default;
+  z-index: 1;
+}
+.arc-applane.is-movable {
+  cursor: pointer;
+  z-index: 3;
+  animation: arc-appulse 1.2s ease-in-out infinite;
+}
+.arc-applane.is-movable:hover {
+  transform: translate(-50%, -50%) scale(1.15);
+  z-index: 4;
+}
+.arc-applane.is-last {
+  box-shadow:
+    0 0 0 2.5px #fff,
+    0 0 0 4.5px rgba(255, 196, 110, 0.95),
+    0 2px 8px rgba(76, 85, 112, 0.4);
+  z-index: 2;
+}
+@keyframes arc-appulse {
+  0%,
+  100% {
+    box-shadow:
+      0 2px 6px rgba(76, 85, 112, 0.35),
+      0 0 0 2.5px rgba(255, 255, 255, 0.85);
+  }
+  50% {
+    box-shadow:
+      0 2px 6px rgba(76, 85, 112, 0.35),
+      0 0 0 5px rgba(255, 255, 255, 0.45);
+  }
+}
+.arc-apface {
+  width: 64%;
+  height: 64%;
+  background: linear-gradient(180deg, #fff, rgba(255, 255, 255, 0.82));
+  -webkit-mask: var(--face) center / contain no-repeat;
+  mask: var(--face) center / contain no-repeat;
+}
+.arc-apdierow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: center;
+}
+.arc-apdie {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1.5px solid var(--glass-border);
+  box-shadow: var(--shadow-1);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  padding: 8px;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.arc-apdie i {
+  border-radius: 50%;
+  background: transparent;
+  margin: auto;
+  width: 8px;
+  height: 8px;
+  display: block;
+}
+.arc-apdie.d1 i:nth-child(5),
+.arc-apdie.d2 i:nth-child(1),
+.arc-apdie.d2 i:nth-child(9),
+.arc-apdie.d3 i:nth-child(1),
+.arc-apdie.d3 i:nth-child(5),
+.arc-apdie.d3 i:nth-child(9),
+.arc-apdie.d4 i:nth-child(1),
+.arc-apdie.d4 i:nth-child(3),
+.arc-apdie.d4 i:nth-child(7),
+.arc-apdie.d4 i:nth-child(9),
+.arc-apdie.d5 i:nth-child(1),
+.arc-apdie.d5 i:nth-child(3),
+.arc-apdie.d5 i:nth-child(5),
+.arc-apdie.d5 i:nth-child(7),
+.arc-apdie.d5 i:nth-child(9),
+.arc-apdie.d6 i:nth-child(1),
+.arc-apdie.d6 i:nth-child(3),
+.arc-apdie.d6 i:nth-child(4),
+.arc-apdie.d6 i:nth-child(6),
+.arc-apdie.d6 i:nth-child(7),
+.arc-apdie.d6 i:nth-child(9) {
+  background: var(--ink);
+}
+.arc-apturn {
+  flex: 1;
+  text-align: center;
+  font-size: 11.5px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  border: 1.5px solid transparent;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.arc-approg {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: 'Chakra Petch', 'DIN Alternate', sans-serif;
+  margin-top: 4px;
+}
+.arc-approg .dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: 1px;
+}
+.arc-apevent {
+  min-height: 20px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+  text-align: center;
+}

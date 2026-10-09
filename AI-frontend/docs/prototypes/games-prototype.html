@@ -1,0 +1,2308 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="morning" data-ink="day">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>游戏舱 · Game Bay — 单屏交互原型</title>
+<!--
+  ============================================================
+  游戏舱（games 模块）交互原型 · 单文件
+  ============================================================
+  设计令牌摘自 home-v3.css（纸间主页同风格），布局范式沿用
+  library-prototype-v3.html：单屏舞台 + 玻璃拟态 + 和纸胶带。
+
+  本原型包含：
+  · 三台可玩机台：2048 / 扫雷 / 记忆翻牌（键盘 + 触摸均可玩）
+  · 战绩舱：总览数字滚动 / 机台纪录 / 近 7 日对局柱状图 / 最近对局
+  · 战绩暂存 localStorage（key: ai-arcade-proto-v1），偏好设置另存
+    ai-arcade-settings-v1（房间色/密度/翻牌规格/撤销辅助/玩家代号等），
+    均内置少量示例数据，可在 Tweaks 面板一键清空
+  · 四时段主题 + 夜间墨色 + 像素飘落 + 芯片音效（WebAudio 合成，无素材）
+
+  对应正式实现的映射备注（交接时参考）：
+  · 模块 key：games（config/modules.ts 注册，后端 /app/modules 下发）
+  · 路由：/games（meta.room='games'，requireModule:'games'）
+  · 弹窗/提示：正式实现换 ant-design-vue 的 Modal / message
+  · 图标：本页为手绘内联 SVG；正式实现用 lucide-vue-next 同形
+  · 字体：ZCOOL KuaiLe / Chakra Petch（均为 OFL 开源，站内已在用）
+  · 样式前缀：正式实现用 .arc-* 独占前缀，避开 knowledge-v17.css
+    的 .panel/.row/.meta/.lib- 等全局类
+  · 战绩持久化：正式实现由后端 games 模块提供对局记录表与
+    提交/排行接口（另出交接文档，参照 docs/LIBRARY_DESIGN.md 范式）
+  ============================================================
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Chakra+Petch:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   令牌（与 home-v3.css 对齐；房间色 --room 为游戏舱专属暖橘）
+   ============================================================ */
+:root {
+  --ink: #4c5570;
+  --ink-soft: #6f7896;
+  --ink-faint: #7b84a3;
+  --paper: #fffdf8;
+  --glass: rgba(255, 255, 255, 0.96);
+  --glass-soft: rgba(255, 255, 255, 0.86);
+  --glass-chip: rgba(255, 255, 255, 0.94);
+  --glass-border: rgba(255, 255, 255, 0.95);
+
+  --room: #ffa45c;
+  --room-soft: #ffe9cc;
+
+  --c-sakura: #f490ad;  --c-sakura-soft: #ffd9e4;
+  --c-violet: #9b8ce8;  --c-violet-soft: #e4dffd;
+  --c-lilac: #c79ae0;   --c-lilac-soft: #f2e2fa;
+  --c-blue: #6aaee8;    --c-blue-soft: #d8ebfb;
+  --c-mint: #5fc4a5;    --c-mint-soft: #d6f2e8;
+  --c-sun: #ffcf6e;     --c-sun-soft: #ffe9b8;
+  --c-orange: #ffb28c;
+  --c-danger: #e0567a;
+
+  --shadow-1: 0 2px 6px rgba(96,116,168,.10), 0 10px 28px rgba(96,116,168,.12);
+  --shadow-2: 0 4px 10px rgba(96,116,168,.14), 0 20px 48px rgba(96,116,168,.18);
+  --shadow-pop: 0 6px 0 rgba(76,85,112,.10), 0 18px 40px rgba(96,116,168,.20);
+
+  --r-xl: 24px; --r-lg: 20px; --r-md: 14px; --r-sm: 10px;
+  --ease-spring: cubic-bezier(.34,1.56,.5,1);
+  --ease-out: cubic-bezier(.22,.8,.32,1);
+
+  --page-1: #eaf6fc; --page-2: #fdeef2; --page-3: #f3effc;
+}
+:root[data-theme="noon"] {
+  --page-1: #e4f2ff; --page-2: #fdf6e0; --page-3: #e6f9ef;
+  --c-sakura: #ffb86b; --c-sakura-soft: #ffe4c4;
+  --c-violet: #6aaee8; --c-violet-soft: #d8ebfb;
+  --c-mint: #5fc4a5; --c-mint-soft: #d6f2e8;
+}
+:root[data-theme="dusk"] {
+  --page-1: #fbe4cf; --page-2: #f8dbe6; --page-3: #e9ddf5;
+  --c-sakura: #e0699b; --c-sakura-soft: #f8d0e0;
+  --c-mint: #ffb45e; --c-mint-soft: #ffe0b8;
+  --c-sun: #ffb45e; --c-sun-soft: #ffe0b8;
+}
+:root[data-theme="night"] {
+  --page-1: #dde2f4; --page-2: #e6dcf0; --page-3: #d6e6f2;
+  --c-sakura: #c79ae0; --c-sakura-soft: #e8d8f5;
+  --c-mint: #6aaee8; --c-mint-soft: #d0e6f8;
+  --c-sun: #9b8ce8; --c-sun-soft: #ddd6f5;
+}
+:root[data-ink="night"] {
+  --ink: #eef1fa; --ink-soft: #c9d0e4; --ink-faint: #9aa3c0;
+  --paper: #1a2033;
+  --glass: rgba(28, 34, 52, .97);
+  --glass-soft: rgba(255, 255, 255, .14);
+  --glass-chip: rgba(36, 44, 66, .97);
+  --glass-border: rgba(255, 255, 255, .14);
+  --shadow-1: 0 2px 6px rgba(0,0,0,.28), 0 12px 28px rgba(0,0,0,.32);
+  --shadow-2: 0 4px 12px rgba(0,0,0,.32), 0 20px 48px rgba(0,0,0,.38);
+  --c-sakura-soft: rgba(244,144,173,.22);
+  --c-violet-soft: rgba(155,140,232,.22);
+  --c-lilac-soft: rgba(199,154,224,.22);
+  --c-blue-soft: rgba(106,174,232,.22);
+  --c-mint-soft: rgba(95,196,165,.22);
+  --c-sun-soft: rgba(255,207,110,.2);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+/* 视口即画布，页面本身不滚动（单屏舞台） */
+body {
+  font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Source Han Sans SC", sans-serif;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--ink);
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  text-wrap: pretty;
+  background:
+    radial-gradient(1100px 650px at 6% 18%, var(--c-sakura-soft), transparent 58%),
+    radial-gradient(900px 600px at 88% -5%, var(--c-sun-soft), transparent 55%),
+    radial-gradient(1000px 700px at 92% 96%, var(--c-violet-soft), transparent 60%),
+    linear-gradient(160deg, var(--page-1), var(--page-2) 52%, var(--page-3));
+  transition: background 1.4s var(--ease-out), color .8s var(--ease-out);
+}
+/* 站台细点纹理 */
+body::before {
+  content: "";
+  position: fixed; inset: 0;
+  background-image: radial-gradient(rgba(120,135,180,.12) 1.2px, transparent 1.3px);
+  background-size: 26px 26px;
+  pointer-events: none;
+  z-index: 0;
+}
+.font-display { font-family: "ZCOOL KuaiLe", "PingFang SC", sans-serif; }
+.num { font-family: "Chakra Petch", "DIN Alternate", sans-serif; font-weight: 600; }
+button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(150,160,200,.4); border-radius: 6px; border: 2px solid transparent; background-clip: content-box; }
+
+/* 像素飘落（街机尘埃：小方块替代花瓣） */
+.dust { position: fixed; inset: 0; pointer-events: none; z-index: 1; overflow: hidden; }
+.dust i {
+  position: absolute; top: -4vh; display: block;
+  border-radius: 2px;
+  animation: dustFall linear infinite;
+}
+@keyframes dustFall {
+  0%   { transform: translate(0, -6vh) rotate(0deg); opacity: 0; }
+  8%   { opacity: .75; }
+  50%  { transform: translate(4vw, 52vh) rotate(180deg); }
+  92%  { opacity: .55; }
+  100% { transform: translate(-3vw, 108vh) rotate(350deg); opacity: 0; }
+}
+
+/* ============ 舞台 ============ */
+.station {
+  position: relative; z-index: 2;
+  height: 100vh; height: 100dvh;
+  max-width: 1680px; margin: 0 auto;
+  padding: 16px 26px 18px;
+  display: flex; flex-direction: column;
+}
+
+/* ============ 顶栏 ============ */
+.topbar { height: 58px; flex-shrink: 0; display: flex; align-items: center; gap: 18px; padding: 0 4px; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand-mark {
+  width: 34px; height: 34px; border-radius: 11px;
+  background: linear-gradient(140deg, var(--c-violet), var(--c-sakura));
+  box-shadow: var(--shadow-1), inset 0 2px 4px rgba(255,255,255,.5);
+  display: grid; place-items: center;
+  color: #fff; font-size: 15px; font-weight: 700;
+}
+.brand-name { font-size: 17px; font-family: "ZCOOL KuaiLe", sans-serif; letter-spacing: 1px; }
+.brand-sub { font-size: 9.5px; color: var(--ink-faint); letter-spacing: 2.5px; margin-top: 1px; }
+.mainnav {
+  margin: 0 auto;
+  display: flex; gap: 2px;
+  background: var(--glass-chip);
+  backdrop-filter: blur(10px);
+  padding: 6px;
+  border-radius: 999px;
+  box-shadow: var(--shadow-1);
+}
+.mainnav button {
+  padding: 7px 15px; border-radius: 999px;
+  font-size: 13.5px; color: var(--ink-soft);
+  transition: all .3s var(--ease-spring);
+  white-space: nowrap;
+}
+.mainnav button:hover { color: var(--ink); transform: translateY(-2px); }
+.mainnav button.active {
+  background: var(--room);
+  color: #fff;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--room) 45%, transparent);
+}
+.clock-chip {
+  margin-left: auto;
+  background: var(--glass-chip);
+  backdrop-filter: blur(10px);
+  border-radius: var(--r-sm);
+  padding: 5px 14px;
+  box-shadow: var(--shadow-1);
+  text-align: right; line-height: 1.25;
+}
+.clock-time { font-size: 16px; font-family: "Chakra Petch", sans-serif; font-weight: 600; color: var(--ink); }
+.clock-time .sec { font-size: 11px; color: var(--ink-faint); font-weight: 600; }
+.clock-date { font-size: 10px; color: var(--ink-faint); letter-spacing: 1px; }
+
+/* ============ 标题带 ============ */
+.hero {
+  flex-shrink: 0;
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  margin: 4px 0 10px;
+}
+.hero-left { position: relative; flex: 1; min-width: 240px; padding: 10px 0 2px; }
+.hero-kana {
+  position: absolute; top: -12px; left: 2px;
+  font-size: 20px; letter-spacing: 6px;
+  font-family: "ZCOOL KuaiLe", sans-serif;
+  color: transparent;
+  -webkit-text-stroke: 1.2px color-mix(in srgb, var(--room) 46%, transparent);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.hero-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.hero-title {
+  font-family: "ZCOOL KuaiLe", "PingFang SC", sans-serif;
+  font-size: 32px; line-height: 1.15; letter-spacing: 2px;
+  background: linear-gradient(120deg, var(--c-sakura) 10%, var(--c-orange) 55%, var(--c-violet) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 3px 8px rgba(200, 120, 170, .18));
+}
+.hero-tape {
+  display: inline-block;
+  transform: rotate(-3deg);
+  background: color-mix(in srgb, var(--room) 82%, white);
+  color: #fff;
+  font-size: 12px; letter-spacing: 1.5px;
+  padding: 3px 13px;
+  border-radius: 3px;
+  box-shadow: 0 2px 6px rgba(70, 55, 90, .22);
+  font-family: "ZCOOL KuaiLe", sans-serif;
+  white-space: nowrap;
+}
+.hero-sub {
+  display: flex; align-items: center; gap: 12px;
+  margin-left: auto;
+  color: var(--ink-soft); font-size: 13px;
+}
+.hero-sub .stat b { color: var(--room); font-family: "Chakra Petch", sans-serif; font-size: 15px; font-weight: 600; }
+.hero-sub .stat { color: var(--ink-faint); font-size: 12px; white-space: nowrap; }
+
+/* 上次玩到（沿用资料库原型 np-chip 胶囊） */
+.np-chip {
+  display: flex; align-items: center; gap: 10px;
+  max-width: 320px; min-width: 0;
+  background: var(--glass-chip);
+  backdrop-filter: blur(10px);
+  border: 1.5px solid var(--glass-border);
+  border-radius: 999px;
+  box-shadow: var(--shadow-1);
+  padding: 5px 7px 5px 8px;
+  flex-shrink: 0;
+  transition: box-shadow .2s var(--ease-out), transform .2s var(--ease-spring);
+}
+.np-chip:hover { transform: translateY(-1px); box-shadow: var(--shadow-2); }
+.np-chip .np-dot {
+  width: 26px; height: 26px; border-radius: 9px; flex-shrink: 0;
+  background: linear-gradient(140deg, var(--c-sun), var(--c-sakura));
+  display: grid; place-items: center; color: #fff;
+}
+.np-chip .np-main { display: flex; flex-direction: column; min-width: 0; text-align: left; line-height: 1.3; }
+.np-chip .np-title { font-size: 12px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.np-chip .np-sub { font-size: 10px; color: var(--ink-faint); }
+.np-chip .np-ico {
+  width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+  background: var(--glass);
+  box-shadow: var(--shadow-1);
+  display: grid; place-items: center;
+  color: var(--room);
+}
+
+/* 迷你天空窗（站点签名装饰，原样保留） */
+.sky-mini {
+  position: relative;
+  width: 210px; height: 72px;
+  border-radius: var(--r-lg);
+  border: 1.5px solid var(--glass-border);
+  box-shadow: var(--shadow-1);
+  overflow: hidden;
+  flex-shrink: 0;
+  background: linear-gradient(180deg, #bfe6f7 0%, #dcf2fb 58%, #ffeeda 100%);
+}
+.sky-mini .sky-sun {
+  position: absolute; top: 8px; right: 12px;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #ffe9b8, var(--c-sun));
+  box-shadow: 0 0 18px color-mix(in srgb, var(--c-sun) 75%, transparent);
+  animation: sunFloat 6s ease-in-out infinite;
+}
+@keyframes sunFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+.sky-mini .sky-cloud { position: absolute; background: rgba(255,255,255,.95); border-radius: 999px; }
+.sky-mini .sky-cloud.c1 { width: 34px; height: 11px; top: 14px; left: 12px; animation: cloudDrift 9s ease-in-out infinite; }
+.sky-mini .sky-cloud.c1::before { content: ""; position: absolute; top: -6px; left: 7px; width: 14px; height: 10px; border-radius: 50%; background: inherit; }
+.sky-mini .sky-cloud.c2 { width: 24px; height: 8px; top: 28px; left: 64px; opacity: .85; animation: cloudDrift 12s ease-in-out infinite reverse; }
+@keyframes cloudDrift { 0%,100% { transform: translateX(0); } 50% { transform: translateX(8px); } }
+.sky-mini .sky-hill { position: absolute; border-radius: 50%; }
+.sky-mini .sky-hill.h1 { width: 150px; height: 60px; bottom: -32px; left: -26px; background: var(--c-mint-soft); }
+.sky-mini .sky-hill.h2 { width: 170px; height: 66px; bottom: -38px; right: -42px; background: color-mix(in srgb, var(--c-mint) 30%, white); }
+
+/* ============ 主布局 ============ */
+.layout { flex: 1; min-height: 0; display: flex; gap: 14px; }
+.panel {
+  background: var(--glass);
+  backdrop-filter: blur(12px);
+  border: 1.5px solid var(--glass-border);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-1);
+}
+
+/* ---- 左侧：机台列 ---- */
+.sidebar {
+  width: 236px; flex-shrink: 0;
+  padding: 16px 14px;
+  display: flex; flex-direction: column; gap: 12px;
+  overflow-y: auto;
+}
+.side-title {
+  font-size: 11px; letter-spacing: 2.5px; color: var(--ink-faint);
+  font-family: "ZCOOL KuaiLe", sans-serif;
+  padding: 0 4px;
+}
+.side-title .en { letter-spacing: 1.5px; font-size: 9px; opacity: .7; margin-left: 6px; font-family: "Chakra Petch", sans-serif; }
+
+.cabinet {
+  width: 100%; text-align: left;
+  display: flex; align-items: center; gap: 11px;
+  background: var(--glass-soft);
+  border: 1.5px solid transparent;
+  border-radius: var(--r-lg);
+  padding: 11px 12px;
+  transition: all .25s var(--ease-spring);
+  position: relative;
+}
+.cabinet:hover { transform: translateY(-2px); box-shadow: var(--shadow-1); }
+.cabinet.active {
+  background: var(--glass);
+  border-color: color-mix(in srgb, var(--room) 55%, transparent);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--room) 22%, transparent);
+}
+.cabinet.active::before {
+  content: ""; position: absolute; left: -3px; top: 22%; bottom: 22%;
+  width: 4px; border-radius: 4px; background: var(--room);
+}
+.cab-icon {
+  width: 40px; height: 40px; border-radius: 13px; flex-shrink: 0;
+  display: grid; place-items: center; color: #fff;
+  box-shadow: inset 0 2px 4px rgba(255,255,255,.4), 0 3px 8px rgba(96,116,168,.18);
+}
+.cab-main { flex: 1; min-width: 0; line-height: 1.25; }
+.cab-name { font-size: 14.5px; font-family: "ZCOOL KuaiLe", sans-serif; letter-spacing: 1px; }
+.cab-sub { font-size: 9.5px; color: var(--ink-faint); letter-spacing: 1.5px; font-family: "Chakra Petch", sans-serif; }
+.cab-best { text-align: right; flex-shrink: 0; line-height: 1.2; }
+.cab-best b { display: block; font-size: 14px; color: var(--room); font-family: "Chakra Petch", sans-serif; font-weight: 600; }
+.cab-best span { font-size: 9.5px; color: var(--ink-faint); }
+.cab-plays { position: absolute; right: 12px; top: 8px; font-size: 9px; color: var(--ink-faint); letter-spacing: .5px; }
+
+.side-mini {
+  background: var(--glass-soft);
+  border-radius: var(--r-lg);
+  padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 9px;
+}
+.mini-row { display: flex; align-items: baseline; justify-content: space-between; font-size: 12px; color: var(--ink-soft); }
+.mini-row b { font-size: 15px; color: var(--ink); font-family: "Chakra Petch", sans-serif; font-weight: 600; }
+.mini-row b em { font-style: normal; font-size: 10px; color: var(--ink-faint); margin-left: 2px; }
+
+.side-cta {
+  margin-top: auto;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  border-radius: var(--r-lg);
+  padding: 11px;
+  background: linear-gradient(140deg, var(--room), var(--c-sakura));
+  color: #fff;
+  font-size: 13.5px; letter-spacing: 1px;
+  font-family: "ZCOOL KuaiLe", sans-serif;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--room) 38%, transparent);
+  transition: transform .25s var(--ease-spring), box-shadow .25s var(--ease-out);
+}
+.side-cta:hover { transform: translateY(-2px); box-shadow: 0 8px 20px color-mix(in srgb, var(--room) 45%, transparent); }
+
+/* ---- 右侧：游戏 / 战绩 主面板 ---- */
+.content {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+.filter-bar {
+  flex-shrink: 0;
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px 10px;
+}
+.crumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-soft); min-width: 0; }
+.crumb .crumb-game { font-family: "ZCOOL KuaiLe", sans-serif; font-size: 15px; color: var(--ink); letter-spacing: 1px; }
+.crumb .crumb-desc { font-size: 11.5px; color: var(--ink-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--glass-chip);
+  border: 1.5px solid var(--glass-border);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 12.5px; color: var(--ink-soft);
+  box-shadow: var(--shadow-1);
+  transition: all .25s var(--ease-spring);
+  white-space: nowrap;
+}
+.btn:hover { color: var(--ink); transform: translateY(-1.5px); box-shadow: var(--shadow-2); }
+.btn.primary {
+  background: linear-gradient(140deg, var(--room), var(--c-sakura));
+  border-color: transparent; color: #fff;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--room) 40%, transparent);
+}
+.btn.ghost-danger { color: var(--c-danger); }
+.btn.ghost-danger:hover { border-color: color-mix(in srgb, var(--c-danger) 40%, transparent); }
+.btn.toggled { background: color-mix(in srgb, var(--room) 16%, var(--glass)); color: var(--room); border-color: color-mix(in srgb, var(--room) 40%, transparent); }
+.btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+
+.seg {
+  display: flex; gap: 2px;
+  background: var(--glass-chip);
+  border: 1.5px solid var(--glass-border);
+  border-radius: 999px;
+  padding: 3px;
+  box-shadow: var(--shadow-1);
+}
+.seg button, .seg span {
+  padding: 5px 13px; border-radius: 999px;
+  font-size: 12px; color: var(--ink-soft);
+  transition: all .25s var(--ease-spring);
+  white-space: nowrap; cursor: pointer;
+}
+.seg .active { background: var(--room); color: #fff; box-shadow: 0 3px 8px color-mix(in srgb, var(--room) 40%, transparent); }
+.seg.kids .active { background: color-mix(in srgb, var(--room) 16%, var(--glass)); color: var(--room); box-shadow: none; }
+
+.stage-wrap { flex: 1; min-height: 0; position: relative; }
+.gpane { position: absolute; inset: 0; display: none; }
+.gpane.on { display: flex; }
+
+/* ============ 2048 ============ */
+.p2048 {
+  align-items: center; justify-content: center; gap: 26px;
+  padding: 10px 18px 18px;
+  overflow: auto;
+}
+.b2048col { display: flex; flex-direction: column; gap: 12px; align-items: center; }
+.b2048 {
+  --cell: 74px; --gap: 10px;
+  position: relative;
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  border-radius: var(--r-lg);
+  padding: var(--gap);
+  width: calc(var(--cell) * 4 + var(--gap) * 5);
+  height: calc(var(--cell) * 4 + var(--gap) * 5);
+  touch-action: none;
+  box-shadow: inset 0 2px 8px rgba(96,116,168,.10);
+}
+.b2048 .cellbg {
+  position: absolute; width: var(--cell); height: var(--cell);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  transform: translate(calc(var(--c) * (var(--cell) + var(--gap))), calc(var(--r) * (var(--cell) + var(--gap))));
+}
+.b2048 .tile {
+  position: absolute; width: var(--cell); height: var(--cell);
+  transition: transform .13s var(--ease-out);
+  z-index: 1;
+}
+.b2048 .tile.eat { z-index: 2; }
+.b2048 .tin {
+  width: 100%; height: 100%; border-radius: 12px;
+  display: grid; place-items: center;
+  font-family: "Chakra Petch", sans-serif; font-weight: 700;
+}
+.b2048 .tile.new .tin { animation: tileIn .22s var(--ease-spring); }
+.b2048 .tile.pop .tin { animation: tilePop .2s var(--ease-spring); }
+@keyframes tileIn { from { transform: scale(.3); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes tilePop { 0% { transform: scale(1); } 55% { transform: scale(1.18); } 100% { transform: scale(1); } }
+.t2 .tin   { background: #ffeed0; color: #8a6a3f; }
+.t4 .tin   { background: #ffd9e4; color: #a05477; }
+.t8 .tin   { background: #f490ad; color: #fff; }
+.t16 .tin  { background: #c79ae0; color: #fff; }
+.t32 .tin  { background: #9b8ce8; color: #fff; }
+.t64 .tin  { background: #6aaee8; color: #fff; }
+.t128 .tin { background: #5fc4a5; color: #fff; }
+.t256 .tin { background: #ffa45c; color: #fff; }
+.t512 .tin { background: #e0699b; color: #fff; }
+.t1024 .tin { background: linear-gradient(140deg, #9b8ce8, #c79ae0); color: #fff; box-shadow: 0 0 14px rgba(155,140,232,.5); }
+.t2048 .tin { background: linear-gradient(140deg, #f490ad, #ffcf6e); color: #fff; box-shadow: 0 0 18px rgba(244,144,173,.65); animation: glowPulse 1.6s ease-in-out infinite; }
+.tbig .tin { background: linear-gradient(140deg, #6b5bd6, #4c5570); color: #fff; box-shadow: 0 0 18px rgba(107,91,214,.6); }
+@keyframes glowPulse { 0%,100% { filter: brightness(1); } 50% { filter: brightness(1.12); } }
+
+.s2048 { display: flex; flex-direction: column; gap: 10px; min-width: 172px; }
+.scorecard {
+  background: var(--glass-soft);
+  border-radius: var(--r-lg);
+  padding: 10px 16px 12px;
+  text-align: center;
+}
+.scorecard .lab { font-size: 10.5px; letter-spacing: 2px; color: var(--ink-faint); font-family: "ZCOOL KuaiLe", sans-serif; }
+.scorecard .val { font-size: 25px; font-family: "Chakra Petch", sans-serif; font-weight: 700; color: var(--ink); line-height: 1.2; }
+.scorecard.roomline .val { color: var(--room); }
+.dpad { display: grid; grid-template-columns: repeat(3, 40px); grid-template-rows: repeat(2, 34px); gap: 5px; justify-content: center; margin-top: 2px; }
+.dpad button {
+  background: var(--glass-chip); border: 1.5px solid var(--glass-border);
+  border-radius: 10px; color: var(--ink-soft);
+  display: grid; place-items: center;
+  box-shadow: var(--shadow-1);
+  transition: all .2s var(--ease-spring);
+}
+.dpad button:hover { color: var(--room); transform: translateY(-1px); }
+.dpad button:active { transform: scale(.92); }
+.hintchip {
+  font-size: 11px; color: var(--ink-faint);
+  text-align: center; line-height: 1.7;
+}
+.hintchip kbd {
+  font-family: "Chakra Petch", sans-serif; font-size: 10px;
+  background: var(--glass-chip); border: 1px solid var(--glass-border);
+  border-radius: 5px; padding: 1px 6px; color: var(--ink-soft);
+  box-shadow: 0 1.5px 0 var(--glass-border);
+}
+
+/* ============ 扫雷 ============ */
+.pmine { align-items: center; justify-content: center; gap: 24px; padding: 10px 18px 18px; overflow: auto; }
+.minecol { display: flex; flex-direction: column; gap: 12px; align-items: center; }
+.minehead { display: flex; align-items: center; gap: 10px; }
+.minecounter {
+  display: flex; align-items: center; gap: 7px;
+  background: var(--glass-soft); border-radius: var(--r-md);
+  padding: 6px 13px; font-size: 16px;
+  font-family: "Chakra Petch", sans-serif; font-weight: 700; color: var(--ink);
+}
+.minecounter svg { color: var(--c-violet); }
+.minecounter.lose { color: var(--c-danger); }
+.minecounter.wingreen { color: var(--c-mint); }
+.mboard {
+  --mc: 38px;
+  display: grid; gap: 4px;
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  padding: 8px; border-radius: var(--r-lg);
+  box-shadow: inset 0 2px 8px rgba(96,116,168,.10);
+}
+/* 未翻开 = 凸起的方块按钮（高光 + 落影）；已翻开 = 凹陷的平底 —— 两态拉开 */
+.mcell {
+  width: var(--mc); height: var(--mc);
+  border-radius: 9px;
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--ink) 6%, var(--glass)),
+    color-mix(in srgb, var(--ink) 17%, var(--glass)));
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,255,255,.55),
+    0 2px 0 color-mix(in srgb, var(--ink) 16%, transparent),
+    0 5px 9px rgba(96,116,168,.16);
+  display: grid; place-items: center;
+  font-family: "Chakra Petch", sans-serif; font-weight: 700; font-size: calc(var(--mc) * .44);
+  transition: background .15s var(--ease-out), transform .15s var(--ease-spring), box-shadow .15s var(--ease-out);
+  user-select: none; -webkit-user-select: none;
+}
+:root[data-ink="night"] .mcell {
+  box-shadow: inset 0 1.5px 0 rgba(255,255,255,.12), 0 2px 0 rgba(0,0,0,.30), 0 5px 9px rgba(0,0,0,.28);
+}
+.mcell:not(.open):hover {
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--room) 30%, var(--glass)),
+    color-mix(in srgb, var(--room) 18%, var(--glass)));
+  transform: translateY(-1px);
+}
+.mcell:not(.open):active {
+  transform: translateY(1px) scale(.97);
+  box-shadow: inset 0 1.5px 0 rgba(255,255,255,.4), 0 1px 0 color-mix(in srgb, var(--ink) 16%, transparent);
+}
+.mcell.flagged {
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--room) 30%, var(--glass)),
+    color-mix(in srgb, var(--room) 16%, var(--glass)));
+}
+.mcell.open {
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+  box-shadow: inset 0 2px 6px rgba(96,116,168,.14);
+  transform: none; cursor: default;
+}
+:root[data-ink="night"] .mcell.open { box-shadow: inset 0 2px 6px rgba(0,0,0,.4); }
+.mcell.boom { background: #fde4ec; box-shadow: inset 0 2px 6px rgba(224,86,122,.25); }
+.mcell.minecell { background: #f8dbe6; box-shadow: inset 0 2px 6px rgba(224,86,122,.18); }
+.n1 { color: #6aaee8; } .n2 { color: #5fc4a5; } .n3 { color: #f490ad; } .n4 { color: #9b8ce8; }
+.n5 { color: #c79ae0; } .n6 { color: #ffa45c; } .n7 { color: #7a83a0; } .n8 { color: #e0567a; }
+.mcell .flagico { color: var(--room); }
+.mside { display: flex; flex-direction: column; gap: 10px; min-width: 172px; }
+.mstat { display: flex; flex-direction: column; gap: 9px; }
+.status-chip {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--glass-soft); border-radius: var(--r-lg);
+  padding: 10px 14px; font-size: 13px; color: var(--ink-soft);
+}
+.status-chip .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--c-sun); animation: blink 1.4s ease-in-out infinite; }
+.status-chip.win .dot { background: var(--c-mint); animation: none; }
+.status-chip.dead .dot { background: var(--c-danger); animation: none; }
+@keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+
+/* ============ 记忆翻牌 ============ */
+.pmem { align-items: center; justify-content: center; gap: 26px; padding: 10px 18px 18px; overflow: auto; }
+.mgrid {
+  --mcard: 74px;
+  display: grid; grid-template-columns: repeat(var(--mcols, 4), var(--mcard)); gap: 11px;
+}
+.mcard { width: var(--mcard); height: var(--mcard); perspective: 600px; cursor: pointer; }
+.mcard .inner {
+  position: relative; width: 100%; height: 100%;
+  transform-style: preserve-3d;
+  transition: transform .38s var(--ease-spring);
+}
+.mcard.flipped .inner, .mcard.matched .inner { transform: rotateY(180deg); }
+.mface {
+  position: absolute; inset: 0;
+  border-radius: 14px;
+  display: grid; place-items: center;
+  backface-visibility: hidden; -webkit-backface-visibility: hidden;
+}
+.mface.back {
+  background: linear-gradient(140deg, var(--c-violet), var(--c-sakura));
+  color: rgba(255,255,255,.94);
+  box-shadow: 0 4px 10px rgba(155,140,232,.35), inset 0 2px 4px rgba(255,255,255,.4);
+}
+.mcard:not(.flipped):not(.matched):hover .back { filter: brightness(1.07); }
+.mcard:not(.flipped):not(.matched):active .inner { transform: scale(.94); }
+.mface.front {
+  background: var(--glass);
+  border: 1.5px solid var(--glass-border);
+  transform: rotateY(180deg);
+  box-shadow: var(--shadow-1);
+}
+.mcard.matched .front { border-color: color-mix(in srgb, var(--c-mint) 55%, transparent); background: color-mix(in srgb, var(--c-mint) 10%, var(--glass)); animation: tilePop .3s var(--ease-spring); }
+.memsidewrap { display: flex; flex-direction: column; gap: 10px; min-width: 172px; }
+
+/* ============ 通用结算浮层（游戏面板内） ============ */
+.gover {
+  position: absolute; inset: 0; z-index: 10;
+  display: none; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--paper) 55%, transparent);
+  backdrop-filter: blur(4px);
+  border-radius: 0 var(--r-xl) var(--r-xl) 0;
+}
+.gover.show { display: flex; }
+.gover-card {
+  background: var(--glass);
+  border: 1.5px solid var(--glass-border);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-pop);
+  padding: 26px 40px 24px;
+  text-align: center;
+  animation: cardIn .4s var(--ease-spring);
+  max-width: 86%;
+}
+@keyframes cardIn { from { transform: translateY(18px) scale(.92); opacity: 0; } to { transform: none; opacity: 1; } }
+.gover-ico { width: 52px; height: 52px; border-radius: 17px; margin: 0 auto 10px; display: grid; place-items: center; color: #fff; }
+.gover-ico.win { background: linear-gradient(140deg, var(--c-mint), var(--c-blue)); box-shadow: 0 6px 16px rgba(95,196,165,.45); }
+.gover-ico.lose { background: linear-gradient(140deg, var(--c-sakura), var(--c-violet)); box-shadow: 0 6px 16px rgba(244,144,173,.4); }
+.gover-title { font-family: "ZCOOL KuaiLe", sans-serif; font-size: 22px; letter-spacing: 2px; }
+.gover-sub { font-size: 12.5px; color: var(--ink-faint); margin-top: 4px; }
+.gover-nums { display: flex; justify-content: center; gap: 22px; margin: 14px 0 16px; }
+.gover-nums .gn { text-align: center; }
+.gover-nums .gn b { display: block; font-size: 23px; font-family: "Chakra Petch", sans-serif; font-weight: 700; color: var(--room); }
+.gover-nums .gn span { font-size: 10.5px; color: var(--ink-faint); letter-spacing: 1px; }
+.gover-foot { display: flex; gap: 9px; justify-content: center; }
+.record-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-top: 2px; padding: 3px 12px; border-radius: 999px;
+  background: color-mix(in srgb, var(--c-sun) 22%, var(--glass));
+  color: color-mix(in srgb, var(--c-orange) 80%, var(--ink));
+  font-size: 11.5px; letter-spacing: 1px;
+  font-family: "ZCOOL KuaiLe", sans-serif;
+}
+
+/* ============ 战绩舱 ============ */
+.pstats { flex-direction: column; padding: 4px 20px 14px; overflow-y: auto; gap: 14px; }
+.st-sec-title {
+  font-size: 11px; letter-spacing: 2.5px; color: var(--ink-faint);
+  font-family: "ZCOOL KuaiLe", sans-serif;
+  display: flex; align-items: center; gap: 8px;
+}
+.st-sec-title::after { content: ""; flex: 1; height: 1px; background: color-mix(in srgb, var(--ink) 10%, transparent); }
+.st-overview { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.ov-card {
+  background: var(--glass-soft);
+  border-radius: var(--r-lg);
+  padding: 13px 16px 12px;
+  position: relative; overflow: hidden;
+}
+.ov-card::after {
+  content: ""; position: absolute; right: -14px; top: -14px;
+  width: 52px; height: 52px; border-radius: 16px;
+  transform: rotate(18deg);
+  opacity: .5;
+}
+.ov-card:nth-child(1)::after { background: var(--c-sun-soft); }
+.ov-card:nth-child(2)::after { background: var(--c-sakura-soft); }
+.ov-card:nth-child(3)::after { background: var(--c-mint-soft); }
+.ov-card:nth-child(4)::after { background: var(--c-violet-soft); }
+.ov-card .lab { font-size: 11px; color: var(--ink-faint); letter-spacing: 1px; }
+.ov-card .val { font-size: 26px; font-family: "Chakra Petch", sans-serif; font-weight: 700; color: var(--ink); line-height: 1.25; }
+.ov-card .val em { font-style: normal; font-size: 12px; color: var(--ink-faint); font-weight: 600; margin-left: 2px; }
+
+.st-best { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.best-card {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--glass-soft);
+  border-radius: var(--r-lg);
+  padding: 12px 15px;
+}
+.best-ico { width: 38px; height: 38px; border-radius: 12px; flex-shrink: 0; display: grid; place-items: center; color: #fff; }
+.best-main { flex: 1; min-width: 0; line-height: 1.3; }
+.best-name { font-size: 13px; font-family: "ZCOOL KuaiLe", sans-serif; letter-spacing: 1px; }
+.best-val { font-size: 17px; font-family: "Chakra Petch", sans-serif; font-weight: 700; color: var(--room); }
+.best-val.none { color: var(--ink-faint); font-weight: 600; font-size: 13px; }
+
+.st-chart-row { display: flex; gap: 14px; align-items: stretch; }
+.chart-panel {
+  flex: 1.35; min-width: 0;
+  background: var(--glass-soft); border-radius: var(--r-lg);
+  padding: 13px 16px 10px;
+  display: flex; flex-direction: column;
+}
+.chart-panel svg { flex: 1; width: 100%; min-height: 0; }
+.recent-panel {
+  flex: 1; min-width: 0;
+  background: var(--glass-soft); border-radius: var(--r-lg);
+  padding: 13px 16px;
+  display: flex; flex-direction: column;
+  min-height: 178px;
+}
+.recent-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+.rrow { display: flex; align-items: center; gap: 9px; padding: 5.5px 0; border-bottom: 1px dashed color-mix(in srgb, var(--ink) 8%, transparent); }
+.rrow:last-child { border-bottom: none; }
+.rrow .ric { width: 27px; height: 27px; border-radius: 9px; flex-shrink: 0; display: grid; place-items: center; color: #fff; }
+.rrow .rmain { flex: 1; min-width: 0; line-height: 1.25; }
+.rrow .rt { font-size: 12.5px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rrow .rt b { font-family: "Chakra Petch", sans-serif; color: var(--room); font-weight: 600; }
+.rrow .rs { font-size: 10.5px; color: var(--ink-faint); }
+.rrow .rwhen { font-size: 10.5px; color: var(--ink-faint); flex-shrink: 0; }
+.empty-hint { flex: 1; display: grid; place-items: center; color: var(--ink-faint); font-size: 12.5px; text-align: center; line-height: 1.8; }
+
+.table-foot {
+  flex-shrink: 0;
+  display: flex; align-items: center; gap: 14px;
+  padding: 9px 16px 12px;
+  font-size: 11px; color: var(--ink-faint);
+}
+.table-foot kbd {
+  font-family: "Chakra Petch", sans-serif; font-size: 10px;
+  background: var(--glass-chip); border: 1px solid var(--glass-border);
+  border-radius: 5px; padding: 1px 6px; color: var(--ink-soft);
+  box-shadow: 0 1.5px 0 var(--glass-border);
+}
+.table-foot .foot-right { margin-left: auto; }
+
+/* ============ 弹窗 / Toast / Tweaks（沿用站点范式） ============ */
+.modal-mask {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(76, 85, 112, .35);
+  backdrop-filter: blur(3px);
+  display: none; align-items: center; justify-content: center;
+}
+.modal-mask.show { display: flex; }
+.modal {
+  background: var(--glass);
+  border: 1.5px solid var(--glass-border);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-pop);
+  width: min(400px, 88vw);
+  padding: 22px 24px 18px;
+  animation: cardIn .35s var(--ease-spring);
+}
+.modal h3 { font-family: "ZCOOL KuaiLe", sans-serif; font-size: 17px; letter-spacing: 1px; }
+.modal .desc { font-size: 12.5px; color: var(--ink-soft); margin-top: 6px; line-height: 1.7; }
+.modal-foot { display: flex; justify-content: flex-end; gap: 9px; margin-top: 18px; }
+
+.toast {
+  position: fixed; left: 50%; bottom: 30px; transform: translate(-50%, 20px);
+  z-index: 70;
+  display: flex; align-items: center; gap: 9px;
+  background: var(--glass);
+  border: 1.5px solid var(--glass-border);
+  border-radius: 999px;
+  box-shadow: var(--shadow-2);
+  padding: 10px 20px;
+  font-size: 13px; color: var(--ink);
+  opacity: 0; pointer-events: none;
+  transition: all .35s var(--ease-spring);
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+.toast .t-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c-blue); }
+.toast.success .t-dot { background: var(--c-mint); }
+.toast.danger .t-dot { background: var(--c-danger); }
+
+.tweaks-fab {
+  position: fixed; right: 22px; bottom: 22px; z-index: 65;
+  width: 44px; height: 44px; border-radius: 50%;
+  background: var(--glass);
+  border: 1.5px solid var(--glass-border);
+  box-shadow: var(--shadow-2);
+  display: grid; place-items: center;
+  color: var(--ink-soft);
+  transition: transform .3s var(--ease-spring);
+}
+.tweaks-fab:hover { transform: rotate(30deg) scale(1.06); }
+.tweaks {
+  position: fixed; right: 22px; bottom: 76px; z-index: 65;
+  width: 240px;
+  background: var(--glass);
+  border: 1.5px solid var(--glass-border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-pop);
+  padding: 16px;
+  display: none;
+}
+.tweaks.show { display: block; }
+.tweaks h4 { font-size: 11px; letter-spacing: 2.5px; color: var(--ink-faint); margin-bottom: 12px; font-family: "ZCOOL KuaiLe", sans-serif; }
+.tweak-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 11px; font-size: 12.5px; color: var(--ink-soft); }
+.tweak-row:last-child { margin-bottom: 0; }
+.theme-pills { display: flex; gap: 6px; }
+.theme-pills button { width: 22px; height: 22px; border-radius: 8px; border: 2px solid transparent; transition: transform .2s var(--ease-spring); }
+.theme-pills button:hover { transform: scale(1.12); }
+.theme-pills button.active { border-color: var(--ink); }
+.switch {
+  width: 36px; height: 20px; border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 18%, transparent);
+  position: relative; transition: background .25s var(--ease-out);
+  flex-shrink: 0;
+}
+.switch::after {
+  content: ""; position: absolute; top: 2px; left: 2px;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.2);
+  transition: transform .25s var(--ease-spring);
+}
+.switch.on { background: var(--room); }
+.switch.on::after { transform: translateX(16px); }
+.tweak-btn {
+  width: 100%; text-align: center;
+  border-radius: 10px; padding: 7px;
+  font-size: 12px; color: var(--c-danger);
+  background: color-mix(in srgb, var(--c-danger) 8%, transparent);
+  transition: background .2s;
+}
+.tweak-btn:hover { background: color-mix(in srgb, var(--c-danger) 16%, transparent); }
+
+/* ============ 紧凑密度 & Tweaks 扩展控件 ============ */
+.station[data-density="compact"] { padding: 12px 22px 14px; }
+.station[data-density="compact"] .hero { margin: 2px 0 8px; }
+.station[data-density="compact"] .layout { gap: 12px; }
+.station[data-density="compact"] .filter-bar { padding: 8px 16px 6px; }
+.station[data-density="compact"] .b2048 { --gap: 8px; }
+.station[data-density="compact"] .mgrid { gap: 8px; }
+.color-dots { display: flex; gap: 6px; }
+.color-dots button { width: 20px; height: 20px; border-radius: 7px; border: 2px solid transparent; transition: transform .2s var(--ease-spring); }
+.color-dots button:hover { transform: scale(1.15); }
+.color-dots button.active { border-color: var(--ink); }
+.name-input {
+  width: 128px;
+  background: var(--glass-soft);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  padding: 4px 9px;
+  font: inherit; font-size: 12px; color: var(--ink);
+  outline: none;
+}
+.name-input::placeholder { color: var(--ink-faint); font-size: 11px; }
+.name-input:focus { border-color: var(--room); box-shadow: 0 0 0 3px color-mix(in srgb, var(--room) 16%, transparent); }
+
+/* ============ 响应式 ============ */
+@media (max-width: 1240px) {
+  .sidebar { width: 210px; }
+  .b2048 { --cell: 64px; }
+}
+@media (max-width: 1020px) {
+  .layout { flex-direction: column; }
+  .sidebar {
+    width: 100%; flex-direction: row; overflow-x: auto; overflow-y: hidden;
+    padding: 10px 12px; align-items: center; gap: 9px;
+  }
+  .side-title, .side-mini { display: none; }
+  .cabinet { width: auto; flex-shrink: 0; }
+  .cab-best { display: none; }
+  .side-cta { margin: 0 0 0 auto; flex-shrink: 0; padding: 9px 16px; }
+  .st-overview { grid-template-columns: repeat(2, 1fr); }
+  .st-best { grid-template-columns: 1fr; }
+  .st-chart-row { flex-direction: column; }
+  .p2048, .pmine, .pmem { flex-direction: column; }
+  .s2048, .mside, .memsidewrap { min-width: 0; width: 100%; max-width: 420px; }
+}
+@media (max-height: 820px) {
+  .hero { margin: 2px 0 8px; }
+  .hero-title { font-size: 27px; }
+  .sky-mini { width: 170px; height: 58px; }
+  .topbar { height: 50px; }
+  .b2048 { --cell: 60px; --gap: 8px; }
+}
+</style>
+</head>
+<body>
+
+<!-- 像素飘落 -->
+<div class="dust" id="dust"></div>
+
+<div class="station">
+
+  <!-- 顶栏 -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark font-display">V</div>
+      <div>
+        <div class="brand-name">某某の小站</div>
+        <div class="brand-sub">MOMO NO STATION</div>
+      </div>
+    </div>
+    <nav class="mainnav">
+      <button>首页</button>
+      <button>随笔</button>
+      <button>日记</button>
+      <button>知识库</button>
+      <button>资料库</button>
+      <button>对话</button>
+      <button class="active">游戏舱</button>
+      <button>音乐</button>
+    </nav>
+    <div class="clock-chip">
+      <div class="clock-time" id="clockTime">--<span class="sec">:</span>--</div>
+      <div class="clock-date" id="clockDate">----年--月--日</div>
+    </div>
+  </header>
+
+  <!-- 标题带 -->
+  <section class="hero">
+    <div class="hero-left">
+      <div class="hero-kana">ゲームコーナー</div>
+      <div class="hero-row">
+        <h1 class="hero-title">游戏舱</h1>
+        <span class="hero-tape">来一把？输赢都要开心</span>
+        <div class="hero-sub">
+          <span class="stat">总对局 <b id="heroTotal">0</b> 局</span>
+          <span class="stat">累计 <b id="heroDur">0</b> 分钟</span>
+          <span class="stat">本周 <b id="heroWeek">0</b> 局</span>
+        </div>
+      </div>
+    </div>
+
+    <button class="np-chip" id="lastChip" title="回到上次玩到的机台">
+      <span class="np-dot" id="lastDot"></span>
+      <span class="np-main">
+        <span class="np-title" id="lastTitle">最近玩过 · —</span>
+        <span class="np-sub" id="lastSub">还没有对局记录</span>
+      </span>
+      <span class="np-ico" id="lastIco"></span>
+    </button>
+
+    <div class="sky-mini" aria-hidden="true">
+      <div class="sky-sun"></div>
+      <div class="sky-cloud c1"></div>
+      <div class="sky-cloud c2"></div>
+      <div class="sky-hill h1"></div>
+      <div class="sky-hill h2"></div>
+    </div>
+  </section>
+
+  <div class="layout">
+    <!-- 左侧：机台列 -->
+    <aside class="panel sidebar">
+      <div class="side-title">机台 <span class="en">CABINETS</span></div>
+      <div id="cabinetList"></div>
+      <div class="side-title" style="margin-top:2px">舱内速报 <span class="en">BRIEFING</span></div>
+      <div class="side-mini">
+        <div class="mini-row"><span>综合胜率</span><b id="miniWin">—</b></div>
+        <div class="mini-row"><span>最佳机台</span><b id="miniTop" style="font-size:13px">—</b></div>
+        <div class="mini-row"><span>最长纪录保持</span><b id="miniKeep">—</b></div>
+      </div>
+      <button class="side-cta" id="ctaStats">
+        <span id="ctaIco"></span>
+        进入战绩舱
+      </button>
+    </aside>
+
+    <!-- 右侧：游戏 / 战绩 -->
+    <main class="panel content">
+      <div class="filter-bar">
+        <div class="crumb">
+          <span class="crumb-game" id="crumbGame">2048</span>
+          <span class="crumb-desc" id="crumbDesc">滑动合并，冲向 2048</span>
+        </div>
+        <div class="bar-right">
+          <div id="gameToolbar" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"></div>
+          <div class="seg" id="viewSeg">
+            <span data-view="game" class="active" tabindex="0">游戏</span>
+            <span data-view="stats" tabindex="0">战绩</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage-wrap">
+        <!-- 三个游戏面板（gpane）与战绩面板（pstats）由 JS 填充 -->
+        <div class="gpane p2048" id="pane2048"></div>
+        <div class="gpane pmine" id="paneMine"></div>
+        <div class="gpane pmem" id="paneMem"></div>
+        <div class="gpane pstats" id="paneStats"></div>
+      </div>
+
+      <div class="table-foot">
+        <span id="footHint">方向键 / WASD 移动 · <kbd>R</kbd> 重开</span>
+        <span class="foot-right">战绩暂存于本机浏览器 · 正式版将同步到服务器</span>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- 清空确认弹窗 -->
+<div class="modal-mask" id="confirmMask">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cfTitle">
+    <h3 id="cfTitle"></h3>
+    <div class="desc" id="cfDesc"></div>
+    <div class="modal-foot">
+      <button class="btn" id="cfCancel">取消</button>
+      <button class="btn ghost-danger" id="cfOk"></button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast" role="status">
+  <span class="t-dot"></span>
+  <span id="toastText"></span>
+</div>
+
+<!-- Tweaks -->
+<button class="tweaks-fab" id="tweaksFab" title="Tweaks" aria-label="打开 Tweaks 面板">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 8h10M18 8h2M4 16h2M10 16h10"/><circle cx="16" cy="8" r="2.2"/><circle cx="8" cy="16" r="2.2"/></svg>
+</button>
+<div class="tweaks" id="tweaks">
+  <h4>TWEAKS</h4>
+  <div class="tweak-row"><span>时段</span>
+    <div class="theme-pills" id="themePills">
+      <button data-theme="morning" title="清晨" style="background:linear-gradient(140deg,#bfe6f7,#ffd9e4)"></button>
+      <button data-theme="noon" title="正午" style="background:linear-gradient(140deg,#7cc4f5,#ffe4c4)"></button>
+      <button data-theme="dusk" title="黄昏" style="background:linear-gradient(140deg,#e0699b,#ffb45e)"></button>
+      <button data-theme="night" title="夜晚" style="background:linear-gradient(140deg,#3d3f7a,#9b8ce8)"></button>
+    </div>
+  </div>
+  <div class="tweak-row"><span>夜间墨色</span><button class="switch" id="twInk" aria-label="切换夜间墨色"></button></div>
+  <div class="tweak-row"><span>房间主题色</span><div class="color-dots" id="roomDots"></div></div>
+  <div class="tweak-row"><span>紧凑密度</span><button class="switch" id="twDensity" aria-label="切换紧凑密度"></button></div>
+  <div class="tweak-row"><span>像素飘落</span><button class="switch on" id="twDust" aria-label="切换像素飘落"></button></div>
+  <div class="tweak-row"><span>芯片音效</span><button class="switch on" id="twSound" aria-label="切换音效"></button></div>
+  <div class="tweak-row"><span>2048 撤销辅助</span><button class="switch" id="twUndo" aria-label="切换 2048 撤销辅助"></button></div>
+  <div class="tweak-row"><span>玩家代号</span><input class="name-input" id="twName" maxlength="12" placeholder="给将来的排行榜"></div>
+  <button class="tweak-btn" id="twReset">清空示例战绩数据</button>
+</div>
+
+<script>
+'use strict';
+/* ================= 工具 ================= */
+const $ = (s, el) => (el || document).querySelector(s);
+const $$ = (s, el) => Array.from((el || document).querySelectorAll(s));
+const pad = (n) => String(n).padStart(2, '0');
+const fmtInt = (n) => Number(n).toLocaleString('zh-CN');
+const dayKey = (t) => { const d = new Date(t); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); };
+const weekCN = ['日', '一', '二', '三', '四', '五', '六'];
+
+function fmtDur(s) {
+  s = Math.max(0, Math.round(s));
+  if (s < 60) return s + 's';
+  return Math.floor(s / 60) + ':' + pad(s % 60);
+}
+function relTime(t) {
+  const d = Date.now() - t;
+  if (d < 60e3) return '刚刚';
+  if (d < 3600e3) return Math.floor(d / 60e3) + ' 分钟前';
+  if (d < 86400e3) return Math.floor(d / 3600e3) + ' 小时前';
+  const days = Math.floor(d / 86400e3);
+  if (days < 7) return days + ' 天前';
+  return new Date(t).toLocaleDateString('zh-CN');
+}
+function countUp(el, target, fmt) {
+  fmt = fmt || ((v) => String(Math.round(v)));
+  const start = performance.now(), dur = 700, from = 0;
+  function frame(t) {
+    const p = Math.min(1, (t - start) / dur);
+    const e = 1 - Math.pow(1 - p, 3);
+    el.textContent = fmt(from + (target - from) * e);
+    if (p < 1) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+
+/* ================= 内联 SVG 图标（自绘 / lucide 风格，开源可复用） ================= */
+const svg = (inner, s, sw) =>
+  '<svg width="' + (s || 14) + '" height="' + (s || 14) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + (sw || 2) + '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + inner + '</svg>';
+const I = {
+  grid: svg('<rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/>', 20, 2),
+  bomb: svg('<circle cx="10.5" cy="13.5" r="7.5"/><path d="M15.8 8.2 18.3 5.7"/><path d="M19.5 2.5v3M18 4h3"/>', 20, 2),
+  cards: svg('<rect x="3.5" y="4.5" width="11" height="14" rx="2.5"/><path d="M9.5 6.5h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-8" stroke-dasharray="2.6 2.6"/>', 20, 2),
+  trophy: svg('<path d="M8 21h8M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 5H4v1a3 3 0 0 0 3 3"/><path d="M17 5h3v1a3 3 0 0 1-3 3"/>', 26, 1.8),
+  flag: svg('<path d="M5 21V4"/><path d="M5 4h12l-2.5 4L17 12H5"/>', 14, 2.1),
+  flagBig: svg('<path d="M5 21V4"/><path d="M5 4h12l-2.5 4L17 12H5"/>', 20, 2),
+  timer: svg('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5"/><path d="M9 2h6"/>', 15, 2),
+  replay: svg('<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>', 14, 2.1),
+  chart: svg('<path d="M5 20v-6M11 20V8M17 20V10"/><path d="M3 20h18"/>', 15, 2.1),
+  chevR: svg('<path d="m9 6 6 6-6 6"/>', 13, 2.2),
+  up: svg('<path d="m6 14 6-6 6 6"/>', 16, 2.2),
+  down: svg('<path d="m6 10 6 6 6-6"/>', 16, 2.2),
+  left: svg('<path d="m14 6-6 6 6 6"/>', 16, 2.2),
+  right: svg('<path d="m10 6 6 6-6 6"/>', 16, 2.2),
+  mine: svg('<circle cx="12" cy="12" r="5.5" fill="currentColor" stroke="none"/><path d="M12 3.5v3M12 17.5v3M3.5 12h3M17.5 12h3M6 6l2.1 2.1M18 18l-2.1-2.1M18 6l-2.1 2.1M6 18l2.1-2.1"/>', 15, 1.8),
+  // 记忆翻牌卡面（12 种，6×4 规格需要）
+  faces: [
+    svg('<circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3l-1.8 1.8M7.1 16.9l-1.8 1.8"/>', 26, 1.9),
+    svg('<path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/>', 26, 1.9),
+    svg('<path d="M12 2.6 14.9 8.5 21.4 9.4 16.7 14 17.8 20.5 12 17.4 6.2 20.5 7.3 14 2.6 9.4 9.1 8.5z"/>', 26, 1.9),
+    svg('<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7z"/>', 26, 1.9),
+    svg('<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z"/>', 26, 1.9),
+    svg('<path d="M13 2 3 14h9l-1 8 10-12h-9z"/>', 26, 1.9),
+    svg('<path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/>', 26, 1.9),
+    svg('<circle cx="12" cy="12" r="2.6"/><circle cx="12" cy="5" r="2.2"/><circle cx="18.1" cy="8.5" r="2.2"/><circle cx="18.1" cy="15.5" r="2.2"/><circle cx="12" cy="19" r="2.2"/><circle cx="5.9" cy="15.5" r="2.2"/><circle cx="5.9" cy="8.5" r="2.2"/>', 26, 1.9),
+    svg('<path d="M12 3 19 12 12 21 5 12z"/>', 26, 1.9),
+    svg('<path d="M12 3.5 19.4 8v8L12 20.5 4.6 16V8z"/>', 26, 1.9),
+    svg('<path d="M12 4.5 20 19H4z"/>', 26, 1.9),
+    svg('<path d="M9 18V6l10-2.5V15"/><circle cx="6.5" cy="18" r="2.6"/><circle cx="16.5" cy="15" r="2.6"/>', 26, 1.9),
+  ],
+  pad: svg('<rect x="2.5" y="7.5" width="19" height="10" rx="5"/><path d="M8 10.5v4M6 12.5h4"/><circle cx="15.8" cy="11.2" r=".4" fill="currentColor"/><circle cx="18.4" cy="13.6" r=".4" fill="currentColor"/>', 13, 1.9),
+  undo: svg('<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>', 14, 2.1),
+};
+
+/* ================= 芯片音效（WebAudio 合成，零素材） ================= */
+const Sound = {
+  on: true, ctx: null,
+  ensure() {
+    if (!this.ctx) {
+      try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); }
+      catch (e) { this.on = false; }
+    }
+    return this.ctx;
+  },
+  blip(freq, dur, type, vol, slideTo) {
+    if (!this.on) return;
+    const ctx = this.ensure();
+    if (!ctx) return;
+    if (ctx.state === 'suspended') ctx.resume();
+    const t = ctx.currentTime, o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type || 'square';
+    o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+    g.gain.setValueAtTime(vol || .05, t);
+    g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.connect(g); g.connect(ctx.destination);
+    o.start(t); o.stop(t + dur + .02);
+  },
+  chord(freqs, dur, vol) {
+    freqs.forEach((f, i) => setTimeout(() => this.blip(f, dur || .16, 'triangle', vol || .055), i * 75));
+  },
+  click() { this.blip(720, .045, 'square', .035); },
+  move() { this.blip(230, .045, 'triangle', .05); },
+  merge(v) { this.blip(320 + Math.min(v, 2048) / 2048 * 480, .09, 'triangle', .06); },
+  flip() { this.blip(540, .05, 'triangle', .05); },
+  match() { this.chord([523, 659], .12); },
+  win() { this.chord([523, 659, 784, 1046], .18); },
+  lose() { this.blip(300, .42, 'sawtooth', .045, 130); },
+};
+
+/* ================= 战绩仓库（localStorage，正式版换后端接口） ================= */
+const STORE_KEY = 'ai-arcade-proto-v1';
+const Store = {
+  data: null,
+  load() {
+    try { this.data = JSON.parse(localStorage.getItem(STORE_KEY)); } catch (e) { this.data = null; }
+    if (!this.data || !Array.isArray(this.data.records)) {
+      this.data = { records: [] };
+      this.seed();
+      this.save();
+    }
+  },
+  save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(this.data)); } catch (e) {} },
+  add(rec) {
+    rec.t = Date.now();
+    this.data.records.push(rec);
+    if (this.data.records.length > 400) this.data.records = this.data.records.slice(-400);
+    this.save();
+  },
+  clear() { this.data = { records: [] }; this.save(); },
+  records() { return this.data.records; },
+  /* 内置示例数据（演示用，Tweaks 可清空） */
+  seed() {
+    const now = Date.now(), H = 3600e3, D = 86400e3;
+    const demo = [
+      { g: 'g2048', score: 736,  dur: 210, win: false, t: now - 6.1 * D },
+      { g: 'mem',   moves: 34,   dur: 96,  win: true,  t: now - 5.6 * D },
+      { g: 'mine',  diff: 'easy', win: true,  dur: 88,  t: now - 4.9 * D },
+      { g: 'g2048', score: 1132, dur: 305, win: false, t: now - 4.2 * D },
+      { g: 'mine',  diff: 'easy', win: false, dur: 64,  t: now - 3.6 * D },
+      { g: 'mem',   moves: 27,   dur: 78,  win: true,  t: now - 3.1 * D },
+      { g: 'g2048', score: 988,  dur: 266, win: false, t: now - 2.5 * D },
+      { g: 'mine',  diff: 'hard', win: false, dur: 152, t: now - 2.2 * D },
+      { g: 'mem',   moves: 31,   dur: 88,  win: true,  t: now - 1.7 * D },
+      { g: 'g2048', score: 1560, dur: 388, win: false, t: now - 1.3 * D },
+      { g: 'mine',  diff: 'easy', win: true,  dur: 71,  t: now - 22 * H },
+      { g: 'mem',   moves: 24,   dur: 70,  win: true,  t: now - 9 * H },
+      { g: 'g2048', score: 1236, dur: 322, win: false, t: now - 5 * H },
+      { g: 'mine',  diff: 'easy', win: true,  dur: 66,  t: now - 2 * H },
+    ];
+    demo.forEach((r) => { r.t = Math.round(r.t); this.data.records.push(r); });
+  },
+};
+
+/* ================= 偏好设置（localStorage，正式版对应用户偏好存储） ================= */
+const SETTINGS_KEY = 'ai-arcade-settings-v1';
+const Settings = {
+  data: { room: 'orange', density: 'cozy', memCols: 4, undo2048: false, dust: true, sound: true, name: '' },
+  load() {
+    try { Object.assign(this.data, JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}); } catch (e) {}
+  },
+  save() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(this.data)); } catch (e) {} },
+};
+/* 房间主题色预设（--room / --room-soft） */
+const ROOM_PRESETS = {
+  orange: ['#ffa45c', '#ffe9cc'],
+  sakura: ['#f490ad', '#fde4ec'],
+  violet: ['#9b8ce8', '#e4dffd'],
+  mint:   ['#5fc4a5', '#d6f2e8'],
+  blue:   ['#6aaee8', '#d8ebfb'],
+};
+const ROOM_NAMES = { orange: '暖橘', sakura: '樱粉', violet: '紫罗兰', mint: '薄荷', blue: '天蓝' };
+function applyRoom(key) {
+  const p = ROOM_PRESETS[key] || ROOM_PRESETS.orange;
+  document.documentElement.style.setProperty('--room', p[0]);
+  document.documentElement.style.setProperty('--room-soft', p[1]);
+}
+
+const GAMES = {
+  g2048: { id: 'g2048', name: '2048', sub: 'GAME 2048', desc: '滑动合并，冲向 2048', icon: I.grid, grad: 'linear-gradient(140deg,#ffcf6e,#f490ad)', acc: '#ffa45c' },
+  mine:  { id: 'mine',  name: '扫雷', sub: 'MINESWEEPER', desc: '凭数字推理，避开每一颗雷', icon: I.bomb, grad: 'linear-gradient(140deg,#9b8ce8,#c79ae0)', acc: '#9b8ce8' },
+  mem:   { id: 'mem',   name: '记忆翻牌', sub: 'MEMORY FLIP', desc: '翻出所有成对的卡牌', icon: I.cards, grad: 'linear-gradient(140deg,#5fc4a5,#6aaee8)', acc: '#5fc4a5' },
+};
+const GAME_ORDER = ['g2048', 'mine', 'mem'];
+
+function bestOf(gid) {
+  const rs = Store.records().filter((r) => r.g === gid);
+  if (!rs.length) return null;
+  if (gid === 'g2048') {
+    const b = Math.max.apply(null, rs.map((r) => r.score));
+    return { label: '最高分', value: fmtInt(b), raw: b, fmt: 'num' };
+  }
+  if (gid === 'mine') {
+    const wins = rs.filter((r) => r.win);
+    if (!wins.length) return { label: '最快通关', value: '—', raw: null };
+    const b = Math.min.apply(null, wins.map((r) => r.dur));
+    return { label: '最快通关', value: fmtDur(b), raw: b, fmt: 'dur' };
+  }
+  if (gid === 'mem') {
+    const b = Math.min.apply(null, rs.map((r) => r.moves));
+    return { label: '最少步数', value: b + ' 步', raw: b, fmt: 'moves' };
+  }
+  return null;
+}
+function aggregate() {
+  const rs = Store.records(), now = Date.now();
+  const withWin = rs.filter((r) => typeof r.win === 'boolean');
+  const wins = withWin.filter((r) => r.win).length;
+  return {
+    total: rs.length,
+    week: rs.filter((r) => now - r.t < 7 * 86400e3).length,
+    dur: rs.reduce((s, r) => s + (r.dur || 0), 0),
+    winRate: withWin.length ? Math.round((wins / withWin.length) * 100) : null,
+  };
+}
+
+/* ================= Toast / 弹窗 ================= */
+let toastTimer = null;
+function toast(text, type) {
+  const el = $('#toast');
+  $('#toastText').textContent = text;
+  el.className = 'toast show ' + (type || '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = 'toast'; }, 2600);
+}
+let confirmCb = null;
+function confirmBox(title, desc, okText, cb) {
+  $('#cfTitle').textContent = title;
+  $('#cfDesc').textContent = desc;
+  $('#cfOk').textContent = okText;
+  confirmCb = cb;
+  $('#confirmMask').classList.add('show');
+}
+$('#cfCancel').addEventListener('click', () => { $('#confirmMask').classList.remove('show'); Sound.click(); });
+$('#cfOk').addEventListener('click', () => {
+  $('#confirmMask').classList.remove('show');
+  Sound.click();
+  if (confirmCb) confirmCb();
+  confirmCb = null;
+});
+
+/* ================= 主题 / 时钟 / 像素飘落 ================= */
+const Theme = {
+  auto: true,
+  byHour(h) { if (h >= 5 && h < 11) return 'morning'; if (h >= 11 && h < 17) return 'noon'; if (h >= 17 && h < 21) return 'dusk'; return 'night'; },
+  set(name, manual) {
+    document.documentElement.dataset.theme = name;
+    if (manual) this.auto = false;
+    $$('#themePills button').forEach((b) => b.classList.toggle('active', manual && b.dataset.theme === name));
+  },
+  autoOn() { this.auto = true; this.set(this.byHour(new Date().getHours()), false); },
+};
+$('#themePills').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-theme]');
+  if (!b) return;
+  Theme.set(b.dataset.theme, true);
+  Sound.click();
+});
+function tickClock() {
+  const d = new Date();
+  $('#clockTime').innerHTML = pad(d.getHours()) + '<span class="sec">:</span>' + pad(d.getMinutes()) + ' <span class="sec">' + pad(d.getSeconds()) + '</span>';
+  $('#clockDate').textContent = d.getFullYear() + '年' + (d.getMonth() + 1) + '月' + d.getDate() + '日 · 周' + weekCN[d.getDay()];
+  if (Theme.auto) Theme.set(Theme.byHour(d.getHours()), false);
+}
+
+const Dust = {
+  on: true,
+  colors: ['#f490ad', '#9b8ce8', '#c79ae0', '#6aaee8', '#5fc4a5', '#ffcf6e', '#ffa45c'],
+  build() {
+    const box = $('#dust');
+    box.innerHTML = '';
+    if (!this.on) return;
+    for (let i = 0; i < 16; i++) {
+      const p = document.createElement('i');
+      const size = 5 + Math.random() * 6;
+      p.style.left = Math.random() * 100 + 'vw';
+      p.style.width = size + 'px';
+      p.style.height = size + 'px';
+      p.style.background = this.colors[i % this.colors.length];
+      p.style.opacity = .4 + Math.random() * .4;
+      p.style.animationDuration = 9 + Math.random() * 9 + 's';
+      p.style.animationDelay = -Math.random() * 14 + 's';
+      box.appendChild(p);
+    }
+  },
+};
+
+/* ================= 视图状态 ================= */
+let curGame = 'g2048';
+let curView = 'game'; // 'game' | 'stats'
+const gameToolbar = $('#gameToolbar');
+
+/* ================= 2048 ================= */
+const G2048 = {
+  el: null, tiles: new Map(), uid: 1, score: 0, over: false, won: false,
+  startTs: 0, bestShown: 0,
+  init() {
+    this.el = $('#pane2048');
+    this.el.innerHTML =
+      '<div class="b2048col">' +
+        '<div class="b2048" id="b2048"></div>' +
+        '<div class="hintchip">方向键 / WASD / 滑动 · <kbd>R</kbd> 重开</div>' +
+      '</div>' +
+      '<div class="s2048">' +
+        '<div class="scorecard"><div class="lab">当前分数</div><div class="val num" id="s2048cur">0</div></div>' +
+        '<div class="scorecard roomline"><div class="lab">舱内纪录</div><div class="val num" id="s2048best">0</div></div>' +
+        '<div class="dpad">' +
+          '<span></span><button data-dir="up" aria-label="上">' + I.up + '</button><span></span>' +
+          '<button data-dir="left" aria-label="左">' + I.left + '</button>' +
+          '<button data-dir="down" aria-label="下">' + I.down + '</button>' +
+          '<button data-dir="right" aria-label="右">' + I.right + '</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="gover" id="ov2048"></div>';
+    // 底格（--r/--c + CSS calc 定位，随响应式 --cell/--gap 自动重排）
+    const board = $('#b2048');
+    for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) {
+      const bg = document.createElement('div');
+      bg.className = 'cellbg';
+      bg.style.setProperty('--r', r);
+      bg.style.setProperty('--c', c);
+      board.appendChild(bg);
+    }
+    // 滑动
+    let tx = 0, ty = 0;
+    board.addEventListener('touchstart', (e) => { tx = e.touches[0].clientX; ty = e.touches[0].clientY; }, { passive: true });
+    board.addEventListener('touchend', (e) => {
+      const dx = e.changedTouches[0].clientX - tx, dy = e.changedTouches[0].clientY - ty;
+      if (Math.max(Math.abs(dx), Math.abs(dy)) < 24) return;
+      if (Math.abs(dx) > Math.abs(dy)) this.move(dx > 0 ? 'right' : 'left');
+      else this.move(dy > 0 ? 'down' : 'up');
+    });
+    this.el.querySelector('.dpad').addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-dir]');
+      if (b) this.move(b.dataset.dir);
+    });
+    this.restart();
+  },
+  best() { const b = bestOf('g2048'); return b ? b.raw : 0; },
+  /* 当前格距 = --cell + --gap（随断点变化，动态读取避免错位） */
+  stride() {
+    const cs = getComputedStyle($('#b2048'));
+    return parseFloat(cs.getPropertyValue('--cell')) + parseFloat(cs.getPropertyValue('--gap'));
+  },
+  /* 撤销辅助：每步移动成功前压栈一帧快照 */
+  hist: [],
+  snapshot() {
+    const t = [];
+    this.tiles.forEach((x) => t.push({ r: x.r, c: x.c, v: x.v }));
+    return { t, score: this.score };
+  },
+  undo() {
+    if (!this.hist.length) return;
+    const s = this.hist.pop();
+    this.tiles.forEach((t) => t.node.remove());
+    this.tiles.clear();
+    s.t.forEach((p) => {
+      const t = { id: this.uid++, r: p.r, c: p.c, v: p.v, node: null, isNew: false };
+      t.node = document.createElement('div');
+      t.node.innerHTML = '<div class="tin"></div>';
+      $('#b2048').appendChild(t.node);
+      this.tiles.set(t.id, t);
+    });
+    this.score = s.score;
+    this.over = false;
+    $('#ov2048').classList.remove('show');
+    this.render();
+    Sound.flip();
+  },
+  restart() {
+    this.tiles.forEach((t) => t.node.remove());
+    this.tiles.clear();
+    this.hist = [];
+    this.score = 0; this.over = false; this.won = false;
+    this.startTs = Date.now();
+    $('#ov2048').classList.remove('show');
+    this.bestShown = this.best();
+    $('#s2048best').textContent = fmtInt(this.bestShown);
+    this.spawn(); this.spawn();
+    this.render();
+  },
+  spawn() {
+    const empty = [];
+    const grid = this.gridOf();
+    for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) if (!grid[r][c]) empty.push([r, c]);
+    if (!empty.length) return;
+    const pick = empty[Math.floor(Math.random() * empty.length)];
+    const t = { id: this.uid++, r: pick[0], c: pick[1], v: Math.random() < .9 ? 2 : 4, node: null, isNew: true };
+    t.node = document.createElement('div');
+    t.node.innerHTML = '<div class="tin"></div>';
+    $('#b2048').appendChild(t.node);
+    this.tiles.set(t.id, t);
+  },
+  gridOf() {
+    const g = [[null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null]];
+    this.tiles.forEach((t) => { g[t.r][t.c] = t; });
+    return g;
+  },
+  move(dir) {
+    if (this.over) return;
+    const snap = this.snapshot();
+    const g = this.gridOf();
+    const rows = dir === 'left' || dir === 'right';
+    let moved = false, gain = 0;
+    const eaten = [], mergedTiles = [];
+    for (let i = 0; i < 4; i++) {
+      const line = [];
+      for (let j = 0; j < 4; j++) {
+        const r = rows ? i : (dir === 'up' ? j : 3 - j);
+        const c = rows ? (dir === 'left' ? j : 3 - j) : i;
+        if (g[r][c]) line.push(g[r][c]);
+      }
+      const out = [];
+      for (let k = 0; k < line.length; k++) {
+        const t = line[k];
+        if (k + 1 < line.length && line[k + 1].v === t.v) {
+          const t2 = line[k + 1]; k++;
+          t.v *= 2; gain += t.v;
+          t.merged = true; mergedTiles.push(t);
+          t2.eat = t; eaten.push(t2);
+          if (t.v >= 2048) this.won = true;
+        }
+        out.push(t);
+      }
+      out.forEach((t, idx) => {
+        const r = rows ? i : (dir === 'up' ? idx : 3 - idx);
+        const c = rows ? (dir === 'left' ? idx : 3 - idx) : i;
+        if (t.r !== r || t.c !== c) moved = true;
+        t.r = r; t.c = c;
+      });
+    }
+    if (!moved) return;
+    this.hist.push(snap);
+    if (this.hist.length > 24) this.hist.shift();
+    Sound.move();
+    eaten.forEach((e2) => { e2.r = e2.eat.r; e2.c = e2.eat.c; e2.leaving = true; });
+    this.score += gain;
+    this.render();
+    setTimeout(() => {
+      eaten.forEach((e2) => { e2.node.remove(); this.tiles.delete(e2.id); });
+      mergedTiles.forEach((t) => {
+        t.eat = null; t.pop = true; Sound.merge(t.v);
+        setTimeout(() => { t.pop = false; this.paint(t); }, 200);
+      });
+      this.spawn();
+      this.renderScore();
+      this.render();
+      if (!this.movesAvailable()) this.endGame();
+    }, 115);
+  },
+  movesAvailable() {
+    if (this.tiles.size < 16) return true;
+    const g = this.gridOf();
+    for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) {
+      const v = g[r][c].v;
+      if (c < 3 && g[r][c + 1].v === v) return true;
+      if (r < 3 && g[r + 1][c].v === v) return true;
+    }
+    return false;
+  },
+  paint(t) {
+    const inner = t.node.firstChild;
+    const len = String(t.v).length;
+    t.node.className = 'tile'
+      + (t.leaving ? ' eat' : '')
+      + (t.isNew ? ' new' : '')
+      + (t.pop ? ' pop' : '')
+      + ' t' + (t.v > 2048 ? 'big' : t.v);
+    inner.style.fontSize = len <= 2 ? '27px' : len === 3 ? '22px' : '18px';
+    inner.textContent = t.v;
+    t.isNew = false;
+  },
+  render() {
+    const st = this.stride();
+    this.tiles.forEach((t) => {
+      this.paint(t);
+      t.node.style.transform = 'translate(' + t.c * st + 'px,' + t.r * st + 'px)';
+    });
+    this.renderScore();
+    const ub = $('#tbUndo');
+    if (ub) ub.disabled = this.hist.length === 0;
+  },
+  renderScore() {
+    $('#s2048cur').textContent = fmtInt(this.score);
+    if (this.score > this.bestShown) {
+      this.bestShown = this.score;
+      $('#s2048best').textContent = fmtInt(this.score);
+    }
+  },
+  endGame() {
+    this.over = true;
+    const isRecord = this.score > 0 && this.score >= this.best();
+    const win2048 = this.won;
+    Store.add({ g: 'g2048', score: this.score, dur: Math.round((Date.now() - this.startTs) / 1000), win: win2048 });
+    Sound[win2048 ? 'win' : 'lose']();
+    const ov = $('#ov2048');
+    ov.innerHTML =
+      '<div class="gover-card">' +
+        '<div class="gover-ico ' + (win2048 ? 'win' : 'lose') + '">' + I.trophy + '</div>' +
+        '<div class="gover-title">' + (win2048 ? '达成 2048！' : '棋盘满了') + '</div>' +
+        '<div class="gover-sub">' + (win2048 ? '数字列车全速通过车站' : '棋盘还会再腾出来的，多滑几步试试') + '</div>' +
+        (isRecord ? '<div class="record-badge">' + I.trophy.replace('26', '12').replace('26', '12') + '舱内新纪录！</div>' : '') +
+        '<div class="gover-nums">' +
+          '<div class="gn"><b>' + fmtInt(this.score) + '</b><span>本局分数</span></div>' +
+          '<div class="gn"><b>' + fmtDur((Date.now() - this.startTs) / 1000) + '</b><span>本局用时</span></div>' +
+        '</div>' +
+        '<div class="gover-foot">' +
+          '<button class="btn primary" data-act="again">' + I.replay + '再来一局</button>' +
+          '<button class="btn" data-act="stats">' + I.chart + '看战绩</button>' +
+        '</div>' +
+      '</div>';
+    ov.classList.add('show');
+    ov.onclick = (e) => {
+      const b = e.target.closest('button[data-act]');
+      if (!b) return;
+      if (b.dataset.act === 'again') this.restart();
+      else setView('stats');
+    };
+    refreshMeta();
+  },
+};
+
+/* ================= 扫雷 ================= */
+const Mine = {
+  el: null, w: 9, h: 9, mines: 10, diff: 'easy',
+  cells: [], started: false, dead: false, win: false,
+  flags: 0, opened: 0, timer: 0, sec: 0, flagMode: false,
+  init() {
+    this.el = $('#paneMine');
+    this.el.innerHTML =
+      '<div class="minecol">' +
+        '<div class="mboard" id="mboard"></div>' +
+        '<div class="hintchip">左键翻开 · 右键 / 长按插旗</div>' +
+      '</div>' +
+      '<div class="mside">' +
+        '<div class="mstat">' +
+          '<div class="minecounter" id="mineLeft">' + I.mine + '<span id="mineLeftN">10</span></div>' +
+          '<div class="minecounter" id="mineTime">' + I.timer.replace('15', '15') + '<span id="mineTimeN">0s</span></div>' +
+        '</div>' +
+        '<div class="status-chip" id="mineStatus"><span class="dot"></span><span id="mineStatusT">进行中</span></div>' +
+      '</div>' +
+      '<div class="gover" id="ovMine"></div>';
+    const board = $('#mboard');
+    board.addEventListener('contextmenu', (e) => e.preventDefault());
+    board.addEventListener('click', (e) => this.onClick(e));
+    board.addEventListener('contextmenu', (e) => this.onFlag(e));
+    // 长按插旗（触摸）
+    let pressT = null;
+    board.addEventListener('touchstart', (e) => {
+      const cell = e.target.closest('.mcell');
+      if (!cell) return;
+      pressT = setTimeout(() => { pressT = null; this.flag(+cell.dataset.r, +cell.dataset.c); }, 420);
+    }, { passive: true });
+    board.addEventListener('touchend', () => { if (pressT) { clearTimeout(pressT); pressT = null; } });
+    board.addEventListener('touchmove', () => { if (pressT) { clearTimeout(pressT); pressT = null; } });
+    this.build();
+  },
+  build() {
+    this.cells = [];
+    this.started = false; this.dead = false; this.win = false;
+    this.flags = 0; this.opened = 0; this.sec = 0;
+    clearInterval(this.timer); this.timer = null;
+    const board = $('#mboard');
+    board.innerHTML = '';
+    board.style.gridTemplateColumns = 'repeat(' + this.w + ', var(--mc))';
+    for (let r = 0; r < this.h; r++) for (let c = 0; c < this.w; c++) {
+      const d = document.createElement('div');
+      d.className = 'mcell';
+      d.dataset.r = r; d.dataset.c = c;
+      board.appendChild(d);
+      this.cells.push({ r, c, mine: false, adj: 0, open: false, flag: false, node: d });
+    }
+    $('#mineLeftN').textContent = this.mines;
+    $('#mineTimeN').textContent = '0s';
+    this.status('');
+    $('#ovMine').classList.remove('show');
+    this.syncCounter();
+    if (typeof Fit !== 'undefined') Fit.apply();
+  },
+  cellAt(r, c) { return (r < 0 || c < 0 || r >= this.h || c >= this.w) ? null : this.cells[r * this.w + c]; },
+  neighbors(cell) {
+    const out = [];
+    for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+      if (!dr && !dc) continue;
+      const n = this.cellAt(cell.r + dr, cell.c + dc);
+      if (n) out.push(n);
+    }
+    return out;
+  },
+  gen(safe) {
+    const pool = this.cells.filter((x) => Math.abs(x.r - safe.r) > 1 || Math.abs(x.c - safe.c) > 1);
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp;
+    }
+    pool.slice(0, this.mines).forEach((x) => { x.mine = true; });
+    this.cells.forEach((x) => { x.adj = this.neighbors(x).filter((n) => n.mine).length; });
+  },
+  start() {
+    this.started = true;
+    this.timer = setInterval(() => {
+      this.sec++;
+      $('#mineTimeN').textContent = this.sec + 's';
+    }, 1000);
+  },
+  status(kind) {
+    const chip = $('#mineStatus');
+    chip.className = 'status-chip' + (kind === 'win' ? ' win' : kind === 'dead' ? ' dead' : '');
+    $('#mineStatusT').textContent = kind === 'win' ? '全部排除！' : kind === 'dead' ? '踩到雷了…' : this.started ? '排除进行中' : '等待第一铲';
+  },
+  syncCounter() { $('#mineLeftN').textContent = Math.max(0, this.mines - this.flags); },
+  onClick(e) {
+    const cellNode = e.target.closest('.mcell');
+    if (!cellNode || this.dead || this.win) return;
+    const cell = this.cellAt(+cellNode.dataset.r, +cellNode.dataset.c);
+    if (this.flagMode) { this.flag(cell.r, cell.c); return; }
+    this.reveal(cell);
+  },
+  onFlag(e) {
+    const cellNode = e.target.closest('.mcell');
+    if (!cellNode || this.dead || this.win) return;
+    this.flag(+cellNode.dataset.r, +cellNode.dataset.c);
+  },
+  flag(r, c) {
+    const cell = this.cellAt(r, c);
+    if (!cell || cell.open || (this.dead || this.win)) return;
+    cell.flag = !cell.flag;
+    this.flags += cell.flag ? 1 : -1;
+    cell.node.innerHTML = cell.flag ? '<span class="flagico">' + I.flag + '</span>' : '';
+    cell.node.classList.toggle('flagged', cell.flag);
+    this.syncCounter();
+    Sound.flip();
+  },
+  reveal(cell) {
+    if (cell.flag || cell.open) return;
+    if (!this.started) { this.gen(cell); this.start(); this.status(''); }
+    if (cell.mine) return this.burst(cell);
+    const queue = [cell];
+    while (queue.length) {
+      const cur = queue.pop();
+      if (cur.open || cur.flag) continue;
+      cur.open = true; this.opened++;
+      cur.node.classList.add('open');
+      if (cur.adj) { cur.node.textContent = cur.adj; cur.node.classList.add('n' + cur.adj); }
+      else this.neighbors(cur).forEach((n) => { if (!n.open && !n.mine) queue.push(n); });
+    }
+    Sound.move();
+    if (this.opened === this.w * this.h - this.mines) this.finish(true);
+  },
+  burst(cell) {
+    this.dead = true;
+    clearInterval(this.timer);
+    cell.node.classList.add('boom');
+    this.cells.forEach((x) => {
+      if (x.mine) { x.node.classList.add('open', 'minecell'); x.node.innerHTML = '<span style="color:#e0567a">' + I.mine + '</span>'; }
+    });
+    this.status('dead');
+    this.finish(false);
+  },
+  finish(winMine) {
+    this.win = winMine;
+    clearInterval(this.timer);
+    const dur = this.sec;
+    if (winMine) {
+      Store.add({ g: 'mine', diff: this.diff, win: true, dur });
+      Sound.win();
+    } else {
+      Store.add({ g: 'mine', diff: this.diff, win: false, dur });
+      Sound.lose();
+    }
+    setTimeout(() => {
+      const best = bestOf('mine');
+      const isRecord = winMine && best && dur <= best.raw;
+      const ov = $('#ovMine');
+      ov.innerHTML =
+        '<div class="gover-card">' +
+          '<div class="gover-ico ' + (winMine ? 'win' : 'lose') + '">' + I.trophy + '</div>' +
+          '<div class="gover-title">' + (winMine ? '全部排除！' : '砰——踩到雷了') + '</div>' +
+          '<div class="gover-sub">' + (winMine ? '雷区清点完毕，干得漂亮' : '数字会说话，下一局更稳') + '</div>' +
+          (isRecord ? '<div class="record-badge">舱内新纪录！</div>' : '') +
+          '<div class="gover-nums">' +
+            '<div class="gn"><b>' + fmtDur(dur) + '</b><span>用时</span></div>' +
+            '<div class="gn"><b>' + (this.diff === 'easy' ? '9×9' : this.diff === 'hard' ? '12×12' : '16×16') + '</b><span>难度</span></div>' +
+          '</div>' +
+          '<div class="gover-foot">' +
+            '<button class="btn primary" data-act="again">' + I.replay + '再来一局</button>' +
+            '<button class="btn" data-act="stats">' + I.chart + '看战绩</button>' +
+          '</div>' +
+        '</div>';
+      ov.classList.add('show');
+      ov.onclick = (e) => {
+        const b = e.target.closest('button[data-act]');
+        if (!b) return;
+        if (b.dataset.act === 'again') this.build();
+        else setView('stats');
+      };
+      refreshMeta();
+    }, winMine ? 300 : 650);
+  },
+};
+
+/* ================= 记忆翻牌 ================= */
+const Mem = {
+  el: null, pairs: 8, cols: 4, first: null, lock: false,
+  moves: 0, matched: 0, started: false, startTs: 0, timer: null,
+  faceColors: ['#f490ad', '#9b8ce8', '#c79ae0', '#6aaee8', '#5fc4a5', '#ffcf6e', '#ffa45c', '#e0699b'],
+  init() {
+    this.el = $('#paneMem');
+    this.el.innerHTML =
+      '<div class="mgrid" id="mgrid"></div>' +
+      '<div class="memsidewrap">' +
+        '<div class="scorecard"><div class="lab">已翻步数</div><div class="val num" id="memMoves">0</div></div>' +
+        '<div class="scorecard"><div class="lab">已配对</div><div class="val num" id="memPairs">0/8</div></div>' +
+        '<div class="scorecard roomline"><div class="lab">舱内纪录</div><div class="val num" id="memBest">—</div></div>' +
+        '<div class="hintchip">连续翻到两张相同卡牌即配对成功</div>' +
+      '</div>' +
+      '<div class="gover" id="ovMem"></div>';
+    this.build();
+  },
+  best() { const b = bestOf('mem'); return b ? b.raw : null; },
+  build() {
+    this.cols = Settings.data.memCols || 4;
+    this.pairs = this.cols === 4 ? 8 : 12;
+    this.first = null; this.lock = false;
+    this.moves = 0; this.matched = 0; this.started = false;
+    clearInterval(this.timer);
+    const deck = [];
+    for (let i = 0; i < this.pairs; i++) { deck.push(i, i); }
+    for (let i = deck.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = deck[i]; deck[i] = deck[j]; deck[j] = tmp;
+    }
+    const grid = $('#mgrid');
+    grid.innerHTML = '';
+    grid.style.setProperty('--mcols', this.cols);
+    deck.forEach((face) => {
+      const card = document.createElement('div');
+      card.className = 'mcard';
+      card.dataset.face = face;
+      card.innerHTML =
+        '<div class="inner">' +
+          '<div class="mface back">' + I.pad + '</div>' +
+          '<div class="mface front" style="color:' + this.faceColors[face] + '">' + I.faces[face] + '</div>' +
+        '</div>';
+      card.addEventListener('click', () => this.flip(card));
+      grid.appendChild(card);
+    });
+    $('#memMoves').textContent = '0';
+    $('#memPairs').textContent = '0/' + this.pairs;
+    const b = this.best();
+    $('#memBest').textContent = b == null ? '—' : b + ' 步';
+    $('#ovMem').classList.remove('show');
+  },
+  flip(card) {
+    if (this.lock || card.classList.contains('flipped') || card.classList.contains('matched')) return;
+    if (!this.started) {
+      this.started = true;
+      this.startTs = Date.now();
+    }
+    card.classList.add('flipped');
+    Sound.flip();
+    if (!this.first) { this.first = card; return; }
+    const a = this.first, b = card;
+    this.first = null;
+    this.moves++;
+    $('#memMoves').textContent = this.moves;
+    if (a.dataset.face === b.dataset.face) {
+      a.classList.add('matched'); b.classList.add('matched');
+      this.matched++;
+      $('#memPairs').textContent = this.matched + '/' + this.pairs;
+      Sound.match();
+      if (this.matched === this.pairs) this.finish();
+    } else {
+      this.lock = true;
+      setTimeout(() => {
+        a.classList.remove('flipped'); b.classList.remove('flipped');
+        this.lock = false;
+      }, 720);
+    }
+  },
+  finish() {
+    clearInterval(this.timer);
+    const dur = Math.round((Date.now() - this.startTs) / 1000);
+    const prevBest = this.best();
+    const isRecord = prevBest == null || this.moves < prevBest;
+    Store.add({ g: 'mem', moves: this.moves, dur, win: true, cols: this.cols });
+    Sound.win();
+    setTimeout(() => {
+      const ov = $('#ovMem');
+      ov.innerHTML =
+        '<div class="gover-card">' +
+          '<div class="gover-ico win">' + I.trophy + '</div>' +
+          '<div class="gover-title">全部配对！</div>' +
+          '<div class="gover-sub">卡牌都找到了自己的搭档</div>' +
+          (isRecord ? '<div class="record-badge">舱内新纪录！</div>' : '') +
+          '<div class="gover-nums">' +
+            '<div class="gn"><b>' + this.moves + '</b><span>步数</span></div>' +
+            '<div class="gn"><b>' + fmtDur(dur) + '</b><span>用时</span></div>' +
+          '</div>' +
+          '<div class="gover-foot">' +
+            '<button class="btn primary" data-act="again">' + I.replay + '再来一局</button>' +
+            '<button class="btn" data-act="stats">' + I.chart + '看战绩</button>' +
+          '</div>' +
+        '</div>';
+      ov.classList.add('show');
+      ov.onclick = (e) => {
+        const btn = e.target.closest('button[data-act]');
+        if (!btn) return;
+        if (btn.dataset.act === 'again') this.build();
+        else setView('stats');
+      };
+      refreshMeta();
+    }, 420);
+  },
+};
+
+/* ================= 自适应引擎：棋盘撑满舞台 =================
+   测量 .stage-wrap 可用宽高，把尺寸写入各游戏的 CSS 变量
+   （2048 --cell / 扫雷 --mc / 翻牌 --mcard），窗口缩放自动跟随 */
+const Fit = {
+  apply() {
+    const wrap = $('.stage-wrap');
+    if (!wrap || !wrap.clientWidth) return;
+    // 窄屏断点下侧栏换行到下方，棋盘可用整幅宽度
+    const pane2048 = $('#pane2048');
+    const col = pane2048 && getComputedStyle(pane2048).flexDirection === 'column';
+    const sideW = col ? 0 : 172;
+    const colGap = col ? 0 : 26;
+    const sideH = col ? 250 : 0;
+    const availW = wrap.clientWidth - 36;
+    const availH = Math.max(260, wrap.clientHeight - 30 - sideH);
+    // 2048：棋盘外框 = 4×cell + 5×gap，需容纳 侧栏列 + 底部提示
+    const b2048 = $('#b2048');
+    if (b2048) {
+      const budget2048 = Math.min(availW - sideW - colGap, availH - 46);
+      const cell2048 = Math.max(56, Math.min(118, Math.floor((budget2048 - 50) / 4)));
+      b2048.style.setProperty('--cell', cell2048 + 'px');
+    }
+    // 扫雷：n×n 格 + 4px 间隙 + 16px 内边距
+    const mboard = $('#mboard');
+    if (mboard) {
+      const n = Mine.w || 9;
+      const mc = Math.max(26, Math.min(n <= 9 ? 54 : n <= 12 ? 46 : 40,
+        Math.floor((availH - 60 - 16) / n) - 4,
+        Math.floor((availW - sideW - colGap - 16) / n) - 4));
+      mboard.style.setProperty('--mc', mc + 'px');
+    }
+    // 记忆翻牌：cols 列卡 + 11px 间隙（行数恒为 4：16/4 与 24/6）
+    const mgrid = $('#mgrid');
+    if (mgrid) {
+      const cols = (typeof Mem !== 'undefined' && Mem.cols) || 4;
+      const mcard = Math.max(56, Math.min(114,
+        Math.floor((availH - 46) / 4) - 11,
+        Math.floor((availW - sideW - colGap) / cols) - 11));
+      mgrid.style.setProperty('--mcard', mcard + 'px');
+    }
+    // 2048 方块按新格距重新落位
+    if (typeof G2048 !== 'undefined' && G2048.el) G2048.render();
+  },
+};
+
+/* ================= 机台侧栏 ================= */
+function renderCabinets() {
+  const box = $('#cabinetList');
+  box.innerHTML = '';
+  GAME_ORDER.forEach((gid) => {
+    const g = GAMES[gid];
+    const plays = Store.records().filter((r) => r.g === gid).length;
+    const best = bestOf(gid);
+    const btn = document.createElement('button');
+    btn.className = 'cabinet' + (curGame === gid && curView === 'game' ? ' active' : '');
+    btn.innerHTML =
+      '<span class="cab-plays">' + (plays ? plays + ' 局' : '新机台') + '</span>' +
+      '<span class="cab-icon" style="background:' + g.grad + '">' + g.icon + '</span>' +
+      '<span class="cab-main"><span class="cab-name">' + g.name + '</span><br><span class="cab-sub">' + g.sub + '</span></span>' +
+      '<span class="cab-best"><b>' + (best ? best.value : '—') + '</b><span>' + (best ? best.label : '等待开局') + '</span></span>';
+    btn.addEventListener('click', () => { setGame(gid); Sound.click(); });
+    box.appendChild(btn);
+  });
+  // 速报
+  const agg = aggregate();
+  $('#miniWin').innerHTML = agg.winRate == null ? '—' : agg.winRate + '<em>%</em>';
+  const counts = GAME_ORDER.map((gid) => ({ gid, n: Store.records().filter((r) => r.g === gid).length })).sort((a, b) => b.n - a.n);
+  $('#miniTop').textContent = counts[0] && counts[0].n ? GAMES[counts[0].gid].name : '—';
+  const keep = GAME_ORDER.map((gid) => ({ gid, n: bestOf(gid) ? 1 : 0 })).filter((x) => x.n);
+  $('#miniKeep').textContent = keep.length ? keep.length + ' 项' : '—';
+}
+
+/* ================= 主面板渲染 ================= */
+const TOOLBARS = {
+  g2048() {
+    gameToolbar.innerHTML =
+      '<button class="btn" id="tbRestart">' + I.replay + '重开</button>' +
+      (Settings.data.undo2048 ? '<button class="btn" id="tbUndo" disabled>' + I.undo + '撤销一步</button>' : '');
+    $('#tbRestart').addEventListener('click', () => { G2048.restart(); Sound.click(); });
+    const ub = $('#tbUndo');
+    if (ub) ub.addEventListener('click', () => { G2048.undo(); Sound.click(); });
+    $('#footHint').innerHTML = '方向键 / WASD 移动 · <kbd>R</kbd> 重开' + (Settings.data.undo2048 ? ' · <kbd>U</kbd> 撤销' : '');
+  },
+  mine() {
+    gameToolbar.innerHTML =
+      '<button class="btn" id="tbRestart">' + I.replay + '重开</button>' +
+      '<button class="btn' + (Mine.flagMode ? ' toggled' : '') + '" id="tbFlag" title="插旗模式（适合触屏）">' + I.flagBig + '插旗模式</button>' +
+      '<div class="seg kids" id="tbDiff">' +
+        '<span data-diff="easy" class="' + (Mine.diff === 'easy' ? 'active' : '') + '" tabindex="0">入门 9×9</span>' +
+        '<span data-diff="hard" class="' + (Mine.diff === 'hard' ? 'active' : '') + '" tabindex="0">进阶 12×12</span>' +
+        '<span data-diff="master" class="' + (Mine.diff === 'master' ? 'active' : '') + '" tabindex="0">大师 16×16</span>' +
+      '</div>';
+    $('#tbRestart').addEventListener('click', () => { Mine.build(); Sound.click(); });
+    $('#tbFlag').addEventListener('click', () => {
+      Mine.flagMode = !Mine.flagMode;
+      $('#tbFlag').classList.toggle('toggled', Mine.flagMode);
+      Sound.click();
+    });
+    $('#tbDiff').addEventListener('click', (e) => {
+      const s = e.target.closest('span[data-diff]');
+      if (!s || s.dataset.diff === Mine.diff) return;
+      const cfg = { easy: [9, 10], hard: [12, 24], master: [16, 40] }[s.dataset.diff];
+      Mine.diff = s.dataset.diff;
+      Mine.w = cfg[0]; Mine.h = cfg[0]; Mine.mines = cfg[1];
+      Mine.build();
+      Sound.click();
+      renderMain();
+    });
+    $('#footHint').innerHTML = '左键翻开 · 右键 / 长按插旗 · <kbd>R</kbd> 重开';
+  },
+  mem() {
+    gameToolbar.innerHTML =
+      '<button class="btn" id="tbRestart">' + I.replay + '洗牌重来</button>' +
+      '<div class="seg kids" id="memSize">' +
+        '<span data-cols="4" class="' + (Mem.cols === 4 ? 'active' : '') + '" tabindex="0">4×4 · 16 张</span>' +
+        '<span data-cols="6" class="' + (Mem.cols === 6 ? 'active' : '') + '" tabindex="0">6×4 · 24 张</span>' +
+      '</div>';
+    $('#tbRestart').addEventListener('click', () => { Mem.build(); Sound.click(); });
+    $('#memSize').addEventListener('click', (e) => {
+      const s = e.target.closest('span[data-cols]');
+      if (!s || +s.dataset.cols === Mem.cols) return;
+      Settings.data.memCols = +s.dataset.cols;
+      Settings.save();
+      Mem.build();
+      Sound.click();
+      renderMain();
+    });
+    $('#footHint').innerHTML = '翻到两张相同卡牌即配对 · <kbd>R</kbd> 洗牌';
+  },
+};
+
+function setGame(gid) {
+  curGame = gid;
+  curView = 'game';
+  renderMain();
+  renderCabinets();
+}
+function setView(v) {
+  curView = v;
+  renderMain();
+  renderCabinets();
+  Sound.click();
+}
+function renderMain() {
+  // 面板显隐
+  $('#pane2048').classList.toggle('on', curView === 'game' && curGame === 'g2048');
+  $('#paneMine').classList.toggle('on', curView === 'game' && curGame === 'mine');
+  $('#paneMem').classList.toggle('on', curView === 'game' && curGame === 'mem');
+  $('#paneStats').classList.toggle('on', curView === 'stats');
+  // 面包屑 + 工具栏
+  const g = GAMES[curGame];
+  if (curView === 'game') {
+    $('#crumbGame').textContent = g.name;
+    $('#crumbDesc').textContent = g.desc;
+    gameToolbar.style.display = 'flex';
+    TOOLBARS[curGame]();
+  } else {
+    $('#crumbGame').textContent = '战绩舱';
+    $('#crumbDesc').textContent = '你的每一局都被好好记着';
+    gameToolbar.style.display = 'none';
+    $('#footHint').innerHTML = '战绩实时汇总 · 点左侧机台继续游戏 · <kbd>Esc</kbd> 返回门厅';
+    renderStats();
+  }
+  // 视图 seg 高亮
+  $$('#viewSeg span').forEach((s) => s.classList.toggle('active', s.dataset.view === curView));
+}
+$('#viewSeg').addEventListener('click', (e) => {
+  const s = e.target.closest('span[data-view]');
+  if (s && s.dataset.view !== curView) setView(s.dataset.view);
+});
+$('#viewSeg').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') {
+    const s = e.target.closest('span[data-view]');
+    if (s) setView(s.dataset.view);
+  }
+});
+$('#ctaStats').addEventListener('click', () => { setView(curView === 'stats' ? 'game' : 'stats'); Sound.click(); });
+
+/* ================= 战绩舱 ================= */
+function renderStats() {
+  const pane = $('#paneStats');
+  const agg = aggregate();
+  const rs = Store.records();
+  const last7 = [];
+  for (let i = 6; i >= 0; i--) {
+    const t = Date.now() - i * 86400e3;
+    const k = dayKey(t);
+    last7.push({
+      key: k,
+      label: i === 0 ? '今天' : '周' + weekCN[new Date(t).getDay()],
+      n: rs.filter((r) => dayKey(r.t) === k).length,
+    });
+  }
+  const maxN = Math.max(1, ...last7.map((d) => d.n));
+
+  const bestCards = GAME_ORDER.map((gid) => {
+    const g = GAMES[gid], b = bestOf(gid);
+    return '<div class="best-card">' +
+      '<span class="best-ico" style="background:' + g.grad + '">' + g.icon + '</span>' +
+      '<span class="best-main"><span class="best-name">' + g.name + ' · ' + (b ? b.label : '纪录') + '</span><br>' +
+      '<span class="best-val' + (b ? '' : ' none') + '">' + (b ? b.value : '等待首个纪录') + '</span></span>' +
+    '</div>';
+  }).join('');
+
+  const recent = rs.slice(-8).reverse();
+  const recentHtml = recent.length
+    ? recent.map((r) => {
+        const g = GAMES[r.g];
+        let res = '', val = '';
+        if (r.g === 'g2048') { res = '得分 <b>' + fmtInt(r.score) + '</b>'; val = r.win ? '达成 2048' : '冲分'; }
+        if (r.g === 'mine') { res = r.win ? '通关 <b>' + fmtDur(r.dur) + '</b>' : '未通关'; val = { easy: '入门', hard: '进阶', master: '大师' }[r.diff] || ''; }
+        if (r.g === 'mem') { res = '<b>' + r.moves + '</b> 步配对完成'; val = fmtDur(r.dur) + (r.cols === 6 ? ' · 6×4' : ''); }
+        return '<div class="rrow">' +
+          '<span class="ric" style="background:' + g.grad + '">' + g.icon + '</span>' +
+          '<span class="rmain"><span class="rt">' + g.name + ' · ' + res + '</span><br><span class="rs">' + val + '</span></span>' +
+          '<span class="rwhen">' + relTime(r.t) + '</span>' +
+        '</div>';
+      }).join('')
+    : '<div class="empty-hint">还没有对局记录<br>去左边挑一台机台开玩吧</div>';
+
+  const bars = last7.map((d, i) => {
+    const bw = 26, gap = 18;
+    const h = Math.max(4, (d.n / maxN) * 84);
+    const x = 14 + i * (bw + gap);
+    const y = 100 - h;
+    const fill = i === 6 ? 'var(--room)' : 'color-mix(in srgb, var(--room) 30%, transparent)';
+    return '<rect x="' + x + '" y="' + y + '" width="' + bw + '" height="' + h + '" rx="7" fill="' + fill + '"><title>' + d.label + ' · ' + d.n + ' 局</title></rect>' +
+      '<text x="' + (x + bw / 2) + '" y="116" text-anchor="middle" font-size="9.5" fill="var(--ink-faint)">' + d.label + '</text>' +
+      (d.n ? '<text x="' + (x + bw / 2) + '" y="' + (y - 5) + '" text-anchor="middle" font-size="9.5" font-weight="600" fill="var(--ink-soft)">' + d.n + '</text>' : '');
+  }).join('');
+
+  pane.innerHTML =
+    '<div class="st-sec-title">总览' + (Settings.data.name ? ' · ' + Settings.data.name : '') + ' <span style="letter-spacing:1.5px;font-size:9px;opacity:.7">OVERVIEW</span></div>' +
+    '<div class="st-overview">' +
+      '<div class="ov-card"><div class="lab">总对局</div><div class="val"><span id="stTotal">0</span><em>局</em></div></div>' +
+      '<div class="ov-card"><div class="lab">累计时长</div><div class="val"><span id="stDur">0</span><em>分钟</em></div></div>' +
+      '<div class="ov-card"><div class="lab">本周对局</div><div class="val"><span id="stWeek">0</span><em>局</em></div></div>' +
+      '<div class="ov-card"><div class="lab">综合胜率</div><div class="val"><span id="stWin">—</span><em>%</em></div></div>' +
+    '</div>' +
+    '<div class="st-sec-title">机台纪录 <span style="letter-spacing:1.5px;font-size:9px;opacity:.7">BESTS</span></div>' +
+    '<div class="st-best">' + bestCards + '</div>' +
+    '<div class="st-sec-title">近况 <span style="letter-spacing:1.5px;font-size:9px;opacity:.7">RECENT</span></div>' +
+    '<div class="st-chart-row">' +
+      '<div class="chart-panel">' +
+        '<div class="lab" style="font-size:11px;color:var(--ink-faint);margin-bottom:6px">近 7 日对局</div>' +
+        '<svg viewBox="0 0 320 120" preserveAspectRatio="xMidYMid meet">' + bars + '</svg>' +
+      '</div>' +
+      '<div class="recent-panel">' +
+        '<div class="lab" style="font-size:11px;color:var(--ink-faint);margin-bottom:6px">最近对局</div>' +
+        '<div class="recent-list">' + recentHtml + '</div>' +
+      '</div>' +
+    '</div>';
+
+  countUp($('#stTotal'), agg.total);
+  countUp($('#stDur'), Math.round(agg.dur / 60));
+  countUp($('#stWeek'), agg.week);
+  const winEl = $('#stWin');
+  if (agg.winRate == null) winEl.textContent = '—';
+  else countUp(winEl, agg.winRate);
+}
+
+/* ================= 元信息刷新（hero / 侧栏 / 最近玩到） ================= */
+function refreshMeta() {
+  const agg = aggregate();
+  $('#heroTotal').textContent = agg.total;
+  $('#heroDur').textContent = Math.round(agg.dur / 60);
+  $('#heroWeek').textContent = agg.week;
+  $('#miniWin').innerHTML = agg.winRate == null ? '—' : agg.winRate + '<em>%</em>';
+  const counts = GAME_ORDER.map((gid) => ({ gid, n: Store.records().filter((r) => r.g === gid).length })).sort((a, b) => b.n - a.n);
+  $('#miniTop').textContent = counts[0] && counts[0].n ? GAMES[counts[0].gid].name : '—';
+  const keep = GAME_ORDER.map((gid) => ({ gid, n: bestOf(gid) ? 1 : 0 })).filter((x) => x.n);
+  $('#miniKeep').textContent = keep.length ? keep.length + ' 项' : '—';
+  // 最近玩到
+  const last = Store.records()[Store.records().length - 1];
+  if (last) {
+    const g = GAMES[last.g];
+    $('#lastTitle').textContent = '最近玩过 · ' + g.name;
+    $('#lastSub').textContent = relTime(last.t) + ' · ' + (last.g === 'g2048' ? '最高 ' + fmtInt(Math.max.apply(null, Store.records().filter((r) => r.g === 'g2048').map((r) => r.score))) : last.g === 'mine' ? '胜率 ' + Math.round(Store.records().filter((r) => r.g === 'mine' && r.win).length / Math.max(1, Store.records().filter((r) => r.g === 'mine').length) * 100) + '%' : '最少 ' + Math.min.apply(null, Store.records().filter((r) => r.g === 'mem').map((r) => r.moves)) + ' 步');
+    $('#lastDot').innerHTML = '<span style="color:#fff;display:grid;place-items:center">' + g.icon.replace('width="20" height="20"', 'width="14" height="14"') + '</span>';
+    $('#lastIco').innerHTML = I.chevR;
+  }
+  renderCabinets();
+}
+
+/* ================= 全局键盘 ================= */
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { toast('原型演示：正式版将返回门厅'); return; }
+  if ($('#confirmMask').classList.contains('show')) return;
+  const key = e.key.toLowerCase();
+  if (key === 'r' && curView === 'game' && !e.metaKey && !e.ctrlKey) {
+    if (curGame === 'g2048') G2048.restart();
+    if (curGame === 'mine') Mine.build();
+    if (curGame === 'mem') Mem.build();
+    Sound.click();
+    return;
+  }
+  if (key === 'u' && curView === 'game' && curGame === 'g2048' && Settings.data.undo2048 && !e.metaKey && !e.ctrlKey) {
+    G2048.undo();
+    Sound.click();
+    return;
+  }
+  if (curView !== 'game' || curGame !== 'g2048') return;
+  const map = { arrowup: 'up', w: 'up', arrowdown: 'down', s: 'down', arrowleft: 'left', a: 'left', arrowright: 'right', d: 'right' };
+  const dir = map[key];
+  if (dir) { e.preventDefault(); G2048.move(dir); }
+});
+
+/* ================= Tweaks ================= */
+$('#tweaksFab').addEventListener('click', () => { $('#tweaks').classList.toggle('show'); Sound.click(); });
+$('#twInk').addEventListener('click', function () {
+  const on = !this.classList.contains('on');
+  this.classList.toggle('on', on);
+  document.documentElement.dataset.ink = on ? 'night' : 'day';
+  Sound.click();
+});
+/* 房间主题色：换 --room / --room-soft，全站 color-mix 跟随 */
+(function buildRoomDots() {
+  const box = $('#roomDots');
+  Object.keys(ROOM_PRESETS).forEach((key) => {
+    const b = document.createElement('button');
+    const p = ROOM_PRESETS[key];
+    b.style.background = 'linear-gradient(140deg,' + p[0] + ',' + p[1] + ')';
+    b.title = ROOM_NAMES[key];
+    b.dataset.room = key;
+    b.addEventListener('click', () => {
+      Settings.data.room = key;
+      Settings.save();
+      applyRoom(key);
+      $$('#roomDots button').forEach((x) => x.classList.toggle('active', x.dataset.room === key));
+      Sound.click();
+    });
+    box.appendChild(b);
+  });
+})();
+$('#twDensity').addEventListener('click', function () {
+  const compact = !this.classList.contains('on');
+  this.classList.toggle('on', compact);
+  Settings.data.density = compact ? 'compact' : 'cozy';
+  Settings.save();
+  document.querySelector('.station').dataset.density = Settings.data.density;
+  Sound.click();
+});
+$('#twUndo').addEventListener('click', function () {
+  const on = !this.classList.contains('on');
+  this.classList.toggle('on', on);
+  Settings.data.undo2048 = on;
+  Settings.save();
+  if (curView === 'game' && curGame === 'g2048') renderMain();
+  Sound.click();
+});
+$('#twName').addEventListener('change', function () {
+  Settings.data.name = this.value.trim().slice(0, 12);
+  this.value = Settings.data.name;
+  Settings.save();
+  if (curView === 'stats') renderStats();
+  if (Settings.data.name) toast('代号已保存：' + Settings.data.name, 'success');
+});
+$('#twDust').addEventListener('click', function () {
+  Dust.on = !Dust.on;
+  this.classList.toggle('on', Dust.on);
+  Settings.data.dust = Dust.on;
+  Settings.save();
+  Dust.build();
+});
+$('#twSound').addEventListener('click', function () {
+  Sound.on = !Sound.on;
+  this.classList.toggle('on', Sound.on);
+  Settings.data.sound = Sound.on;
+  Settings.save();
+  if (Sound.on) Sound.click();
+});
+$('#twReset').addEventListener('click', () => {
+  confirmBox('清空战绩数据？', '将删除本机保存的全部对局记录（含示例数据），此操作不可恢复。', '清空', () => {
+    Store.clear();
+    G2048.restart();
+    Mine.build();
+    Mem.build();
+    refreshMeta();
+    renderMain();
+    toast('战绩已清空，从零开始', 'success');
+  });
+});
+
+/* ================= 启动 ================= */
+Store.load();
+Settings.load();
+applyRoom(Settings.data.room);
+$$('#roomDots button').forEach((x) => x.classList.toggle('active', x.dataset.room === Settings.data.room));
+document.querySelector('.station').dataset.density = Settings.data.density;
+$('#twDensity').classList.toggle('on', Settings.data.density === 'compact');
+$('#twUndo').classList.toggle('on', !!Settings.data.undo2048);
+$('#twName').value = Settings.data.name;
+Dust.on = Settings.data.dust !== false;
+$('#twDust').classList.toggle('on', Dust.on);
+Sound.on = Settings.data.sound !== false;
+$('#twSound').classList.toggle('on', Sound.on);
+Dust.build();
+tickClock();
+setInterval(tickClock, 1000);
+Theme.set(Theme.byHour(new Date().getHours()), false);
+$('#ctaIco').innerHTML = I.chart;
+G2048.init();
+Mine.init();
+Mem.init();
+// 棋盘自适应：观察舞台尺寸（首次观察即触发一次初始适配）
+if (typeof ResizeObserver !== 'undefined') {
+  new ResizeObserver(() => Fit.apply()).observe($('.stage-wrap'));
+} else {
+  Fit.apply();
+  window.addEventListener('resize', () => Fit.apply());
+}
+renderCabinets();
+renderMain();
+refreshMeta();
+</script>
+</body>
+</html>
