@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 主页第 02 屏「随笔期刊」：杂志刊头 + 打主刊（第一篇随笔大卡）+ 侧栏次刊。
+ * posts 为空时展示占位卡，引导用户去写第一篇。
+ */
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { siteConfig } from '@/config/site'
@@ -17,9 +21,11 @@ defineEmits<{
 
 const router = useRouter()
 
+// 第一篇做主打刊页，第二、三篇进侧栏
 const featured = computed(() => props.posts[0] || null)
 const sidePosts = computed(() => props.posts.slice(1, 3))
 
+// 打开随笔：有具体路径跳详情，否则兜底去 /blog 列表
 const open = (post: HomePostCard | null) => {
   if (post?.path) router.push(post.path)
   else router.push('/blog')
@@ -31,6 +37,7 @@ const open = (post: HomePostCard | null) => {
     <HomePageDeco variant="journal" />
     <HomeMiniBar :page-label="pageLabel" @home="$emit('home')" />
 
+    <!-- 杂志刊头：VOL. 贴纸 + 标题 + 「全部随笔」入口 -->
     <div class="journal-layout">
       <header class="journal-mast">
         <span class="page-sticker page-sticker--vol font-display">VOL.</span>
@@ -45,6 +52,7 @@ const open = (post: HomePostCard | null) => {
         </button>
       </header>
 
+      <!-- 主打刊页：第一篇随笔的大卡；无内容时降级为占位引导卡 -->
       <article
         v-if="featured"
         class="journal-feature"
@@ -81,6 +89,7 @@ const open = (post: HomePostCard | null) => {
         </div>
       </div>
 
+      <!-- 侧栏次刊：第 2、3 篇小卡；不足时显示「更多随笔」幽灵卡 -->
       <aside class="journal-side">
         <article
           v-for="(post, i) in sidePosts"

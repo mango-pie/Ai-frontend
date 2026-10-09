@@ -1,4 +1,5 @@
 <script setup lang="ts">
+/** 主页全屏分页指示点：点击圆点切换到对应分页（pageIndex 从 0 开始）。 */
 defineProps<{
   pageIndex: number
   pageCount: number

@@ -1,3 +1,9 @@
+/**
+ * Sprite（雪碧图）渲染方案的类型契约与默认帧表。
+ *
+ * 本阶段只定义规范（帧尺寸、图片地址、各状态的行号/帧数/帧率），
+ * 具体的帧循环渲染待 PetRendererSprite 实现，见其模板内 TODO。
+ */
 import type { PetSpriteAtlas, PetState } from './types'
 
 /**
@@ -21,10 +27,15 @@ import type { PetSpriteAtlas, PetState } from './types'
  *   }
  * }
  */
+/** 外部 JSON atlas 的结构：帧尺寸 + 图片地址 + 各状态的动画片段 */
 export interface PetSpriteAtlasJson {
+  /** 单帧宽度（像素） */
   frameWidth: number
+  /** 单帧高度（像素） */
   frameHeight: number
+  /** 雪碧图图片地址 */
   imageUrl: string
+  /** 状态 -> 动画片段（所在行 / 帧数 / 帧率 / 是否循环） */
   clips: Partial<Record<PetState, {
     row: number
     frameCount: number

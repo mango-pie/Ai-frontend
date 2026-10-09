@@ -1,4 +1,9 @@
 <script setup lang="ts">
+/**
+ * 首页「天空之窗」场景卡：分层视差天空（星空/流星/日月/云/远山/拍立得）。
+ * 接入全局迷你播放器（usePulsePlayer），展示当前曲目并可播放/暂停。
+ * parallaxOn 开启时鼠标移动带动各 .px 图层按 data-depth 位移。
+ */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { usePulsePlayer } from '@/composables/usePulsePlayer'
 
@@ -10,12 +15,14 @@ const props = defineProps<{
 
 const p = usePulsePlayer()
 
+// ---- 视觉状态：随机生成的星星、流星位置、季节配字（切换时淡出淡入） ----
 const stars = ref<{ left: string; top: string; delay: string; size: string }[]>([])
 const shootingStyle = ref<Record<string, string>>({})
 const shootingFly = ref(false)
 const capOpacity = ref(1)
 const displayCaps = ref<[string, string]>([...props.seasonCaps])
 
+// ---- 视差跟随的插值状态：target 为鼠标目标值，px 为当前缓动值 ----
 let pxTargetX = 0
 let pxTargetY = 0
 let pxX = 0
@@ -24,6 +31,7 @@ let rafId = 0
 let shootTimer: ReturnType<typeof setInterval> | null = null
 const skyRef = ref<HTMLElement | null>(null)
 
+// ---- 迷你播放器：从全局播放器取当前曲目与进度 ----
 const isPlaying = computed(() => p.isPlaying.value)
 const trackTitle = computed(() => p.currentTrack.value?.title || '去音乐房间搜一首')
 const trackArtist = computed(
@@ -31,6 +39,7 @@ const trackArtist = computed(
 )
 const progressPct = computed(() => p.progressPct.value)
 
+// 季节配字变化时先淡出旧字再换新字，避免生硬切换
 watch(
   () => props.seasonCaps,
   (caps) => {
@@ -42,6 +51,7 @@ watch(
   },
 )
 
+// 鼠标位置归一化到 [-1, 1] 作为视差目标值
 const onMove = (e: MouseEvent) => {
   if (!props.parallaxOn || !skyRef.value) return
   const r = skyRef.value.getBoundingClientRect()
@@ -51,11 +61,13 @@ const onMove = (e: MouseEvent) => {
   pxTargetY = Math.max(-1, Math.min(1, (e.clientY - cy) / (r.height / 2)))
 }
 
+// 鼠标离开后视差目标回中
 const onLeave = () => {
   pxTargetX = 0
   pxTargetY = 0
 }
 
+// 每帧缓动逼近目标值，再按各图层 data-depth 反向位移（近层动得多，远层动得少）
 const parallaxLoop = () => {
   pxX += (pxTargetX - pxX) * 0.06
   pxY += (pxTargetY - pxY) * 0.06
@@ -71,6 +83,7 @@ const parallaxLoop = () => {
   rafId = requestAnimationFrame(parallaxLoop)
 }
 
+// 夜间主题下周期性发射一颗流星：随机起点，先重置再下一帧触发飞行动画
 const launchShootingStar = () => {
   if (document.documentElement.dataset.theme !== 'night') return
   shootingStyle.value = {
@@ -84,6 +97,7 @@ const launchShootingStar = () => {
 }
 
 onMounted(() => {
+  // 随机撒 34 颗星星（位置/大小/闪烁延迟随机）
   stars.value = Array.from({ length: 34 }, () => {
     const sz = 2 + Math.random() * 3
     return {
@@ -98,10 +112,12 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  // 停掉视差动画帧与流星定时器，防止组件销毁后仍占用主线程
   cancelAnimationFrame(rafId)
   if (shootTimer) clearInterval(shootTimer)
 })
 
+// 暴露根节点引用，供父组件定位/测量天空窗口
 defineExpose({ skyRef })
 </script>
 
@@ -114,6 +130,7 @@ defineExpose({ skyRef })
     @mousemove="onMove"
     @mouseleave="onLeave"
   >
+    <!-- 固定氛围层：闪烁星空 / 流星 / 飞鸟 -->
     <div class="stars">
       <i
         v-for="(s, i) in stars"
@@ -124,6 +141,7 @@ defineExpose({ skyRef })
     <div class="shooting" :class="{ fly: shootingFly }" :style="shootingStyle" />
     <div class="birds"><i /><i /><i /></div>
 
+    <!-- 视差层 1：天空光晕与日月（正午太阳/黄昏太阳/月亮，主题切换显隐） -->
     <div class="px" data-depth="6">
       <div class="sky-glow" />
       <div class="sun-noon" />
@@ -134,12 +152,14 @@ defineExpose({ skyRef })
       <div class="sky-moon" />
     </div>
 
+    <!-- 视差层 2：漂浮云朵（cloudsOff 时由 CSS 隐藏） -->
     <div class="px" data-depth="16">
       <div class="cloud c1"><i /></div>
       <div class="cloud c2"><i /></div>
       <div class="cloud c3"><i /></div>
     </div>
 
+    <!-- 视差层 3：远山剪影与雾气 -->
     <div class="px" data-depth="4">
       <div class="sky-mist" />
       <div class="hills">
@@ -157,6 +177,7 @@ defineExpose({ skyRef })
       </div>
     </div>
 
+    <!-- 视差层 4：两张拍立得照片，配字为季节文案 -->
     <div class="px" data-depth="22">
       <div class="polaroid p1">
         <div class="ph" style="background: linear-gradient(160deg, #ffd9e4, #bfe6f7)" />
@@ -168,6 +189,7 @@ defineExpose({ skyRef })
       </div>
     </div>
 
+    <!-- 视差层 5：角色立绘占位框（后续放置用户立绘） -->
     <div class="px" data-depth="10">
       <div class="standee" title="点击放置你的立绘">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
@@ -180,6 +202,7 @@ defineExpose({ skyRef })
       </div>
     </div>
 
+    <!-- 迷你播放器：展示当前曲目/进度，播放时跳动均衡器动画 -->
     <div class="mini-player" :class="{ playing: isPlaying }">
       <div class="mp-cover" />
       <div class="mp-info">

@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 主页第二屏：波浪过渡 + 最新随笔三连卡 + 实验室应用橱窗 + 页脚。
+ * 滚动进入视口的元素（.reveal）由 IntersectionObserver 逐个加 in 类触发入场动画。
+ */
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { siteConfig } from '@/config/site'
@@ -28,12 +32,14 @@ const props = defineProps<{
 
 const router = useRouter()
 
+// 待办 Demo 演示数据（橱窗左卡，可交互勾选）
 const todos = ref([
   { text: '给主页换上新衣服', done: true },
   { text: '写一篇动效笔记', done: false },
   { text: '给薄荷浇水', done: false },
 ])
 
+// 已完成数文案与进度条宽度（百分比）
 const todoCnt = computed(() => {
   const done = todos.value.filter((t) => t.done).length
   return `${done} / ${todos.value.length} 完成`
@@ -43,8 +49,10 @@ const todoBar = computed(() => {
   return `${(done / todos.value.length) * 100}%`
 })
 
+// 随笔卡的三个视觉变体，循环使用形成错落
 const postVariants = ['p1', 'p2', 'p3'] as const
 
+// 打开随笔/应用：有具体路径跳详情，否则兜底到列表页
 const openPost = (post: HomePostCard) => {
   if (post.path) router.push(post.path)
   else router.push('/blog')
@@ -59,12 +67,14 @@ const scrollTop = () => {
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
+// 页脚链接跳转：站内 path 用路由，外链 href 新开标签页（# 占位忽略）
 const footerGo = (link: { label: string; path?: string; href?: string }) => {
   if (link.path) router.push(link.path)
   else if (link.href && link.href !== '#') window.open(link.href, '_blank')
 }
 
 onMounted(() => {
+  // 进入视口 12% 即触发入场动画，之后取消观察避免重复
   const io = new IntersectionObserver(
     (entries) => {
       for (const en of entries) {
@@ -82,6 +92,7 @@ onMounted(() => {
 
 <template>
   <section id="screen2">
+    <!-- 波浪过渡：两条半透明 SVG 曲线衔接上一屏 -->
     <div class="wave">
       <svg viewBox="0 0 1920 110" preserveAspectRatio="none">
         <path
@@ -95,6 +106,7 @@ onMounted(() => {
       </svg>
     </div>
 
+    <!-- 最新随笔：有数据渲染三连卡（按 index 错落入场），无数据给占位卡 -->
     <div id="posts">
       <div class="sec-head reveal">
         <span class="sec-title font-display">{{ siteConfig.sections.latestPosts }}</span>
@@ -156,6 +168,7 @@ onMounted(() => {
       </div>
     </div>
 
+    <!-- 实验室橱窗：左卡待办 Demo，右卡取第一个应用（无数据用心情仪表盘示例） -->
     <div id="showcase">
       <div class="sec-head reveal">
         <span class="sec-title font-display">{{ siteConfig.sections.inspiration }}</span>
@@ -255,6 +268,7 @@ onMounted(() => {
       </div>
     </div>
 
+    <!-- 页脚：品牌 / 快捷链接 / 备案号 + 回到顶部 -->
     <footer id="footer" class="reveal">
       <div>
         <div class="footer-brand font-display">{{ siteConfig.siteName }}</div>

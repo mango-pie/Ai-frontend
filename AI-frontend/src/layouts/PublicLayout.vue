@@ -1,4 +1,11 @@
 <script setup lang="ts">
+/**
+ * 公开布局（PublicLayout）
+ * 由 App.vue 按 route.meta.shell === 'public' 挂载，包裹公开侧的路由视图：
+ * 普通公开页（登录/注册等）渲染公开顶栏、页脚与背景轮播图层；
+ * 主页与各房间页（blog/diary/knowledge 等，见 STATION_ROOMS）自管 chrome，
+ * 此壳退化为透明容器；音乐播放器页全屏自管。支持 meta.keepAlive 的页面缓存。
+ */
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import PublicHeader from '@/components/PublicHeader.vue'
@@ -11,6 +18,7 @@ const loginUserStore = useLoginUserStore()
 const isScrolled = ref(false)
 const { layerA, layerB, activeLayer, hasImages, fadeDuration } = useBackgroundSlideshow()
 
+// 自管 chrome 的房间名单：这些路由自带顶栏/页脚/背景，公开壳不再叠加公共外框
 const STATION_ROOMS = new Set(['blog', 'diary', 'knowledge', 'library', 'reading', 'worklog', 'lab', 'chat', 'auth', 'settings', 'about', 'admin', 'study', 'profile'])
 
 const room = computed(() => (route.meta.room as string) || 'public')
@@ -23,10 +31,12 @@ const isStationChrome = computed(
 /** 音乐播放器：全屏自管，无公开顶栏/页脚 */
 const isMusicChrome = computed(() => route.path === '/music' || route.meta.room === 'music')
 
+// 页面滚动超过 20px 视为“已滚动”，供顶栏切换紧凑样式
 const onScroll = () => {
   isScrolled.value = window.scrollY > 20
 }
 
+// 进入公开壳即拉取登录用户信息（未登录亦可浏览公开页），并监听滚动
 onMounted(() => {
   loginUserStore.fetchLoginUser()
   window.addEventListener('scroll', onScroll)
@@ -44,6 +54,7 @@ onUnmounted(() => {
     :data-room="room"
   >
     <template v-if="!isStationChrome && !isMusicChrome">
+      <!-- 背景轮播：A/B 双图层交叉淡入实现无缝切换；房间页/音乐页不渲染 -->
       <div class="background-effects" :style="{ '--bg-fade-duration': fadeDuration }">
         <img
           v-if="hasImages && layerA"
@@ -73,6 +84,7 @@ onUnmounted(() => {
         'public-layout__content--music': isMusicChrome,
       }"
     >
+      <!-- 路由视图：meta.keepAlive 的页面（如 ChatPage）走 KeepAlive 缓存，其余按 fullPath 重建 -->
       <RouterView v-slot="{ Component, route: viewRoute }">
         <KeepAlive include="ChatPage">
           <component :is="Component" v-if="viewRoute.meta.keepAlive" :key="viewRoute.path" />

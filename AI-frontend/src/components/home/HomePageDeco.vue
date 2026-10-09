@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 分页装饰层：按 variant 输出不同的漂浮/环绕 SVG 小装饰（星星、圆环、烧瓶等）。
+ * 纯视觉元素（aria-hidden），坐标与动画参数直接写在内联 style 上做错落感。
+ */
 withDefaults(
   defineProps<{
     variant: 'journal' | 'lab' | 'closing'

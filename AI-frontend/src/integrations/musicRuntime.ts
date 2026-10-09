@@ -1,11 +1,19 @@
+/**
+ * 音乐房间运行时基础设施：网易云 API 地址解析、登录 cookie 存取与请求封装。
+ * 同时兼容浏览器与 Tauri 桌面端两种运行环境（后者可绕过 CORS、直连本地服务）。
+ */
+// 部署时通过 VITE_NETEASE_API_BASE 指定网易云 API 地址（去掉末尾斜杠）
 const configuredBase = (import.meta.env.VITE_NETEASE_API_BASE as string | undefined)?.replace(/\/$/, '')
 
+// 登录 cookie 在 localStorage 中的键名
 export const NETEASE_COOKIE_KEY = 'netease_music_cookie'
 
+/** 是否运行在 Tauri 桌面壳内（由全局注入的内部对象判断） */
 export function isTauriRuntime(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 }
 
+/** 网易云 API 基地址：显式配置 > Tauri 直连本地服务 > 浏览器走同源代理 */
 export function getNeteaseApiBase(): string {
   if (configuredBase) return configuredBase
   if (isTauriRuntime()) return 'http://127.0.0.1:3000'

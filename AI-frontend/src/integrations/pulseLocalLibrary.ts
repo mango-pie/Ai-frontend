@@ -247,11 +247,11 @@ function idbRequest<T>(req: IDBRequest<T>): Promise<T> {
   })
 }
 
-/** 单曲入库：记录与可选的句柄 / 封面 / 音频 Blob 同一事务写入；失败静默（隐私模式 / 配额不足） */
+/** 单曲入库：记录与可选的句柄 / 封面 / 音频 Blob 同一事务写入；返回是否成功（隐私模式 / 配额不足时为 false，调用方据此降级） */
 export async function saveLocalRecord(
   record: LocalLibraryRecord,
   opts?: { handle?: FileSystemFileHandle; mvHandle?: FileSystemFileHandle; coverBlob?: Blob; blob?: Blob },
-) {
+): Promise<boolean> {
   try {
     const db = await openDb()
     const tx = db.transaction([STORE_RECORDS, STORE_HANDLES, STORE_COVERS, STORE_BLOBS], 'readwrite')
@@ -266,8 +266,10 @@ export async function saveLocalRecord(
     })
     if (opts?.handle) fileHandles.set(record.id, opts.handle)
     if (opts?.mvHandle) mvHandles.set(record.id, opts.mvHandle)
+    return true
   } catch {
     /* private mode / IDB quota */
+    return false
   }
 }
 
@@ -1020,67 +1022,75 @@ export async function importDownloadedAudio(opts: {
   return imported
 }
 
-/** 导入确认后入库：session 导入升级为 blob 持久化（超限回退一次性）；fsa / tauri 连同句柄与封面入库 */
-export async function persistImportedLocal(imported: LocalImportResult, favorite = false) {
-  if (imported.persistKind === 'session') {
-    // fallback <input type=file> 导入：把音频 Blob 写进 IndexedDB，刷新后仍能续播（过大则回退一次性导入）
-    if (imported.file && imported.file.size <= MAX_BLOB_IMPORT_BYTES) {
-      try {
-        await saveLocalRecord(
-          {
-            id: imported.id,
-            title: imported.title,
-            shortTitle: imported.shortTitle,
-            artist: imported.artist,
-            album: imported.album,
-            duration: imported.duration,
-            localPath: imported.localPath,
-            lrcText: imported.lrcText,
-            lrcTransText: imported.lrcTransText,
-            persistKind: 'blob',
-            favorite,
-            neteaseId: imported.neteaseId,
-            mvId: imported.mvId,
-            artistId: imported.artistId,
-            remoteServer: imported.remoteServer,
-            remoteId: imported.remoteId,
-            localMvPath: imported.localMvPath,
-          },
-          { blob: imported.file },
-        )
-        imported.persistKind = 'blob'
-      } catch {
-        /* 存不下则保持一次性导入 */
-      }
-    }
-    return
+/** 入库结果：最终生效的持久化通道 + 降级原因（kind 为 'session' 且非用户本意时给出，供调用方区分文案） */
+export interface LocalPersistOutcome {
+  kind: LocalPersistKind
+  /** oversized=超过大小上限（正常降级）；unavailable=IndexedDB 不可用（隐私模式/配额不足）；metadata-only=用户选择仅存元数据 */
+  reason?: 'oversized' | 'unavailable' | 'metadata-only'
+}
+
+/** 由导入结果拼持久化记录（四个仓中 records 仓的行结构），persistKind 按最终通道指定 */
+function localRecordOf(
+  imported: LocalImportResult,
+  favorite: boolean,
+  persistKind: LocalPersistKind,
+): LocalLibraryRecord {
+  return {
+    id: imported.id,
+    title: imported.title,
+    shortTitle: imported.shortTitle,
+    artist: imported.artist,
+    album: imported.album,
+    duration: imported.duration,
+    localPath: imported.localPath,
+    lrcText: imported.lrcText,
+    lrcTransText: imported.lrcTransText,
+    persistKind,
+    favorite,
+    neteaseId: imported.neteaseId,
+    mvId: imported.mvId,
+    artistId: imported.artistId,
+    remoteServer: imported.remoteServer,
+    remoteId: imported.remoteId,
+    localMvPath: imported.localMvPath,
   }
-  await saveLocalRecord(
-    {
-      id: imported.id,
-      title: imported.title,
-      shortTitle: imported.shortTitle,
-      artist: imported.artist,
-      album: imported.album,
-      duration: imported.duration,
-      localPath: imported.localPath,
-      lrcText: imported.lrcText,
-      lrcTransText: imported.lrcTransText,
-      persistKind: imported.persistKind,
-      favorite,
-      neteaseId: imported.neteaseId,
-      mvId: imported.mvId,
-      artistId: imported.artistId,
-      remoteServer: imported.remoteServer,
-      remoteId: imported.remoteId,
-      localMvPath: imported.localMvPath,
-    },
+}
+
+/** 导入确认后入库：session 导入升级为 blob 持久化（超限回退一次性）；fsa / tauri 连同句柄与封面入库。
+ *  - opts.metadataOnly：仅存元数据开关——只写记录（标题/歌手/歌词/封面），不把音频写进 STORE_BLOBS，避免大文件占满配额；
+ *  - 返回最终通道与降级原因：IndexedDB 打不开/配额不足 → 'unavailable'；文件超过大小上限 → 'oversized'。 */
+export async function persistImportedLocal(
+  imported: LocalImportResult,
+  favorite = false,
+  opts?: { metadataOnly?: boolean },
+): Promise<LocalPersistOutcome> {
+  if (imported.persistKind === 'session') {
+    if (opts?.metadataOnly) {
+      await saveLocalRecord(localRecordOf(imported, favorite, 'session'), { coverBlob: imported.coverBlob })
+      return { kind: 'session', reason: 'metadata-only' }
+    }
+    // fallback <input type=file> 导入：把音频 Blob 写进 IndexedDB，刷新后仍能续播
+    if (imported.file && imported.file.size <= MAX_BLOB_IMPORT_BYTES) {
+      const ok = await saveLocalRecord(localRecordOf(imported, favorite, 'blob'), { blob: imported.file })
+      if (ok) {
+        imported.persistKind = 'blob'
+        return { kind: 'blob' }
+      }
+      /* IndexedDB 打不开（隐私模式/配额不足）：回退一次性导入 */
+      return { kind: 'session', reason: 'unavailable' }
+    }
+    /* 超过大小上限：按文档降级为一次性导入，不占配额 */
+    return { kind: 'session', reason: 'oversized' }
+  }
+  const ok = await saveLocalRecord(
+    localRecordOf(imported, favorite, imported.persistKind),
     {
       handle: imported.persistKind === 'fsa' ? fileHandles.get(imported.id) : undefined,
       mvHandle: imported.persistKind === 'fsa' ? mvHandles.get(imported.id) : undefined,
       coverBlob: imported.coverBlob,
     },
   )
+  return ok ? { kind: imported.persistKind } : { kind: 'session', reason: 'unavailable' }
 }
 
 /** 仅回写曲目元数据（收藏 / 歌词等变更时），不触碰音频与封面数据 */

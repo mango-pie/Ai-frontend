@@ -1,3 +1,7 @@
+/**
+ * 任务清单（列表）的增删改动作。删除时保护内置的「收集箱」不可删。
+ * 每次成功变更后刷新清单列表。
+ */
 import { message } from 'ant-design-vue'
 import {
   addList as addListApi,
@@ -6,6 +10,10 @@ import {
 } from '@/api/studyListController'
 import { LIST_TYPE_INBOX } from '@/constants/study'
 
+/**
+ * 清单动作集。
+ * @param refreshLists 变更成功后刷新清单列表的回调
+ */
 export function useStudyListsActions(refreshLists: () => Promise<void>) {
   async function addList(name: string, color?: string) {
     const res = await addListApi({ name, color: color || '#7c9ce0' })
@@ -29,6 +37,7 @@ export function useStudyListsActions(refreshLists: () => Promise<void>) {
     return false
   }
 
+  /** 删除清单；收集箱（LIST_TYPE_INBOX）是系统内置，直接拒绝 */
   async function deleteListById(id: number, listType?: number) {
     if (listType === LIST_TYPE_INBOX) {
       message.warning('收集箱不可删除')

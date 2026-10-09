@@ -6,8 +6,6 @@
  * - 数据源：已发布随笔（最新 3 篇 + 总数）、我的应用数、精选应用
  */
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import '@/assets/styles/home-v3.css'
-import '@/assets/styles/period-atmosphere.css'
 import { listFeaturedAppByPage, listMyAppByPage } from '@/api/appController'
 import { getPublishedBlogPostPage } from '@/api/blogPostController'
 import { useLoginUserStore } from '@/stores/loginUser'

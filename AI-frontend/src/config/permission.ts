@@ -73,6 +73,7 @@ export const MENU_ITEMS: MenuItemConfig[] = [
   /** 工作日志独立模块（与 diary 分离） */
   { key: 'worklog', label: '工作日志', path: '/worklog', requiredRole: 'user', requireModule: 'worklog' },
   { key: 'lab', label: '实验室', path: '/lab', requireModule: 'app-lab' },
+  { key: 'games', label: '游戏舱', path: '/games', requireModule: 'games' },
   {
     key: 'readingWorkbench',
     label: 'AI 精读',

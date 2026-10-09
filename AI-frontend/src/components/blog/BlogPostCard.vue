@@ -1,4 +1,9 @@
 <script setup lang="ts">
+/**
+ * 博客文章卡片（杂志风）
+ * 博客房间内的单篇文章展示单元：封面、分类、标题、摘要、标签与浏览/点赞数据。
+ * 卡片自身不持有业务状态，打开文章、点赞、标签/分类筛选均以事件上抛给父级页面处理。
+ */
 const props = withDefaults(
   defineProps<{
     post: API.BlogPostVO
@@ -16,11 +21,13 @@ const emit = defineEmits<{
   category: [id: number]
 }>()
 
+// 按文章 id 稳定映射到 c1~c3 预设封面底色，保证同一篇文章每次渲染配色一致
 const coverClass = (id?: number) => {
   const n = ((id || 1) - 1) % 3
   return `c${n + 1}`
 }
 
+// 日期压缩为 MM-DD 短格式；解析失败时返回空串，避免卡片上出现 Invalid Date
 const shortDate = (raw?: string) => {
   if (!raw) return ''
   const d = new Date(raw)
@@ -29,25 +36,30 @@ const shortDate = (raw?: string) => {
   return `${p(d.getMonth() + 1)}-${p(d.getDate())}`
 }
 
+// 浏览量过千缩写为 x.xk，控制卡片底部统计区的宽度
 const formatViews = (n?: number) => {
   if (!n) return '0'
   return n > 999 ? `${(n / 1000).toFixed(1)}k` : String(n)
 }
 
+// 点击卡片任意区域即请求打开文章详情
 const onOpen = () => {
   if (props.post.id) emit('open', props.post.id)
 }
 
+// 点赞：阻止冒泡，避免误触卡片整体的“打开文章”
 const onLike = (e: Event) => {
   e.stopPropagation()
   emit('like', props.post)
 }
 
+// 点击标签：阻止冒泡，上抛标签筛选事件
 const onTag = (e: Event, id?: number) => {
   e.stopPropagation()
   if (id) emit('tag', id)
 }
 
+// 点击分类：阻止冒泡，上抛分类筛选事件
 const onCategory = (e: Event) => {
   e.stopPropagation()
   if (props.post.categoryId) emit('category', props.post.categoryId)
@@ -61,12 +73,14 @@ const onCategory = (e: Event) => {
     :data-id="props.post.id"
     @click="onOpen"
   >
+    <!-- 封面区：无真实封面时按 id 落到预设底色并显示 16:9 占位；精选卡片叠加刊头角标 -->
     <div class="cover" :class="[coverClass(props.post.id), { 'has-img': !!props.post.coverUrl }]">
       <img v-if="props.post.coverUrl" :src="props.post.coverUrl" :alt="props.post.title || ''" />
       <span v-if="props.featured" class="masthead">JOURNAL</span>
       <span v-if="!props.post.coverUrl" class="ratio">16:9</span>
     </div>
     <div class="body">
+      <!-- 元信息行：分类按钮可点击触发筛选，无分类 id 时降级为纯文本 -->
       <div class="meta">
         <button
           v-if="props.post.categoryId"
@@ -82,6 +96,7 @@ const onCategory = (e: Event) => {
       <div class="title font-display">{{ props.post.title || '无标题' }}</div>
       <p class="summary text-pretty">{{ props.post.summary || '' }}</p>
       <div class="foot">
+        <!-- 标签数量随卡片形态收紧（精选 2 个 / 普通 1 个），避免撑高卡片 -->
         <div class="tags">
           <button
             v-for="t in (props.post.tags || []).slice(0, props.featured ? 2 : 1)"
@@ -92,6 +107,7 @@ const onCategory = (e: Event) => {
             #{{ t.name }}
           </button>
         </div>
+        <!-- 浏览量与点赞的迷你统计 -->
         <div class="stats">
           <span v-if="props.showViewCount" style="display: inline-flex; align-items: center; gap: 3px">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

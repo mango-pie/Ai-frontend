@@ -6,6 +6,7 @@
 
 # Agent / local scratch
 .mimosa/
+/.mimosa/
 .omo/
 AI-frontend/.mimosa/
 AI-frontend/src/.mimosa/
@@ -20,11 +21,20 @@ AI-frontend/api-enhanced/node_modules/
 # Local env (do not commit secrets)
 AI-frontend/.env.local
 AI-frontend/.env.*.local
+.site-agent.env
+.ai-site-agent.env
 
 # Build cache
 *.tsbuildinfo
 .eslintcache
 AI-frontend/dist-ssr/
+
+# 构建产物不入库（部署走打包脚本/CI）
+AI-frontend/dist/
+AI-frontend/dist-music/
+AI-frontend/dist.tgz
+# unplugin-vue-components 生成的组件类型声明
+AI-frontend/src/components.d.ts
 
 # Logs & OS
 *.log

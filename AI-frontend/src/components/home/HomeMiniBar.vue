@@ -1,4 +1,5 @@
 <script setup lang="ts">
+/** 分页内页的迷你顶栏：左侧站点名（点击回首页），右侧当前分页标签。 */
 import { siteConfig } from '@/config/site'
 
 defineProps<{

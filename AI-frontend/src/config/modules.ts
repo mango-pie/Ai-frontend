@@ -15,6 +15,7 @@ export const MODULE_KEYS = [
   'worklog',
   'tts',
   'app-lab',
+  'games',
 ] as const
 
 export type ModuleKey = (typeof MODULE_KEYS)[number]
@@ -32,6 +33,7 @@ export const MODULE_LABELS: Record<ModuleKey, string> = {
   worklog: '工作日志',
   tts: '语音合成',
   'app-lab': '实验室',
+  games: '游戏舱',
 }
 
 /** 路径前缀 → 模块。更长前缀需排在前面。 */
@@ -42,6 +44,7 @@ const MODULE_PATH_PREFIXES: Array<{ prefix: string; module: ModuleKey }> = [
   { prefix: '/administrator/study', module: 'study' },
   { prefix: '/knowledge', module: 'knowledge' },
   { prefix: '/library', module: 'library' },
+  { prefix: '/games', module: 'games' },
   { prefix: '/category', module: 'blog' },
   { prefix: '/tag', module: 'blog' },
   { prefix: '/blog', module: 'blog' },

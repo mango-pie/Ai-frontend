@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 首页顶栏：品牌、分组下拉导航（含能力门控）、时钟、用户头像菜单。
+ * 导航高亮用滑动的 pill 指示条（movePill 按视口坐标计算位置）。
+ */
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
@@ -35,12 +39,14 @@ const loginUserStore = useLoginUserStore()
 const capsStore = useCapabilitiesStore()
 const logoSrc = new URL('../../assets/logo.svg', import.meta.url).href
 
-/** 顶栏六组：首页 / 创作▾ / 智能▾ / 实验室 / 音乐 / 管理▾(admin) */
+/** 顶栏导航组：首页 / 创作▾ / 智能▾ / 实验室 / 音乐 / 游戏舱 / 管理▾(admin)，按角色与模块能力过滤 */
 const navGroups = computed<NavGroupItem[]>(() => {
   const user = loginUserStore.loginUser.id ? loginUserStore.loginUser : null
   const isAdmin = isAdminRole(loginUserStore.loginUser.userRole)
   return TOP_NAV_GROUPS.filter((g) => {
     if (g.adminOnly && !isAdmin) return false
+    // link 型分组的能力门控（如 游戏舱）：模块明确关闭时隐藏
+    if (g.requireModule && capsStore.loaded && !capsStore.enabled(g.requireModule)) return false
     if (g.type === 'link') return true
     const children = filterWorkspaceNav(g.children ?? [], user, {
       loaded: capsStore.loaded,
@@ -59,6 +65,7 @@ const visibleChildren = (group: NavGroupItem): WorkspaceNavItem[] =>
     enabled: capsStore.enabled,
   })
 
+// 导航容器 / 头像包裹层引用 + 头像菜单开合态 + pill 指示条位置样式
 const navRef = ref<HTMLElement | null>(null)
 const avatarWrapRef = ref<HTMLElement | null>(null)
 const menuOpen = ref(false)
@@ -66,6 +73,7 @@ const pillStyle = ref({ left: '0px', width: '0px', opacity: 0 })
 
 const isLoggedIn = computed(() => !!loginUserStore.loginUser.id)
 const isAdmin = computed(() => isAdminRole(loginUserStore.loginUser.userRole))
+// 头像兜底：无自定义头像时依次用用户名首字 / 站长名 /「某」
 const avatarLetter = computed(() => {
   const name = loginUserStore.loginUser.userName || siteConfig.ownerName || '某'
   return name.slice(0, 1)
@@ -79,6 +87,7 @@ const avatarSrc = computed(() => {
 
 const isActive = (group: NavGroupItem) => isGroupActive(group, route.path)
 
+/** 把 pill 移动到当前激活导航项下方；无激活项时隐藏 */
 const movePill = async () => {
   await nextTick()
   const nav = navRef.value
@@ -98,12 +107,14 @@ const movePill = async () => {
   }
 }
 
+// 特殊入口解析：/chat 回到上次会话，/blog 回到上次看过的随笔
 const resolvePath = (item: WorkspaceNavItem): string => {
   if (item.path === '/chat' && isLoggedIn.value) return getChatEntryPath()
   if (item.path === '/blog') return resolveBlogMenuClickPath(route.path)
   return item.path
 }
 
+// 点击下拉子项跳转；需登录的入口未登录时先去登录页
 const goItem = (item: WorkspaceNavItem) => {
   openMenuKey.value = null
   if (item.requireLogin && !isLoggedIn.value) {
@@ -129,6 +140,7 @@ const closeMenu = () => {
   menuOpen.value = false
 }
 
+// 点击头像：未登录跳登录页，已登录切换菜单开合
 const onAvatarClick = () => {
   if (!isLoggedIn.value) {
     router.push('/user/login')
@@ -142,6 +154,7 @@ const goMenu = (path: string) => {
   if (route.path !== path) router.push(path)
 }
 
+// 退出登录：成功后重置用户态并回登录页，失败提示后端信息
 const handleLogout = async () => {
   closeMenu()
   const res = await userLogout()
@@ -154,6 +167,7 @@ const handleLogout = async () => {
   }
 }
 
+// 全局点击：点击导航/头像外部时收起对应下拉菜单
 const onDocClick = (e: MouseEvent) => {
   if (openMenuKey.value && navRef.value && !navRef.value.contains(e.target as Node)) {
     openMenuKey.value = null
@@ -163,6 +177,7 @@ const onDocClick = (e: MouseEvent) => {
   if (wrap && !wrap.contains(e.target as Node)) closeMenu()
 }
 
+// Escape 键一次性收起头像菜单与导航下拉
 const onDocKey = (e: KeyboardEvent) => {
   if (e.key === 'Escape') {
     closeMenu()
@@ -170,6 +185,7 @@ const onDocKey = (e: KeyboardEvent) => {
   }
 }
 
+// 挂载全局监听：resize 重算 pill 位置，点击/键盘用于关闭菜单
 onMounted(() => {
   movePill()
   window.addEventListener('resize', movePill)
@@ -181,6 +197,7 @@ onUnmounted(() => {
   document.removeEventListener('click', onDocClick)
   document.removeEventListener('keydown', onDocKey)
 })
+// 路由或导航组变化时：重算 pill、收起所有菜单
 watch([() => route.path, navGroups], () => {
   movePill()
   closeMenu()
@@ -190,6 +207,7 @@ watch([() => route.path, navGroups], () => {
 
 <template>
   <header id="topbar" class="anim" style="animation-delay: 0.05s">
+    <!-- 品牌区：点击回 brandPath（随笔房间等场景会传 /blog） -->
     <div
       class="brand"
       role="link"
@@ -206,6 +224,7 @@ watch([() => route.path, navGroups], () => {
       </div>
     </div>
 
+    <!-- 主导航：navPill 为高亮滑动指示条；link 型直接跳转，menu 型悬停/点击展开下拉 -->
     <nav id="mainnav" ref="navRef" aria-label="主页导航">
       <span id="navPill" :style="pillStyle" />
       <template v-for="group in navGroups" :key="group.key">
@@ -276,6 +295,7 @@ watch([() => route.path, navGroups], () => {
       </template>
     </nav>
 
+    <!-- 右侧区：实时时钟 + 头像（未登录跳登录，已登录弹菜单） -->
     <div class="top-right">
       <div class="clock-chip">
         <div class="clock-time" v-html="props.clockHtml" />

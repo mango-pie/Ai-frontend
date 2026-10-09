@@ -1,4 +1,9 @@
 <script setup lang="ts">
+/**
+ * 设置页：网易云账号登录（验证码/扫码）、外观与房间（日夜/强调色/背景/舞台皮肤/字体/界面行为）、
+ * 播放与 MV（音质/自动画中画/清晰度）、均衡器（PulseAudioLabView）与关于。
+ * 顶部分区导航按钮通过锚点平滑滚动到对应卡片。
+ */
 import {
   FolderOpen,
   HardDrive,
@@ -19,6 +24,7 @@ const props = defineProps<{ p: PulsePlayerApi; netease: NeteaseLoginApi }>()
 const p = props.p
 const netease = props.netease
 
+// 设置分区导航（锚点 id 与图标）
 const sectionNav = [
   { id: 'account', label: '账号', icon: Monitor },
   { id: 'appearance', label: '外观', icon: Palette },
@@ -27,13 +33,16 @@ const sectionNav = [
   { id: 'about', label: '关于', icon: Settings },
 ] as const
 
+// 平滑滚动到某个设置分区
 function scrollTo(id: string) {
   const el = document.getElementById(`settings-${id}`)
   el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
+// 预设强调色列表（含自定义取色器用的当前 hex）
 const accentOptions = Object.entries(ACCENT_PRESETS).map(([id, v]) => ({ id, ...v }))
 
+// 背景模糊/幕布滑条：幕布以百分比展示、按 0~1 存储所以除回 100
 function onRoomBlurInput(e: Event) {
   p.setRoomBlur(Number((e.target as HTMLInputElement).value))
 }

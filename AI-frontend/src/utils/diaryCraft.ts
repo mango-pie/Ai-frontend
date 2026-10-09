@@ -1,6 +1,11 @@
+/**
+ * 手帐/日记页的装饰素材与小工具：情绪与色调、时段文案、季节短语、
+ * CSS 动效重放、连续打卡天数计算等，供日记首页与编辑页共同使用。
+ */
 import type { HomeTheme } from '@/composables/useHomeTheme'
 import { themeByHour } from '@/composables/useHomeTheme'
 
+/** 情绪 → 能量刻度（0–100），用于换算点亮的圆点数 */
 export const MOOD_LEVEL: Record<string, number> = {
   happy: 72,
   calm: 40,
@@ -32,16 +37,19 @@ export function seasonOfMonth(monthIndex: number) {
   return Math.floor(monthIndex / 3) % 4
 }
 
+/** 当前时段的手帐文案：优先读 <html data-theme>，无则按当前小时推断 */
 export function currentDiaryPeriod() {
   const t = (document.documentElement.dataset.theme as HomeTheme) || themeByHour(new Date().getHours())
   return DIARY_PERIOD[t] ?? DIARY_PERIOD.morning
 }
 
+/** 情绪对应点亮的圆点数（1–5）；未知情绪不点亮 */
 export function moodLitDots(mood: string | undefined) {
   if (!mood || MOOD_LEVEL[mood] == null) return 0
   return Math.max(1, Math.round(MOOD_LEVEL[mood] / 20))
 }
 
+/** 重放一次性 CSS 动画：先移除类并强制 reflow（void offsetWidth），再加回类；超时后清理 */
 export function popCraftAnim(el: HTMLElement | null, cls: string, ms = 500) {
   if (!el) return
   el.classList.remove(cls)

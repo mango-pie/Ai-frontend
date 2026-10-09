@@ -1,4 +1,12 @@
 <script setup lang="ts">
+/**
+ * 领域知识树学习工作台（Learning 主视图）
+ * 三栏布局：左侧领域切换与树脉日志、中间知识树（枝）+ 内容面板（叶/门闩提问）、
+ * 右侧当前枝摘要与领域星图。
+ * 核心业务流：门闩提问（gate）→ 搜文/批量 URL 合蒸（异步 job 轮询）→ 挂叶确认，
+ * 另有树的编辑（改名/合并/删除/建枝）、空枝补学、AI 复习自测题、快捷键盘流与断线恢复轮询。
+ * 状态主要集中在 useLearningWorkbenchStore，本组件负责编排与弹窗交互。
+ */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Modal } from 'ant-design-vue'
@@ -22,8 +30,10 @@ import './learning-view.css'
 
 const router = useRouter()
 const store = useLearningWorkbenchStore()
+// 内容面板引用：用于快捷键 "/" 时聚焦其提问输入框
 const contentPanelRef = ref<InstanceType<typeof ContentPanel> | null>(null)
 
+// 触发 DomainTree 进入“新建 L1 枝”输入态的开关（由工具栏按钮置起、由树组件回写复位）
 const createL1Trigger = ref(false)
 
 // ── computed bindings ──
@@ -44,6 +54,7 @@ const selectedBranch = computed(() => store.selectedBranch)
 const selectedBranchDepth = computed(() => selectedBranch.value?.depth ?? null)
 const selectedBranchLeafCount = computed(() => selectedBranch.value?.leafCount ?? branchLeaves.value.length)
 const branchDensity = computed(() => {
+  // 以挂载叶最多的枝为满格基准，取前 5 条生成右侧“叶密度”柱状条的高度
   const highest = Math.max(...branches.value.map((branch) => branch.leafCount), 1)
   return branches.value.slice(0, 5).map((branch) => ({
     id: branch.id,
@@ -53,6 +64,7 @@ const branchDensity = computed(() => {
   }))
 })
 const skyNodes = computed(() =>
+  // 取前 6 条枝映射为星图节点：按预设散点坐标摆位，标题截断为短标签
   branches.value.slice(0, 6).map((branch, index) => {
     // 320×240 右栏星图坐标（原 640×320 缩放一半）
     const positions: Array<{ x: number; y: number }> = [
@@ -71,6 +83,7 @@ const selectedBranchPath = computed(() => {
 
 const leavesLoading = computed(() => store.leavesLoading)
 const branchLeaves = computed<LearningLeafVO[]>(() => store.branchLeaves)
+// 复习状态统计：当前枝下“复习中 / 已掌握”的叶数量（默认视为 NEW）
 const leavesReviewing = computed(
   () => branchLeaves.value.filter((l) => String(l.reviewStatus || 'NEW') === 'REVIEWING').length,
 )
@@ -109,6 +122,7 @@ const reviewLoading = ref(false)
 const reviewQuiz = ref<LearningReviewQuizVO | null>(null)
 const revealedAnswers = ref<Record<number, boolean>>({})
 
+// 打开复习弹窗：需先选中枝；请求后端按枝下笔记生成自测题，逐题可展开/收起答案
 async function openReview() {
   if (selectedBranchId.value == null) {
     message.warning('请先选择一个枝')
@@ -174,6 +188,7 @@ function onSelectBranch(branchId: number | string | null) {
   store.selectedBranchId = branchId
 }
 
+// 空枝补学：记录目标枝上下文并清空旧的门闩结果，让内容面板进入免门闩的补学模式
 function onLearnEmpty(payload: { branchId: number | string; branchTitle: string }) {
   store.setSkipGateContext(payload.branchId, payload.branchTitle)
   store.gateResult = null
@@ -200,6 +215,7 @@ function onOpenNote(noteId: number | string) {
   router.push(`/admin/knowledge/notes/${noteId}`)
 }
 
+// 取消挂载：仅把笔记从树上摘下（不删除笔记本体），需二次确认
 async function onDetachLeaf(noteId: number | string) {
   Modal.confirm({
     title: '取消挂载',
@@ -236,6 +252,7 @@ async function onRenameBranch(branchId: number | string, title: string) {
   }
 }
 
+// 删除枝：有叶的枝禁止删除（先移叶或取消挂载），空枝删除前二次确认
 async function onDeleteBranch(branchId: number | string) {
   const branch = store.branches.find((b) => String(b.id) === String(branchId))
   if (!branch) return
@@ -260,6 +277,7 @@ async function onDeleteBranch(branchId: number | string) {
   })
 }
 
+// 打开合并枝弹窗：默认目标为除源枝外的第一条枝
 function onMergeBranch(sourceBranchId: number | string) {
   mergeSourceId.value = sourceBranchId
   mergeTargetId.value = branches.value.filter((b) => String(b.id) !== String(sourceBranchId))[0]?.id ?? null
@@ -284,6 +302,7 @@ async function submitMergeBranch() {
   }
 }
 
+// 创建 L1 枝（parentBranchId = 0 表示根级）
 async function onCreateL1Branch(title: string) {
   try {
     await store.confirmBranch({ title, parentBranchId: 0 })
@@ -293,6 +312,7 @@ async function onCreateL1Branch(title: string) {
   }
 }
 
+// 创建 L2 子枝：必须挂在某个 L1 之下，缺少父枝 ID 时给出错误提示
 async function onCreateL2Branch(parentBranchId: number | string, title: string) {
   const parent = parentBranchId != null && String(parentBranchId) !== '' && String(parentBranchId) !== '0'
     ? String(parentBranchId)
@@ -352,10 +372,13 @@ async function onReattachDone() {
 }
 
 // ── V2 batch-url pipeline ──
+// 批量 URL 合蒸的异步任务轮询：提交后端返回 jobId，前端每 2s 轮询一次任务状态，
+// 成功则弹出挂叶确认，失败则提示错误；切领域/卸载时停止轮询
 const JOB_POLL_MS = 2000
 let jobPollTimer: ReturnType<typeof setInterval> | null = null
 let currentJobId: string | number | null = null
 
+// 停止轮询并清空当前任务 ID
 function stopJobPoll() {
   if (jobPollTimer) {
     clearInterval(jobPollTimer)
@@ -364,20 +387,24 @@ function stopJobPoll() {
   currentJobId = null
 }
 
+// 状态统一转大写，兼容后端不同的大小写返回
 function normalizeStatus(data: API.KnowledgeReadingJobVO) {
   return String(data.status || '').toUpperCase()
 }
 
+// 任务成功判定：显式 SUCCESS，或 success=true 且已产出 noteId 且未失败
 function isJobSuccess(data: API.KnowledgeReadingJobVO) {
   const status = normalizeStatus(data)
   return status === 'SUCCESS' || (data.success === true && data.noteId != null && status !== 'FAILED')
 }
 
+// 任务失败判定：显式 FAILED 或 success=false
 function isJobFailed(data: API.KnowledgeReadingJobVO) {
   const status = normalizeStatus(data)
   return status === 'FAILED' || data.success === false
 }
 
+// 单次轮询：成功则停止轮询并打开挂叶确认（带笔记标题兜底）；失败则停止并提示
 async function pollJobOnce(jobId: number | string, goalTitle: string) {
   try {
     const res = await learningKnowledgeApi.getKnowledgeReadingJob(jobId)
@@ -407,6 +434,8 @@ async function pollJobOnce(jobId: number | string, goalTitle: string) {
   }
 }
 
+// 提交批量 URL 合蒸：去重过滤后按“空枝补学 / 门闩通行证”两种上下文组参，
+// 同步完成则直接弹挂叶确认，否则进入 jobId 轮询阶段
 async function onBatchUrlSubmit(payload: { urls: string[]; goal: string }) {
   if (!store.currentDomainId) return
   stopJobPoll()
@@ -481,6 +510,7 @@ async function onBatchUrlSubmit(payload: { urls: string[]; goal: string }) {
 }
 
 // ── attach ──
+// 挂叶确认：把合蒸产出的笔记挂到已有枝，或先新建子枝再挂载
 async function onAttachConfirm(
   payload: { branchId: number | string } | { newBranchTitle: string; parentBranchId: number | string },
 ) {
@@ -503,6 +533,7 @@ async function onAttachConfirm(
   await store.attachLeaf(req)
 }
 
+// 取消挂叶：关闭弹窗并复位待挂载笔记与 V2 阶段
 function onAttachCancel() {
   store.attachVisible = false
   store.pendingAttach = { noteId: 0, title: '' }
@@ -510,6 +541,7 @@ function onAttachCancel() {
 }
 
 // ── lifecycle ──
+// 挂载：注册网络/可见性/键盘监听，加载领域列表并恢复上次的领域树
 onMounted(async () => {
   window.addEventListener('online', onWindowOnline)
   document.addEventListener('visibilitychange', onWindowVisibility)
@@ -524,6 +556,7 @@ onMounted(async () => {
   }
 })
 
+// 切换领域：停止轮询、重置门闩与挂载状态，并加载新领域的树（清空领域则清空树数据）
 watch(
   () => store.currentDomainId,
   async (next) => {
@@ -541,6 +574,7 @@ watch(
   },
 )
 
+// 切换选中枝：加载枝下挂载的叶列表，取消选中则清空
 watch(
   () => store.selectedBranchId,
   async (next) => {
@@ -553,6 +587,7 @@ watch(skipGateContext, (ctx) => {
   if (ctx) { /* gate context set — ContentPanel will show skip banner */ }
 })
 
+// 卸载：移除全局监听并停止任务轮询
 onBeforeUnmount(() => {
   window.removeEventListener('online', onWindowOnline)
   document.removeEventListener('visibilitychange', onWindowVisibility)
@@ -569,6 +604,7 @@ onBeforeUnmount(() => {
         <span class="sub">门闩 → 搜文 → 挂叶 · 空枝可补学</span>
       </div>
 
+      <!-- 工具栏：回挂笔记 / 编辑树 / 新建 L1 / 树图 / 复习，右侧展示快照截断提示或快捷键说明 -->
       <div v-if="currentDomainId" class="learn-toolbar">
         <button type="button" class="chip-btn sm" @click="onOpenReattach"><Paperclip :size="13" /> 回挂笔记</button>
         <button type="button" class="chip-btn sm" :class="{ on: treeEditMode }" @click="treeEditMode = !treeEditMode"><Pencil :size="13" /> {{ treeEditMode ? '完成编辑' : '编辑树' }}</button>
@@ -580,6 +616,7 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="layout-3 learning-layout">
+        <!-- 左栏：领域切换芯片 + 树脉日志（域/枝/叶三级状态速览） -->
         <aside class="side learning-side" aria-label="领域与房间导航">
           <div class="side-card glass">
             <span class="tape"></span>
@@ -608,6 +645,7 @@ onBeforeUnmount(() => {
           </div>
         </aside>
 
+        <!-- 中栏：已选领域时展示 知识树(枝) + 内容面板(叶/门闩提问)；否则展示引导创建领域的欢迎页 -->
         <main class="mid-bay learning-mid">
           <template v-if="currentDomainId">
             <div class="learn-row">
@@ -671,6 +709,7 @@ onBeforeUnmount(() => {
           </div>
         </main>
 
+        <!-- 右栏：当前枝统计卡 + 领域星图（可点击节点切换枝、点卡片展开完整树图）+ 叶密度柱图 -->
         <aside class="deck learning-deck" aria-label="当前枝摘要">
           <div class="deck-panel glass">
             <span class="tape alt"></span>
@@ -696,6 +735,7 @@ onBeforeUnmount(() => {
             <div class="chart-grid"></div>
             <span class="chart-cap">领域星图 · <b>{{ selectedBranchTitle || currentDomainName || '…' }}</b></span>
             <div class="map-body">
+              <!-- 领域星图 SVG：中心为领域根节点，射线连接前 6 条枝；选中枝高亮，有叶的节点带数量角标 -->
               <svg viewBox="0 0 260 220" preserveAspectRatio="xMidYMid meet">
                 <path
                   v-for="node in skyNodes"
@@ -800,6 +840,7 @@ onBeforeUnmount(() => {
       />
     </a-modal>
 
+    <!-- 复习自测弹窗：加载中 / 题目列表（逐题显隐答案）/ 无可复习笔记 三种形态 -->
     <a-modal
       v-model:open="reviewOpen"
       :title="`复习 · ${reviewQuiz?.branchTitle || selectedBranchTitle || '当前枝'}`"

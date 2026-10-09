@@ -1,4 +1,9 @@
 <script setup lang="ts">
+/**
+ * 搜索页：同时检索本地曲库与在线音乐（网易云/QQ/酷狗）。
+ * 空闲态展示搜索历史与热门搜索；结果支持单曲/歌手/专辑/歌单四种类型，
+ * 单曲结果可播放、下一首播放、加队列、下载、加入歌单。
+ */
 import { computed } from 'vue'
 import { Download, ListMusic, ListPlus, MoreHorizontal, Plus, RefreshCw, Search, X } from 'lucide-vue-next'
 import { toCoverDisplayUrl } from '@/utils/musicCover'
@@ -13,6 +18,7 @@ const p = props.p
 const discover = props.discover
 const shortcut = computed(() => props.searchShortcut || 'Ctrl+K')
 
+// 输入清空时立即重置全部搜索状态，回到「探索」默认页
 function onSearchInput() {
   if (!p.searchQuery.value.trim()) {
     p.searchResults.value = []
@@ -24,6 +30,7 @@ function onSearchInput() {
   }
 }
 
+// 是否展示「探索区」（历史 + 热搜）：空闲态或无关键词时
 const showSearchExplore = computed(
   () => p.searchState.value === 'idle' || !p.searchQuery.value.trim(),
 )
@@ -55,6 +62,7 @@ const showSearchExplore = computed(
                 </div>
               </header>
 
+              <!-- 搜索控制台：关键词输入（回车搜索）+ 搜索按钮 -->
               <div class="search-console">
                 <label class="search-field">
                   <span class="search-glyph" aria-hidden="true"><Search :size="14" :stroke-width="2" /></span>
@@ -75,6 +83,7 @@ const showSearchExplore = computed(
                 </button>
               </div>
 
+              <!-- 搜索类型切换：单曲 / 歌手 / 专辑 / 歌单 -->
               <div class="provider-strip" aria-label="搜索类型">
                 <button
                   v-for="kind in [
@@ -93,6 +102,7 @@ const showSearchExplore = computed(
                 </button>
               </div>
 
+              <!-- 来源筛选（仅单曲搜索可用）：全部 / 本地 / 网易云 / QQ音乐 / 酷狗 -->
               <div class="provider-strip" aria-label="内容来源筛选">
                 <button
                   v-for="src in ['全部', '本地', '网易云', 'QQ音乐', '酷狗']"
@@ -107,6 +117,7 @@ const showSearchExplore = computed(
                 </button>
               </div>
 
+              <!-- 探索区：搜索历史（可单条删/清空）与热门搜索（前三名高亮） -->
               <div
                 v-if="showSearchExplore"
                 class="search-explore"
@@ -173,6 +184,7 @@ const showSearchExplore = computed(
                 </section>
               </div>
 
+              <!-- 搜索过程态：加载中 / 空结果（附历史热搜引导）/ 服务失败可重试 -->
               <template v-else>
               <div v-if="p.searchState.value === 'loading'" class="state-panel is-visible">
                 <div class="state-copy">
@@ -224,6 +236,7 @@ const showSearchExplore = computed(
                   </button>
                 </div>
               </div>
+              <!-- 结果区：按搜索类型分四种渲染；歌手/专辑/歌单跳发现页详情，单曲就地播放 -->
               <div v-else class="result-list">
                 <template v-if="p.searchKind.value === 'artist'">
                   <button

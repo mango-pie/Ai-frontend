@@ -40,6 +40,10 @@
   --room: #f490ad;
   --room-soft: #fde4ec;
 }
+.station-room-root[data-room='games'] {
+  --room: #ffa45c;
+  --room-soft: #ffe9cc;
+}
 
 /* ===== 站内舞台模式：锁定 html/body 滚动，滚动交给页面内容区处理 ===== */
 html.station-room-lock,

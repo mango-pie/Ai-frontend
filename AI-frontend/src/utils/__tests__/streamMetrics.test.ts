@@ -1,3 +1,4 @@
+// streamMetrics 单测：流式首字耗时（TTFB）采样只记首个内容事件、多 tracker 独立、环形队列超限淘汰最旧样本
 import { describe, expect, it } from 'vitest'
 
 import {

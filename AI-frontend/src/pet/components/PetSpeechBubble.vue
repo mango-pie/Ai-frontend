@@ -1,3 +1,7 @@
+<!--
+  桌宠台词气泡：在宠物头顶显示一句台词，3 秒后自动淡出。
+  visible 变化或同一打开状态下换台词都会重新计时。
+-->
 <script setup lang="ts">
 import { onUnmounted, ref, watch } from 'vue'
 
@@ -6,9 +10,11 @@ const props = defineProps<{
   visible: boolean
 }>()
 
+/** 实际显示状态：由 visible/text 驱动，并带 3s 自动隐藏 */
 const show = ref(false)
 let hideTimer: ReturnType<typeof setTimeout> | null = null
 
+/** 清理自动隐藏定时器 */
 function clearTimer() {
   if (hideTimer) {
     clearTimeout(hideTimer)
@@ -16,6 +22,7 @@ function clearTimer() {
   }
 }
 
+// visible 翻转：关闭或无文本立即隐藏；打开则显示并启动 3s 自动隐藏
 watch(
   () => props.visible,
   (visible) => {
@@ -33,6 +40,7 @@ watch(
   { immediate: true },
 )
 
+// 面板保持打开时换台词：重新计时，让新台词完整停留 3s
 watch(
   () => props.text,
   () => {
@@ -50,6 +58,7 @@ onUnmounted(clearTimer)
 </script>
 
 <template>
+  <!-- 过渡：淡入淡出并伴随轻微上移 -->
   <Transition name="pet-bubble">
     <div v-if="show && text" class="pet-speech-bubble">
       {{ text }}
@@ -58,6 +67,7 @@ onUnmounted(clearTimer)
 </template>
 
 <style scoped>
+/* 气泡：悬于宠物头顶居中；窄视口下收缩宽度；不拦截鼠标事件 */
 .pet-speech-bubble {
   position: absolute;
   left: 50%;
@@ -82,6 +92,7 @@ onUnmounted(clearTimer)
   z-index: 3;
 }
 
+/* 指向宠物的下三角（旋转 45deg 的方块，只描两侧边框） */
 .pet-speech-bubble::after {
   content: '';
   position: absolute;

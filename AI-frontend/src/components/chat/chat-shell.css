@@ -1,3 +1,8 @@
+/**
+ * 聊天页共享样式（chat-shell.css）
+ * 供 AI 对话页与角色对话页复用：整体布局骨架（头部/消息区/输入区/右侧预览）、
+ * 消息气泡与 Markdown/代码块渲染、TTS 与图片附件、会话侧栏、Agent 工具调用卡片等。
+ */
 .chat-page,
 .simple-chat-page {
   display: flex;
@@ -9,6 +14,7 @@
   background: transparent;
 }
 
+/* 顶部信息栏：标题居左、操作按钮居右 */
 .chat-header {
   display: flex;
   align-items: center;
@@ -33,6 +39,7 @@
   color: var(--color-text-primary);
 }
 
+/* 主体双栏：左侧对话/会话面板 + 右侧内容预览 */
 .chat-body {
   flex: 1;
   display: flex;
@@ -58,6 +65,7 @@
   box-shadow: var(--shadow-md);
 }
 
+/* 消息滚动区：仅此区域滚动，scrollbar-gutter 预留槽位避免出现滚动条时抖动 */
 .chat-messages {
   flex: 1;
   min-height: 0;
@@ -77,6 +85,7 @@
   border-bottom: 1px solid var(--color-border);
 }
 
+/* 单条消息行：用户消息靠右、AI 消息靠左，带头像 */
 .chat-msg {
   display: flex;
   align-items: flex-start;
@@ -133,6 +142,7 @@
   min-height: 1.25em;
 }
 
+/* AI 气泡内 Markdown / 代码块的样式穿透（:deep 到渲染后的元素） */
 .chat-msg__markdown {
   color: var(--color-text-primary);
   line-height: 1.55;
@@ -193,6 +203,7 @@
   color: #445;
 }
 
+/* “正在输入”三点指示器：三个圆点错峰闪烁 */
 .chat-msg__typing {
   display: flex;
   gap: 4px;
@@ -231,6 +242,7 @@
   color: var(--color-text-muted);
 }
 
+/* 底部输入区 */
 .chat-input-area {
   display: flex;
   align-items: flex-end;
@@ -256,6 +268,7 @@
   border: none !important;
 }
 
+/* 右侧预览面板：iframe 承载页面/产物预览 */
 .chat-right {
   flex: 1;
   min-width: 0;
@@ -488,6 +501,7 @@
   text-align: center;
 }
 
+/* 窄屏：扣除更小的页边距，保持整屏高度布局 */
 @media (max-width: 768px) {
   .chat-page,
   .simple-chat-page {

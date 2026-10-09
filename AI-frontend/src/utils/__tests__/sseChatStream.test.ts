@@ -1,3 +1,4 @@
+// sseChatStream 解析器单测：跨块缓冲截断 JSON、CRLF/心跳注释行、[DONE] 哨兵、非 JSON 降级及各事件载荷解析
 import { describe, expect, it } from 'vitest'
 
 import { SseChatStreamParser, readSseChatEvents, type ChatSsePayload } from '../sseChatStream'

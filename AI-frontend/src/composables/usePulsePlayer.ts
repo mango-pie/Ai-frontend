@@ -1,3 +1,10 @@
+/**
+ * Pulse 音乐房的播放引擎（全站唯一的全局单例）。
+ * 管理曲库/队列/播放控制、多源搜索（网易云 + QQ/酷狗 Meting）、歌词与翻译、
+ * MV（画中画/舞台/全屏）、本地文件导入、下载落盘、十段 EQ 与频谱、听歌统计、
+ * 以及外观偏好（房间模式/字体/舞台样式等）的全部状态与动作。
+ * 状态与副作用集中在 createPulseEngine 内，通过 effectScope 单例化供多个组件共享。
+ */
 import { computed, effectScope, nextTick, onMounted, onUnmounted, ref, watch, type Ref } from 'vue'
 import {
   searchMusic,
@@ -31,6 +38,7 @@ import {
 import {
   searchMeting,
   getMetingUrl,
+  getMetingToplist,
   getMetingLyric,
   METING_SERVER_LABEL,
   type MetingServer,
@@ -69,6 +77,7 @@ import {
   VIEW_META,
   type LibraryFocus,
   type LibraryTab,
+  type LocalPersistKind,
   type LyricDisplayLine,
   type LyricSize,
   type MvMode,
@@ -97,6 +106,7 @@ import {
   restoreLocalPlayback,
   revokeTrackUrls,
   type LocalImportResult,
+  type LocalPersistOutcome,
 } from '@/integrations/pulseLocalLibrary'
 import {
   canDownloadTrack,
@@ -150,15 +160,21 @@ export type {
   UserPlaylist,
 } from '@/composables/pulse/pulseTypes'
 
+/**
+ * 创建播放引擎实例。仅在 effectScope 中执行一次（见底部 usePulsePlayer），
+ * 返回的巨对象同时充当状态容器与 API，供音乐房各视图组件直接消费。
+ */
 function createPulseEngine() {
   let rootClassTarget: Ref<HTMLElement | null> | undefined
   let audioBound = false
   let bootstrapped = false
   let recoveringUrl = false
+  // 单例 <audio>：crossOrigin 以便接入 Web Audio 分析频谱
   const audio = new Audio()
   audio.preload = 'metadata'
   audio.crossOrigin = 'anonymous'
 
+  // Web Audio 图：媒体源 → EQ 滤波器链 → 分析器 → 输出（首次播放时惰性搭建）
   let audioCtx: AudioContext | null = null
   let analyser: AnalyserNode | null = null
   let mediaSource: MediaElementAudioSourceNode | null = null
@@ -276,6 +292,8 @@ function createPulseEngine() {
   const eqPresetId = ref('flat')
   const eqBands = EQ_BAND_LABELS
   const localHint = localLibraryHint()
+  /** 本地导入「仅存元数据」开关：只把记录（标题/歌词/封面）写进 IndexedDB，不存音频 Blob，避免大文件占满配额 */
+  const localMetadataOnly = ref(false)
   const lrcInputRef = ref<HTMLInputElement | null>(null)
   const historyIds = ref<string[]>([])
   const fileInputRef = ref<HTMLInputElement | null>(null)
@@ -531,6 +549,7 @@ function createPulseEngine() {
   )
   const isEmptyLibrary = computed(() => tracks.value.length === 0)
 
+  /** 统一弹 toast（2.4s 自动消失，重置前先清旧定时器） */
   function showToast(message: string) {
     toastText.value = message
     toastVisible.value = true
@@ -540,6 +559,7 @@ function createPulseEngine() {
     }, 2400)
   }
 
+  /** 把播放/抽屉/迷你/沉浸/MV 模式等状态同步为音乐房根节点的 class 与 data-*，供 CSS 分支 */
   function syncRootClasses() {
     const root = rootClassTarget?.value ?? document.querySelector('.music-room-root')
     if (!root) return
@@ -565,6 +585,7 @@ function createPulseEngine() {
     root.setAttribute('data-slide', roomBg.value === 'anime' ? 'on' : 'off')
   }
 
+  /** 外观/播放偏好整体写入 localStorage（PREFS_KEY），失败静默 */
   function persistPrefs() {
     try {
       localStorage.setItem(
@@ -605,6 +626,7 @@ function createPulseEngine() {
     }
   }
 
+  /** 从 localStorage 恢复偏好；逐字段做类型/枚举校验，脏数据直接忽略 */
   function loadPrefs() {
     try {
       const raw = localStorage.getItem(PREFS_KEY)
@@ -786,6 +808,12 @@ function createPulseEngine() {
     }
   })
 
+  /** 会话级地址（blob:）不能写入持久化：剥掉留空，刷新后由 ensureTrackMeta / backfillMissingCovers 重取在线封面 */
+  function persistableCover(coverUrl?: string) {
+    return coverUrl?.startsWith('blob:') ? '' : coverUrl
+  }
+
+  /** 曲库元数据持久化：只落可离线恢复的在线曲目（本地 blob URL 无法持久），连带收藏/历史/队列/自建歌单 */
   function persistMeta() {
     try {
       const meta = tracks.value
@@ -799,7 +827,7 @@ function createPulseEngine() {
           source: t.source,
           duration: t.duration,
           url: t.neteaseId ? '' : '',
-          coverUrl: t.coverUrl,
+          coverUrl: persistableCover(t.coverUrl),
           tone: t.tone,
           favorite: t.favorite,
           neteaseId: t.neteaseId,
@@ -820,7 +848,7 @@ function createPulseEngine() {
           source: t.source,
           duration: t.duration,
           url: '',
-          coverUrl: t.coverUrl,
+          coverUrl: persistableCover(t.coverUrl),
           tone: t.tone,
           favorite: t.favorite,
           neteaseId: t.neteaseId,
@@ -875,12 +903,23 @@ function createPulseEngine() {
       hotSearches.value = await fetchHotSearches()
       hotSearchLoaded.value = true
     } catch {
-      /* ignore */
+      // 网易云热搜不可用时多源降级：改用 meting QQ 热歌榜歌名作为热搜词（content 标注来源）
+      try {
+        const songs = await getMetingToplist('qq', '26')
+        hotSearches.value = songs
+          .filter((s) => s.name)
+          .slice(0, 16)
+          .map((s) => ({ searchWord: s.name, content: `QQ音乐热歌榜 · ${s.artist}` }))
+        hotSearchLoaded.value = !!hotSearches.value.length
+      } catch {
+        /* 两个来源都不可用，保持空列表（UI 有空态文案） */
+      }
     } finally {
       hotSearchLoading.value = false
     }
   }
 
+  /** 恢复 localStorage 中的曲库/历史/队列/自建歌单；在线曲目 URL 一律清空待播放时重取 */
   function loadPersisted() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY)
@@ -901,6 +940,8 @@ function createPulseEngine() {
             shortTitle: t.shortTitle || shortOf(t.title),
             favorite: favs.has(t.id) || t.favorite,
             url: '',
+            // 历史版本可能存入了 blob: 封面（刷新即死链）：恢复时统一剥掉，交由封面补齐逻辑重取
+            coverUrl: t.coverUrl?.startsWith('blob:') ? '' : t.coverUrl,
             source: t.source || '网易云',
           }))
       } else {
@@ -961,6 +1002,7 @@ function createPulseEngine() {
     }
   }
 
+  /** 统一搜索入口：单曲搜索合并本地命中 + 网易云分页 + QQ/酷狗首屏；append=true 追加下一页 */
   async function runSearch(query = searchQuery.value, append = false) {
     const q = query.trim()
     searchQuery.value = q
@@ -1094,6 +1136,7 @@ function createPulseEngine() {
     return tracks.value.find((t) => t.id === id)
   }
 
+  /** 补齐曲目元数据（封面/mvId/artistId）：网易云曲目惰性查详情，其余仅标记无 MV */
   async function ensureTrackMeta(track: PulseTrack) {
     if (!track.neteaseId) {
       if (track.mvId === undefined && !track.localMvPath && !track.localMvUrl) {
@@ -1151,10 +1194,19 @@ function createPulseEngine() {
     }
   }
 
+  /**
+   * 确保曲目当前可播：本地文件恢复句柄/授权；网易云按音质取 URL；多平台走 Meting 取 URL。
+   * 返回 false 时已向用户 toast 失败原因。
+   */
   async function ensurePlayable(track: PulseTrack): Promise<boolean> {
     if (isLocalTrack(track) || track.localNeedsPermission) {
       if (track.url && !track.localNeedsPermission) return true
       const restored = await restoreLocalPlayback(track)
+      // 回写调用方持有的对象：playTrack / recoverExpiredUrl 捕获的 track 引用必须拿到重建后的 URL，
+      // 否则 audio.src 会被赋成空串（切走再切回的本地曲会因此无法再播）
+      track.url = restored.url
+      track.localNeedsPermission = restored.needsPermission
+      if (restored.file) track.file = restored.file
       const idx = tracks.value.findIndex((t) => t.id === track.id)
       if (idx >= 0) {
         tracks.value[idx] = {
@@ -1192,6 +1244,10 @@ function createPulseEngine() {
     return false
   }
 
+  /**
+   * 加载歌词（含翻译）：优先本地 LRC 文本，其次按来源请求网易云 / Meting，
+   * 本地曲无词时尝试在线匹配。lyricLookupIds 防止同一曲目并发重复查询。
+   */
   async function loadLyricsFor(track: PulseTrack) {
     const hasOrig = !!(track.lyrics?.length)
     const hasTrans = !!(track.lyricsTranslated?.length)
@@ -1263,9 +1319,30 @@ function createPulseEngine() {
     }
   }
 
+  /**
+   * 切歌后释放上一首本地曲目的 blob: 音频 URL（防内存泄漏）。
+   * 只清音频播放地址并置空字段，下次播放由 restoreLocalPlayback 重建（句柄/File/IDB Blob 均可再生）；
+   * 封面与本地 MV 的 blob URL 不动（展示/无重建途径），删除曲目时才由 revokeTrackUrls 全量回收。
+   */
+  function releaseLocalAudioUrl(prevId: string, nextId: string) {
+    if (!prevId || prevId === nextId) return
+    const idx = tracks.value.findIndex((t) => t.id === prevId)
+    if (idx < 0) return
+    const prev = tracks.value[idx]!
+    if (!prev.url?.startsWith('blob:')) return
+    try {
+      URL.revokeObjectURL(prev.url)
+    } catch {
+      /* ignore */
+    }
+    tracks.value[idx] = { ...prev, url: '' }
+  }
+
+  /** 核心播放：确保可播 → 换 audio.src → 记历史/拉歌词与元数据/MV → 媒体会话与通知 → 起播 */
   async function playTrack(id: string, autoplay = true) {
     const track = tracks.value.find((t) => t.id === id)
     if (!track) return
+    const prevId = currentId.value
     currentId.value = id
     ensureInQueue(id)
     const ok = await ensurePlayable(track)
@@ -1276,6 +1353,7 @@ function createPulseEngine() {
     }
     audio.src = track.url
     audio.load()
+    releaseLocalAudioUrl(prevId, id)
     historyIds.value = [id, ...historyIds.value.filter((x) => x !== id)].slice(0, 60)
     void loadLyricsFor(track)
     void ensureTrackMeta(track).then(() => {
@@ -2254,12 +2332,13 @@ function createPulseEngine() {
 
   async function ingestLocalImports(
     imported: LocalImportResult[],
-    opts?: { toast?: string; openLibrary?: boolean },
+    opts?: { toast?: string; openLibrary?: boolean; metadataOnly?: boolean },
   ) {
     if (!imported.length) {
       showToast('未识别到音频文件')
       return
     }
+    const persistJobs: Array<{ id: string; wanted: LocalPersistKind; job: Promise<LocalPersistOutcome> }> = []
     for (const item of imported) {
       const track: PulseTrack = {
         id: item.id,
@@ -2302,13 +2381,43 @@ function createPulseEngine() {
           favorite: prev.favorite,
         }
         ensureInQueue(prev.id)
-        void persistImportedLocal({ ...item, id: prev.id }, prev.favorite)
+        const id = prev.id
+        persistJobs.push({
+          id,
+          wanted: item.persistKind,
+          job: persistImportedLocal({ ...item, id }, prev.favorite, { metadataOnly: opts?.metadataOnly }),
+        })
       } else {
         tracks.value.push(track)
         ensureInQueue(track.id)
-        void persistImportedLocal(item)
+        persistJobs.push({
+          id: track.id,
+          wanted: item.persistKind,
+          job: persistImportedLocal(item, false, { metadataOnly: opts?.metadataOnly }),
+        })
       }
     }
+    // 入库为异步：完成后按实际持久化通道校正徽标；按降级原因区分提示（IndexedDB 不可用 ≠ 文件超限）
+    void Promise.all(persistJobs.map(({ id, wanted, job }) => job.then((out) => ({ id, wanted, ...out }))))
+      .then((results) => {
+        let unavailable = 0
+        let oversized = 0
+        for (const { id, wanted, kind, reason } of results) {
+          const idx = tracks.value.findIndex((t) => t.id === id)
+          if (idx >= 0 && tracks.value[idx]!.persistKind !== kind) {
+            tracks.value[idx] = { ...tracks.value[idx]!, persistKind: kind }
+          }
+          if (kind === 'session' && wanted !== 'session') {
+            if (reason === 'oversized') oversized++
+            else unavailable++
+          }
+        }
+        if (unavailable) showToast(`本地库暂不可用（隐私模式或空间不足），${unavailable} 首仅本次会话有效`)
+        if (oversized) showToast(`${oversized} 首文件超过 200MB，仅本次会话有效（未写入本地库）`)
+      })
+      .catch(() => {
+        /* 持久化失败已在 persistImportedLocal 内降级 */
+      })
     if (!currentId.value) currentId.value = imported[0]!.id
     persistMeta()
     showToast(opts?.toast ?? `已添加 ${imported.length} 首本地曲目`)
@@ -2447,7 +2556,7 @@ function createPulseEngine() {
 
   async function addFiles(fileList: FileList | File[]) {
     const imported = await importBrowserFileList(fileList)
-    await ingestLocalImports(imported)
+    await ingestLocalImports(imported, { metadataOnly: localMetadataOnly.value })
   }
 
   async function pickFiles() {
@@ -2457,7 +2566,7 @@ function createPulseEngine() {
       return
     }
     if (!result.length) return
-    await ingestLocalImports(result)
+    await ingestLocalImports(result, { metadataOnly: localMetadataOnly.value })
   }
 
   async function pickFolder() {
@@ -2467,7 +2576,7 @@ function createPulseEngine() {
       return
     }
     if (!result.length) return
-    await ingestLocalImports(result)
+    await ingestLocalImports(result, { metadataOnly: localMetadataOnly.value })
   }
 
   async function pickDownloadLibraryDir() {
@@ -2549,6 +2658,42 @@ function createPulseEngine() {
     showToast('已从曲库移除本地曲目')
   }
 
+  /** 清空本地曲库：回收全部本地曲目 URL、删除 IndexedDB 记录与音频数据，并同步清理队列/自建歌单引用（在线曲目不受影响） */
+  async function clearLocalLibrary() {
+    const locals = tracks.value.filter((t) => isLocalTrack(t))
+    if (!locals.length) {
+      showToast('本地曲库已为空')
+      return
+    }
+    const ok = window.confirm(
+      `清空本地曲库？将删除 ${locals.length} 首本地曲目及已入库的音频数据（在线曲目不受影响）。`,
+    )
+    if (!ok) return
+    const localIds = new Set(locals.map((t) => t.id))
+    const wasCurrent = !!currentId.value && localIds.has(currentId.value)
+    for (const t of locals) {
+      revokeTrackUrls(t)
+      void deleteLocalRecord(t.id)
+    }
+    tracks.value = tracks.value.filter((t) => !localIds.has(t.id))
+    queueIds.value = queueIds.value.filter((id) => !localIds.has(id))
+    userPlaylists.value = userPlaylists.value.map((pl) => ({
+      ...pl,
+      trackIds: pl.trackIds.filter((x) => !localIds.has(x)),
+    }))
+    if (wasCurrent) {
+      isPlaying.value = false
+      audio.pause()
+      audio.removeAttribute('src')
+      audio.load()
+      currentId.value = ''
+      stopSpectrumLoop()
+    }
+    persistMeta()
+    syncRootClasses()
+    showToast(`已清空本地曲库（${locals.length} 首）`)
+  }
+
   async function restoreLocalLibraryAccess() {
     const blocked = tracks.value.filter((t) => t.localNeedsPermission)
     if (!blocked.length) {
@@ -2601,6 +2746,7 @@ function createPulseEngine() {
     void playTrack(startId ?? list[0]!.id)
   }
 
+  /** 惰性搭建 Web Audio 链路（audio → EQ 链 → analyser → destination）；已搭好或环境不支持则跳过 */
   function ensureAudioGraph() {
     if (mediaSource && analyser && audioCtx) return
     const AC = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
@@ -2653,6 +2799,7 @@ function createPulseEngine() {
     persistPrefs()
   }
 
+  /** 播放前唤醒被浏览器自动暂停策略挂起的 AudioContext */
   async function resumeAudioContext() {
     ensureAudioGraph()
     if (audioCtx?.state === 'suspended') {
@@ -2664,6 +2811,7 @@ function createPulseEngine() {
     }
   }
 
+  /** 停止频谱 rAF 循环（暂停/关闭动效/卸载时调用） */
   function stopSpectrumLoop() {
     if (spectrumRaf) {
       cancelAnimationFrame(spectrumRaf)
@@ -2689,6 +2837,7 @@ function createPulseEngine() {
     spectrumLevels.value = sampled.levels
   }
 
+  /** rAF 频谱循环：每帧采样 analyser 更新柱状高度；停止播放/关动效时改为逐帧衰减 */
   function spectrumTick() {
     sampleSpectrumFrame()
     if (isPlaying.value && motionOn.value) {
@@ -2709,6 +2858,7 @@ function createPulseEngine() {
     spectrumRaf = requestAnimationFrame(spectrumTick)
   }
 
+  /** 把当前曲目同步到系统媒体会话（锁屏/耳机控制展示的元数据与播放态） */
   function updateMediaSession() {
     if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return
     const track = currentTrack.value
@@ -2724,6 +2874,7 @@ function createPulseEngine() {
     navigator.mediaSession.playbackState = isPlaying.value ? 'playing' : 'paused'
   }
 
+  /** 注册系统媒体键（播放/暂停/上下曲/进度条）回调 */
   function bindMediaSessionHandlers() {
     if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return
     try {
@@ -2745,10 +2896,12 @@ function createPulseEngine() {
     }
   }
 
+  /** 绑定 audio 元素的事件（只绑一次）：时长/进度/播放态/结束自动切歌/出错恢复 */
   function bindAudio() {
     if (audioBound) return
     audioBound = true
     audio.volume = muted.value ? 0 : volume.value
+    // 元数据就绪：校正时长并回写本地曲的持久化元数据
     audio.addEventListener('loadedmetadata', () => {
       duration.value = audio.duration || currentTrack.value?.duration || 0
       if (currentTrack.value && audio.duration) {
@@ -2756,6 +2909,7 @@ function createPulseEngine() {
         if (isLocalTrack(currentTrack.value)) void persistLocalTrackMeta(currentTrack.value)
       }
     })
+    // 播放进度：MV 原声模式下由视频上报，不走这里
     audio.addEventListener('timeupdate', () => {
       if (!audio.src || mvOriginalAudio.value) return
       currentTime.value = audio.currentTime
@@ -2777,6 +2931,7 @@ function createPulseEngine() {
       stopSpectrumLoop()
       decaySpectrum()
     })
+    // 自然播完：单曲循环立即重播；顺序模式播到队尾则停下，否则自动下一首
     audio.addEventListener('ended', () => {
       if (repeat.value === 2) {
         audio.currentTime = 0
@@ -2794,18 +2949,20 @@ function createPulseEngine() {
       }
       nextTrack()
     })
+    // 加载失败多半是播放 URL 过期：清空重取并从原进度续播
     audio.addEventListener('error', () => {
       void recoverExpiredUrl()
     })
   }
 
+  /** 播放 URL 过期/失效后的恢复：重新取链接、回到中断位置继续播放（防重入） */
   async function recoverExpiredUrl() {
     const track = currentTrack.value
     if (!track || recoveringUrl) {
       showToast('音频加载失败')
       return
     }
-    if (!track.neteaseId && !(track.remoteServer && track.remoteId)) {
+    if (!track.neteaseId && !(track.remoteServer && track.remoteId) && !isLocalTrack(track)) {
       showToast('音频加载失败')
       return
     }
@@ -2829,6 +2986,7 @@ function createPulseEngine() {
     recoveringUrl = false
   }
 
+  /** 全局快捷键：空格播放/暂停、Ctrl+K 搜索、L 全屏歌词、Q 队列抽屉、方向键音量/进度、1-5 切视图 */
   function onKeydown(e: KeyboardEvent) {
     const tag = (e.target as HTMLElement)?.tagName
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
@@ -2878,6 +3036,7 @@ function createPulseEngine() {
     }
   }
 
+  /** 引擎首启用时的一次性初始化：偏好、持久化数据、事件绑定、全局键盘监听与本地曲补水 */
   function bootstrap() {
     if (bootstrapped) {
       audio.volume = muted.value ? 0 : volume.value
@@ -2910,6 +3069,7 @@ function createPulseEngine() {
     updateMediaSession()
   }
 
+  /** 恢复上次会话保存的本地曲目（blob/FSA/Tauri 各自的持久化通道），并合并回队列 */
   async function hydrateLocals() {
     const local = await hydrateLocalTracks(new Set(tracks.value.map((t) => t.id)))
     if (!local.length) return
@@ -2938,6 +3098,7 @@ function createPulseEngine() {
     if (rootClassTarget === target) rootClassTarget = undefined
   }
 
+  // 换歌时按需补歌词并刷新系统媒体会话
   watch(currentId, (id) => {
     if (!id) return
     const track = tracks.value.find((t) => t.id === id)
@@ -2945,6 +3106,7 @@ function createPulseEngine() {
     updateMediaSession()
   })
 
+  // 关/开动效时停掉或重启频谱循环
   watch(motionOn, (on) => {
     if (!on) {
       stopSpectrumLoop()
@@ -3049,6 +3211,7 @@ function createPulseEngine() {
     setEqEnabled,
     eqPresets: EQ_PRESETS,
     localHint,
+    localMetadataOnly,
     historyIds,
     fileInputRef,
     folderInputRef,
@@ -3159,6 +3322,7 @@ function createPulseEngine() {
     confirmDownload,
     cancelDownload,
     removeLocalTrack,
+    clearLocalLibrary,
     restoreLocalLibraryAccess,
     openPlaylist,
     playPlaylist,
@@ -3213,8 +3377,14 @@ function createPulseEngine() {
   }
 }
 
+// 全局唯一的引擎实例：跨路由/组件保留播放状态
 let pulseEngine: ReturnType<typeof createPulseEngine> | null = null
 
+/**
+ * 获取 Pulse 播放引擎（单例）。
+ * 首次调用时在独立 effectScope 中创建，之后所有组件共享同一实例；
+ * 各调用方在挂载时注册自己的根节点引用并触发一次性 bootstrap。
+ */
 export function usePulsePlayer(rootClassTarget?: Ref<HTMLElement | null>) {
   if (!pulseEngine) {
     const scope = effectScope(true)

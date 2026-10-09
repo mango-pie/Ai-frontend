@@ -1,3 +1,7 @@
+/**
+ * 精读工作台 UX 设置（站点设置 reading 分组）：发布默认落草稿、发布后是否询问打开编辑器、
+ * 重新蒸馏是否需二次确认。读取后端配置并做会话级缓存，失败一律回落默认值。
+ */
 import { getSiteSettingValues } from '@/api/siteSettings'
 
 export type ReadingUxSettings = {
@@ -18,6 +22,7 @@ const DEFAULTS: ReadingUxSettings = {
 let cache: ReadingUxSettings | null = null
 let inflight: Promise<ReadingUxSettings> | null = null
 
+/** 宽容解析布尔：兼容后端回传的 "true"/"1" 等字符串，非法值回落默认 */
 function toBool(value: unknown, fallback: boolean): boolean {
   if (typeof value === 'boolean') return value
   if (value == null) return fallback
@@ -60,6 +65,7 @@ export async function loadReadingUxSettings(force = false): Promise<ReadingUxSet
   return inflight
 }
 
+/** 清空缓存与在途请求（如管理端改完配置后），下次读取会重新拉取 */
 export function clearReadingUxSettingsCache() {
   cache = null
   inflight = null

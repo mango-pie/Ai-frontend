@@ -252,7 +252,7 @@ function submitTag() {
               <dt>存储位置</dt>
               <dd>{{ file.objectKey ? 'MinIO · library-files' : demo ? '本地演示' : '—' }}</dd>
               <dt>下载链接</dt>
-              <dd>预签名 · 3600s 有效</dd>
+              <dd>登录态同域下载</dd>
             </dl>
           </div>
 

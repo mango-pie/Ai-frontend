@@ -7,8 +7,6 @@
  */
 import { onActivated, onDeactivated, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import '@/assets/styles/home-v3.css'
-import '@/assets/styles/period-atmosphere.css'
 import '@/assets/styles/station-room.css'
 import { useHomeStageScale } from '@/composables/useHomeStageScale'
 import { themeByHour, type HomeTheme } from '@/composables/useHomeTheme'
@@ -35,6 +33,7 @@ const props = withDefaults(
       | 'admin'
       | 'study'
       | 'profile'
+      | 'games'
     /** Escape 回到的路径；默认 brandPath */
     escapeTo?: string
     /** scroll：内容在舞台内滚动；frame：铺满舞台、内部自己滚（对话） */

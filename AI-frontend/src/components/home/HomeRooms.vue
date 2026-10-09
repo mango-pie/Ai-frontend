@@ -1,4 +1,9 @@
 <script setup lang="ts">
+/**
+ * 首屏「房间」导航卡组：随笔/实验室/手账/知识库/对话/音乐六个入口卡。
+ * 每张卡带拟物小场景（杂志封面、烧瓶、手账日期、书架、聊天气泡、音波环）
+ * 与 3D 悬停倾斜效果；受模块能力（capsStore）门控的房间未开启时隐藏。
+ */
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { siteConfig } from '@/config/site'
@@ -18,6 +23,7 @@ const router = useRouter()
 const loginUserStore = useLoginUserStore()
 const capsStore = useCapabilitiesStore()
 
+// 各房间的可见性：由后端下发的模块能力开关决定（音乐房间默认常开）
 const roomVisible = computed(() => ({
   blog: isGatedEntryVisible('blog', { loaded: capsStore.loaded, enabled: capsStore.enabled }),
   lab: isGatedEntryVisible('app-lab', { loaded: capsStore.loaded, enabled: capsStore.enabled }),
@@ -26,6 +32,7 @@ const roomVisible = computed(() => ({
   chat: isGatedEntryVisible('chat', { loaded: capsStore.loaded, enabled: capsStore.enabled }),
 }))
 
+// 进入房间；requireLogin 的房间（手账/知识库/对话）未登录先跳登录页
 const enter = (path: string, requireLogin = false) => {
   if (requireLogin && !loginUserStore.loginUser.id) {
     router.push('/user/login')
@@ -34,6 +41,7 @@ const enter = (path: string, requireLogin = false) => {
   router.push(path)
 }
 
+// ---- 悬停 3D 倾斜效果：根据鼠标在卡内的位置计算 rotateX/rotateY ----
 const onCardMove = (e: MouseEvent) => {
   const card = e.currentTarget as HTMLElement
   const r = card.getBoundingClientRect()
@@ -43,11 +51,13 @@ const onCardMove = (e: MouseEvent) => {
 }
 
 const onCardEnter = (e: MouseEvent) => {
+  // 进入时只过渡阴影，位移/旋转由 onCardMove 直接设置以保持跟手
   const card = e.currentTarget as HTMLElement
   card.style.transition = 'box-shadow .35s'
 }
 
 const onCardLeave = (e: MouseEvent) => {
+  // 离开时用弹性曲线复位，500ms 后切回仅过渡阴影，避免下次进入拖影
   const card = e.currentTarget as HTMLElement
   card.style.transition = 'transform .5s cubic-bezier(.34,1.56,.5,1), box-shadow .35s'
   card.style.transform = ''
@@ -56,12 +66,14 @@ const onCardLeave = (e: MouseEvent) => {
   }, 500)
 }
 
+// 随笔卡的元信息：有最新标题时突出篇数，无内容时提示引导
 const blogMeta = () => {
   if (props.latestTitle) return `共 ${props.postTotal || '—'} 篇随笔`
   if (props.postTotal) return `共 ${props.postTotal} 篇随笔`
   return '还没有随笔'
 }
 
+// 实验室烧瓶卡文案：按是否有实验切换引导语（含加粗，配合 v-html）
 const labNote = () => {
   if (props.labTotal > 0) return `今日灵感酝酿中……<br><b>${props.labTotal} 个实验</b> 正在咕嘟咕嘟`
   return '今日灵感酝酿中……<br><b>等你来做</b> 第一个实验'
@@ -70,6 +82,7 @@ const labNote = () => {
 
 <template>
   <section id="rooms">
+    <!-- 随笔房间：杂志封面造型，展示最新一篇标题 -->
     <div
       v-if="roomVisible.blog"
       class="room r-blog room--magazine anim"
@@ -104,6 +117,7 @@ const labNote = () => {
       </div>
     </div>
 
+    <!-- 实验室房间：冒泡烧瓶动画 + 实验数量文案 -->
     <div
       v-if="roomVisible.lab"
       class="room r-lab room--flask anim"
@@ -142,6 +156,7 @@ const labNote = () => {
       </div>
     </div>
 
+    <!-- 手账房间：当日日期贴纸 + 连续打卡点（需登录） -->
     <div
       v-if="roomVisible.diary"
       class="room r-diary room--planner anim"
@@ -180,6 +195,7 @@ const labNote = () => {
       </div>
     </div>
 
+    <!-- 知识库房间：书架造型，入口为检索与问答（需登录） -->
     <div
       v-if="roomVisible.knowledge"
       class="room r-know room--shelf anim"
@@ -216,6 +232,7 @@ const labNote = () => {
       </div>
     </div>
 
+    <!-- 对话房间：聊天气泡 + 打字动画（需登录） -->
     <div
       v-if="roomVisible.chat"
       class="room r-chat room--bubbles anim"
@@ -249,6 +266,7 @@ const labNote = () => {
         </span>
       </div>
     </div>
+    <!-- 音乐房间：脉冲光环造型，进入虚拟舞台（不受模块门控） -->
     <div
       class="room r-music room--pulse anim"
       style="animation-delay: 1s"

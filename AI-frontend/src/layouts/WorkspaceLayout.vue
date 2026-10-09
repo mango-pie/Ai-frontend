@@ -1,4 +1,10 @@
 <script setup lang="ts">
+/**
+ * 工作台布局（WorkspaceLayout）
+ * 由 App.vue 按 route.meta.shell === 'workspace' 挂载，包裹登录后的工作台路由
+ * （阅读/学习/个人中心/管理后台/实验室等房间）：左侧 WorkspaceRail 常驻，
+ * 主区独立滚动并附底部版权条；背景保持夜航底色，辉光随时段偏移色温。
+ */
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import WorkspaceRail from '@/components/workspace/WorkspaceRail.vue'
@@ -9,6 +15,7 @@ import { themeByHour } from '@/composables/useHomeTheme'
 const route = useRoute()
 const loginUserStore = useLoginUserStore()
 
+// 当前房间标识（route.meta.room），驱动房间强调色等局部样式
 const room = computed(() => (route.meta.room as string) || 'workspace')
 const year = new Date().getFullYear()
 
@@ -16,6 +23,7 @@ const year = new Date().getFullYear()
 const period = ref(themeByHour(new Date().getHours()))
 let periodTimer: ReturnType<typeof setInterval> | null = null
 
+// 拉取登录用户；每分钟校正一次时段，避免长驻页面跨时段后背景色温不更新
 onMounted(() => {
   loginUserStore.fetchLoginUser()
   periodTimer = setInterval(() => {
@@ -33,6 +41,7 @@ onUnmounted(() => {
     <WorkspaceRail />
     <div class="workspace-layout__main">
       <div class="workspace-layout__content">
+        <!-- 路由视图：meta.keepAlive 的页面（如 ChatPage）走 KeepAlive 缓存，其余按 fullPath 重建 -->
         <RouterView v-slot="{ Component, route: viewRoute }">
           <KeepAlive include="ChatPage">
             <component

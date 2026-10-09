@@ -39,11 +39,23 @@ export interface MetingSong {
 
 const BASE = '/meting-api'
 
+/** 单次 meting 请求超时：服务不可达时快速失败，让调用方走网易云降级路径而不是无限等待 */
+const METING_TIMEOUT_MS = 8000
+
 async function metingFetch<T>(params: Record<string, string>): Promise<T> {
   const query = new URLSearchParams(params).toString()
-  const res = await fetch(`${BASE}/api?${query}`, { headers: { Accept: 'application/json' } })
-  if (!res.ok) throw new Error(`Meting API ${res.status}`)
-  return res.json() as Promise<T>
+  const ac = new AbortController()
+  const timer = setTimeout(() => ac.abort(), METING_TIMEOUT_MS)
+  try {
+    const res = await fetch(`${BASE}/api?${query}`, {
+      headers: { Accept: 'application/json' },
+      signal: ac.signal,
+    })
+    if (!res.ok) throw new Error(`Meting API ${res.status}`)
+    return await (res.json() as Promise<T>)
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 /** 搜索（server: qq | kugou） */

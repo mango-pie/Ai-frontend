@@ -1,6 +1,3 @@
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { clearNeteaseCookie, neteaseFetch, setNeteaseCookie } from '@/integrations/musicRuntime'
-
 /**
  * 网易云音乐登录 Hook：支持「二维码扫码」与「手机号+短信验证码」两种登录方式。
  * 状态为模块级单例，多个组件同时使用时共享同一份登录态与轮询定时器，

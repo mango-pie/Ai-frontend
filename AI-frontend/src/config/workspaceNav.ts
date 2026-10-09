@@ -28,6 +28,7 @@ import {
   Music2,
   PenLine,
   User,
+  Gamepad2,
 } from 'lucide-vue-next'
 import type { CapabilityGate, RequiredRole } from '@/config/permission'
 import { canShowMenuItem, type MenuItemConfig } from '@/config/permission'
@@ -178,6 +179,15 @@ const music: WorkspaceNavItem = {
   matchPrefix: '/music',
 }
 
+const games: WorkspaceNavItem = {
+  key: 'games',
+  label: '游戏舱',
+  path: '/games',
+  icon: Gamepad2,
+  requireModule: 'games',
+  matchPrefix: '/games',
+}
+
 const study: WorkspaceNavItem = {
   key: 'study',
   label: '学习',
@@ -275,6 +285,8 @@ export interface NavGroupItem {
   matchPrefix?: string
   /** 仅 admin 可见 */
   adminOnly?: boolean
+  /** 依赖的后端模块 key（link 型分组的能力门控，关闭时隐藏该项） */
+  requireModule?: string
   children?: WorkspaceNavItem[]
 }
 
@@ -284,6 +296,7 @@ export const TOP_NAV_GROUPS: NavGroupItem[] = [
   { key: 'ai', label: '智能', type: 'menu', children: [chat, knowledge, library, reading] },
   { key: 'lab', label: '实验室', type: 'link', path: '/lab', matchPrefix: '/lab' },
   { key: 'music', label: '音乐', type: 'link', path: '/music', matchPrefix: '/music' },
+  { key: 'games', label: '游戏舱', type: 'link', path: '/games', matchPrefix: '/games', requireModule: 'games' },
   {
     key: 'admin',
     label: '管理',
@@ -298,7 +311,7 @@ export const TOP_NAV_GROUPS: NavGroupItem[] = [
 export const RAIL_HOME: WorkspaceNavItem = { key: 'hall', label: '门厅', path: '/', icon: Home }
 
 /** rail 独立入口（不分组，直接图标） */
-export const RAIL_QUICK: WorkspaceNavItem[] = [lab, music]
+export const RAIL_QUICK: WorkspaceNavItem[] = [lab, music, games]
 
 export interface RailGroup {
   key: NavGroupKey

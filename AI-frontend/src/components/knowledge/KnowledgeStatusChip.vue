@@ -1,4 +1,9 @@
 <script setup lang="ts">
+/**
+ * 知识库状态徽章
+ * 统一渲染笔记的三类状态文案与配色：来源类型（source）、博客发布状态（publish）、
+ * 知识库索引状态（index）；文案与颜色映射收敛在 knowledgeNoteStatus 工具中。
+ */
 import { computed } from 'vue'
 import {
   indexStatusColor,
@@ -14,6 +19,7 @@ const props = defineProps<{
   /** source 类型不带色点，展示为中性标签 */
 }>()
 
+// 按 type 选取对应的状态文案映射
 const label = computed(() => {
   if (props.type === 'publish') return publishStatusLabel(props.status)
   if (props.type === 'index') return indexStatusLabel(props.status)

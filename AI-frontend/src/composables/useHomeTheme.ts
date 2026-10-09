@@ -1,8 +1,15 @@
+/**
+ * 首页主题：按时段（清晨/正午/黄昏/深夜）与季节切换问候语、渐变背景和装饰文案。
+ * 主题写入 html 的 data-theme 供全局 CSS 变量消费；支持每分钟自动跟随时钟切换。
+ */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
+/** 一天四个时段主题 */
 export type HomeTheme = 'morning' | 'noon' | 'dusk' | 'night'
+/** 四季 */
 export type HomeSeason = 'spring' | 'summer' | 'autumn' | 'winter'
 
+/** 各时段的问候语文案、渐变背景与 SVG 图标 */
 export const HOME_GREET: Record<
   HomeTheme,
   { text: string; bg: string; icon: string }
@@ -29,6 +36,7 @@ export const HOME_GREET: Record<
   },
 }
 
+/** 季节限定的一组角落装饰文案（标题 + 副标题） */
 export const SEASON_CAPS: Record<HomeSeason, [string, string]> = {
   spring: ['春日散步 ♪', '云的标本'],
   summer: ['夏日祭 ♪', '蝉鸣午后'],
@@ -36,6 +44,7 @@ export const SEASON_CAPS: Record<HomeSeason, [string, string]> = {
   winter: ['初雪 ♪', '呼出的白气'],
 }
 
+/** 按小时（0-23）映射到时段主题：5-10 早、10-16 午、16-19 黄昏、其余深夜 */
 export function themeByHour(h: number): HomeTheme {
   if (h >= 5 && h < 10) return 'morning'
   if (h >= 10 && h < 16) return 'noon'
@@ -43,6 +52,7 @@ export function themeByHour(h: number): HomeTheme {
   return 'night'
 }
 
+/** 按月份（1-12）映射季节：3-5 春、6-8 夏、9-11 秋、其余冬 */
 export function seasonByMonth(m: number): HomeSeason {
   if (m >= 3 && m <= 5) return 'spring'
   if (m >= 6 && m <= 8) return 'summer'
@@ -50,6 +60,11 @@ export function seasonByMonth(m: number): HomeSeason {
   return 'winter'
 }
 
+/**
+ * 首页主题 composable。
+ * 挂载时按当前时间初始化主题与季节；`setAutoTheme(true)` 后每分钟自动校时。
+ * 另含花瓣/云朵/视差等装饰开关，问候语与季节文案由 computed 派生。
+ */
 export function useHomeTheme() {
   const theme = ref<HomeTheme>('morning')
   const season = ref<HomeSeason>('spring')
@@ -62,6 +77,7 @@ export function useHomeTheme() {
   const greeting = computed(() => HOME_GREET[theme.value])
   const seasonCaps = computed(() => SEASON_CAPS[season.value])
 
+  /** 把主题写到 html 的 data-theme，供 CSS 变量按主题取色 */
   const applyThemeToDom = (name: HomeTheme) => {
     document.documentElement.dataset.theme = name
   }
@@ -75,6 +91,7 @@ export function useHomeTheme() {
     season.value = name
   }
 
+  /** 开/关自动主题：先清掉旧定时器，开启时立即校准一次并每 60s 跟随时钟刷新 */
   const setAutoTheme = (on: boolean) => {
     autoTheme.value = on
     if (autoTimer) {
@@ -93,11 +110,13 @@ export function useHomeTheme() {
     setTheme(themeByHour(new Date().getHours()))
   })
 
+  // 卸载时清理自动校时定时器并移除挂到 html 上的主题标记
   onUnmounted(() => {
     if (autoTimer) clearInterval(autoTimer)
     delete document.documentElement.dataset.theme
   })
 
+  // 主题变化时同步到 DOM（immediate 保证初始就带上 data-theme）
   watch(theme, (t) => applyThemeToDom(t), { immediate: true })
 
   return {

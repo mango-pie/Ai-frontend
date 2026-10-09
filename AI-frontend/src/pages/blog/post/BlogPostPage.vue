@@ -5,10 +5,10 @@
  * 右侧提供相关文章与"下一篇"入口；分类/标签可点击跳筛选页。
  * 编辑入口仅对管理员角色开放。
  */
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, nextTick, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
-import { renderBlogMarkdown } from '@/utils/blogMarkdown'
+import { extractBlogToc, renderBlogMarkdown } from '@/utils/blogMarkdown'
 import {
   getBlogPostVo,
   incrementLikeCount,
@@ -28,8 +28,6 @@ import {
 } from '@/utils/blogSettings'
 import { buildFilterQuery } from '@/utils/blogFilterQuery'
 import BlogRoomShell from '@/components/blog/BlogRoomShell.vue'
-
-type TocItem = { id: string; text: string }
 
 const router = useRouter()
 const route = useRoute()
@@ -67,22 +65,40 @@ const renderedContent = computed(() => {
   return renderBlogMarkdown(post.value.content)
 })
 
-// 从渲染后的 HTML 中提取 h2/h3 作为目录项（最多 12 条）
-const toc = computed<TocItem[]>(() => {
-  const html = renderedContent.value
-  if (!html) return []
-  const items: TocItem[] = []
-  const re = /<h([2-3])[^>]*>(.*?)<\/h\1>/gi
-  let m: RegExpExecArray | null
-  let i = 0
-  while ((m = re.exec(html)) && i < 12) {
-    const text = (m[2] || '').replace(/<[^>]+>/g, '').trim()
-    if (!text) continue
-    items.push({ id: `toc-${i}`, text })
-    i++
-  }
-  return items
+const bodyRef = ref<HTMLElement | null>(null)
+const proseRef = ref<HTMLElement | null>(null)
+const activeTocId = ref('')
+
+const toc = computed(() => extractBlogToc(renderedContent.value))
+
+const minTocLevel = computed(() => {
+  if (!toc.value.length) return 1
+  return Math.min(...toc.value.map((item) => item.level))
 })
+
+const headingOffset = (el: HTMLElement, root: HTMLElement) =>
+  el.getBoundingClientRect().top - root.getBoundingClientRect().top + root.scrollTop
+
+const scrollToHeading = (id: string) => {
+  const root = bodyRef.value
+  const target = proseRef.value?.querySelector(`#${CSS.escape(id)}`) as HTMLElement | null
+  if (!root || !target) return
+  root.scrollTo({ top: Math.max(headingOffset(target, root) - 10, 0), behavior: 'smooth' })
+  activeTocId.value = id
+}
+
+const syncActiveHeading = () => {
+  const root = bodyRef.value
+  const host = proseRef.value
+  if (!root || !host || !toc.value.length) return
+  const marker = root.scrollTop + 28
+  let current = toc.value[0]?.id ?? ''
+  for (const item of toc.value) {
+    const el = host.querySelector(`#${CSS.escape(item.id)}`) as HTMLElement | null
+    if (el && headingOffset(el, root) <= marker) current = item.id
+  }
+  activeTocId.value = current
+}
 
 // 预估阅读时长：按每分钟 400 字粗算，至少 1 分钟
 const readMinutes = computed(() => {
@@ -223,6 +239,13 @@ const reload = () => {
   fetchRelatedPosts()
 }
 
+watch([renderedContent, loading], async ([, isLoading]) => {
+  if (isLoading) return
+  activeTocId.value = toc.value[0]?.id ?? ''
+  await nextTick()
+  syncActiveHeading()
+})
+
 // 同一组件在不同文章间跳转（如"下一篇"）时按 id 重载
 watch(() => route.params.id, (id) => {
   if (id) reload()
@@ -253,20 +276,27 @@ onMounted(async () => {
     <div v-else class="detail-shell">
       <aside class="detail-rail">
         <button type="button" class="back-chip" @click="goBack">← 返回列表</button>
-        <div class="side-card glass">
+        <div class="side-card glass toc-card">
           <span class="tape" />
           <h3 class="font-display">本篇目录</h3>
-          <button
-            v-for="item in toc"
-            :key="item.id"
-            type="button"
-            class="toc-item"
-          >
-            {{ item.text }}
-          </button>
-          <p v-if="!toc.length" class="about-text">暂无小节标题</p>
+          <nav v-if="toc.length" class="toc-nav" aria-label="文章目录">
+            <button
+              v-for="item in toc"
+              :key="item.id"
+              type="button"
+              class="toc-item"
+              :class="[`is-h${item.level}`, { 'is-on': activeTocId === item.id }]"
+              :style="{ paddingLeft: `${(item.level - minTocLevel) * 12 + 8}px` }"
+              :title="item.text"
+              :aria-current="activeTocId === item.id ? 'location' : undefined"
+              @click="scrollToHeading(item.id)"
+            >
+              {{ item.text }}
+            </button>
+          </nav>
+          <p v-else class="about-text">暂无小节标题</p>
         </div>
-        <div class="side-card glass" style="flex: 1">
+        <div class="side-card glass">
           <h3 class="font-display">作者</h3>
           <p class="about-text text-pretty">
             {{ siteConfig.ownerName }} · {{ siteConfig.blogSubtitle }}
@@ -279,7 +309,7 @@ onMounted(async () => {
           <img v-if="post.coverUrl" :src="post.coverUrl" :alt="post.title || ''" />
           <span v-else class="ratio">[image] cover</span>
         </div>
-        <div class="detail-body">
+        <div ref="bodyRef" class="detail-body" @scroll.passive="syncActiveHeading">
           <div class="detail-meta">
             <button
               type="button"
@@ -323,7 +353,7 @@ onMounted(async () => {
             <button type="button" class="chip-btn" @click="handleShare">分享</button>
             <button v-if="canEdit" type="button" class="chip-btn" @click="handleEdit">编辑</button>
           </div>
-          <div class="blog-prose text-pretty" v-html="renderedContent" />
+          <div ref="proseRef" class="blog-prose text-pretty" v-html="renderedContent" />
         </div>
       </article>
 

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+/** 实验室入口横幅卡：整卡可点跳转 /lab，按钮上的箭头悬停时右移做引导动效。 */
 import { useRouter } from 'vue-router'
 import { FlaskConical, ArrowRight } from 'lucide-vue-next'
 import { siteConfig } from '@/config/site'
@@ -7,6 +8,7 @@ const router = useRouter()
 </script>
 
 <template>
+  <!-- 整卡可点击；按钮 stop 阻止冒泡但仍执行同一跳转 -->
   <section class="lab-entry" @click="router.push('/lab')">
     <div class="lab-entry__icon">
       <FlaskConical :size="24" />

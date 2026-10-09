@@ -1,3 +1,8 @@
+/**
+ * 学习模块上下文的组装中心：把工作区、任务、清单、清单子项、专注、习惯、统计
+ * 各子 composable 拼装成一个 StudyContext，provide 给页面内所有子组件 inject 使用。
+ * 子组件只依赖注入的上下文，不直接触碰各 API 控制器。
+ */
 import { computed, provide, ref } from 'vue'
 import type { SmartViewKey } from '@/constants/study'
 import {
@@ -13,6 +18,10 @@ import { useStudyFocusState } from './useStudyFocus'
 import { useStudyHabitsState, useStudyStatsState } from './useStudyHabits'
 import { studyContextKey, type StudyContext, type StudySelection } from './types'
 
+/**
+ * 创建学习上下文并 provide。
+ * 返回同一份 ctx，页面自身（非子组件）可直接使用返回值。
+ */
 export function useStudyContext(): StudyContext {
   const workspace = useStudyWorkspaceState()
   const selection = ref<StudySelection>({ view: 'today' as SmartViewKey })
@@ -25,6 +34,7 @@ export function useStudyContext(): StudyContext {
     showChecklist: true,
   })
   const focusPresets = computed(() => buildFocusPresets(studySettings.value))
+  // 是否展示清单子项：工作区级配置优先，未配置回退站点默认
   const showChecklist = computed(() => {
     if (typeof workspace.workspaceShowChecklist.value === 'boolean') {
       return workspace.workspaceShowChecklist.value
@@ -55,6 +65,7 @@ export function useStudyContext(): StudyContext {
   const habitsState = useStudyHabitsState(workspace.refreshTodayStats)
   const statsState = useStudyStatsState()
 
+  /** 首次进入页面：加载站点设置 → 初始化工作区 → 依次拉取任务/习惯/专注历史/区间统计 */
   async function bootstrap(createThemeLists = true) {
     studySettings.value = await loadStudySettings()
     await workspace.bootstrap(createThemeLists)
@@ -112,6 +123,7 @@ export function useStudyContext(): StudyContext {
     addList: listActions.addList,
     updateListFields: listActions.updateListFields,
     deleteListById: (id) => {
+      // 补查清单类型传给动作层，用于拦截「收集箱不可删除」
       const list = workspace.lists.value.find((l) => l.id === id)
       return listActions.deleteListById(id, list?.listType)
     },

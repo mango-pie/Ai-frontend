@@ -1,4 +1,10 @@
 <script setup lang="ts">
+/**
+ * 知识库笔记卡片
+ * 展示单条精读笔记：标题、标签、发布/入库双状态徽章与更新时间，
+ * 并按来源类型（URL/文件/Agent）以左侧色带区分；
+ * 发布、同步、索引、重建、重新蒸馏、删除等操作经事件上抛，由父级页面执行。
+ */
 import { computed } from 'vue'
 import { Eye, MoreHorizontal, Tag as TagIcon, Clock } from 'lucide-vue-next'
 import IconAction from '@/components/ui/IconAction.vue'
@@ -21,6 +27,7 @@ const emit = defineEmits<{
   (e: 'delete', note: API.KnowledgeNoteVO): void
 }>()
 
+// 来源类型 → 卡片色带修饰类（URL 蓝 / 文件绿 / Agent 主题色 / 其余中性）
 const sourceClass = computed(() => {
   const t = (props.note.sourceType || '').toUpperCase()
   if (t === 'URL') return 'is-url'
@@ -29,6 +36,7 @@ const sourceClass = computed(() => {
   return 'is-default'
 })
 
+// 标签字符串按中英文逗号与空白切分，最多展示 4 个
 const tagList = computed(() =>
   (props.note.tags || '')
     .split(/[,，\s]+/)
@@ -37,12 +45,14 @@ const tagList = computed(() =>
     .slice(0, 4),
 )
 
+// 时间标签：优先取更新时间，无则取创建时间，格式化为 yyyy-MM-dd HH:mm
 const updatedLabel = computed(() => {
   const t = props.note.updateTime || props.note.createTime
   if (!t) return '-'
   return String(t).replace('T', ' ').slice(0, 16)
 })
 
+// 下拉菜单分发：把菜单 key 映射为对应事件上抛，具体动作由父级页面实现
 const onMenuClick = ({ key }: { key: string }) => {
   const id = props.note.id
   const actions: Record<string, () => void> = {
@@ -68,12 +78,14 @@ const onMenuClick = ({ key }: { key: string }) => {
       <KnowledgeStatusChip type="source" :status="note.sourceType" />
     </header>
 
+    <!-- 标签区：有标签展示标签，无标签用占位文案保持卡片高度一致 -->
     <div v-if="tagList.length" class="kb-note-card__tags">
       <TagIcon :size="13" :stroke-width="2" class="kb-note-card__tags-icon" />
       <span v-for="t in tagList" :key="t" class="kb-note-card__tag">{{ t }}</span>
     </div>
     <div v-else class="kb-note-card__tags kb-note-card__tags--empty">暂无标签</div>
 
+    <!-- 发布 / 入库双状态徽章 -->
     <div class="kb-note-card__status">
       <KnowledgeStatusChip type="publish" :status="note.publishStatus" />
       <KnowledgeStatusChip type="index" :status="note.indexStatus" />
@@ -86,6 +98,7 @@ const onMenuClick = ({ key }: { key: string }) => {
       </span>
       <div class="kb-note-card__actions">
         <IconAction :icon="Eye" size="sm" variant="soft" label="预览" @click="emit('open', note.id)" />
+        <!-- 更多操作菜单：按笔记当前状态条件渲染可用动作，删除固定置底 -->
         <a-dropdown :trigger="['click']" placement="bottomRight">
           <IconAction :icon="MoreHorizontal" size="sm" variant="ghost" aria-label="更多操作" />
           <template #overlay>

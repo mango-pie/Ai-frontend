@@ -46,6 +46,8 @@ describe('getRequiredModuleByPath', () => {
     expect(getRequiredModuleByPath('/knowledge/notes')).toBe('knowledge')
     expect(getRequiredModuleByPath('/library')).toBe('library')
     expect(getRequiredModuleByPath('/library/recycle')).toBe('library')
+    expect(getRequiredModuleByPath('/games')).toBe('games')
+    expect(getRequiredModuleByPath('/games/stats')).toBe('games')
     expect(getRequiredModuleByPath('/administrator/study')).toBe('study')
   })
 
@@ -90,6 +92,7 @@ describe('getModuleLabel', () => {
     expect(getModuleLabel('app-lab')).toBe('实验室')
     expect(getModuleLabel('worklog')).toBe('工作日志')
     expect(getModuleLabel('library')).toBe('资料库')
+    expect(getModuleLabel('games')).toBe('游戏舱')
   })
 })
 

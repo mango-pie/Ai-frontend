@@ -1,4 +1,9 @@
 <script setup lang="ts">
+/**
+ * 知识库统计条
+ * 房间顶部的四个可点指标卡：总精读 / 已发布 / 已入库 / 进行中任务。
+ * 前三个点击触发对应的列表筛选，第四个打开任务面板；数字均以 useCountUp 平滑滚动呈现。
+ */
 import { computed } from 'vue'
 import { FileText, Newspaper, LibraryBig, Loader } from 'lucide-vue-next'
 import { useCountUp } from '@/composables/useCountUp'
@@ -19,6 +24,7 @@ const emit = defineEmits<{
   (e: 'jobs'): void
 }>()
 
+// 四项指标的展示值：绑定 props 的响应式数字，由 useCountUp 动画滚动到目标值
 const totalDisplay = useCountUp(computed(() => props.total))
 const publishedDisplay = useCountUp(computed(() => props.published))
 const indexedDisplay = useCountUp(computed(() => props.indexed))
@@ -26,6 +32,7 @@ const runningDisplay = useCountUp(computed(() => props.running))
 </script>
 
 <template>
+  <!-- 指标卡均可点击：总精读=查看全部，已发布/已入库=按状态筛选，进行中=打开任务面板 -->
   <div class="kb-stat-bar kb-stagger">
     <button
       type="button"

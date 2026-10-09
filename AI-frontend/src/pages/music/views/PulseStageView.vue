@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 「正在播放」舞台页：左侧大封面演出区（含空舞台快捷入口、频谱、唱片演唱会氛围、
+ * 舞台 MV 停靠、即将播放卡），右侧同步歌词面板（行点击跳转进度）。
+ */
 import { computed, ref } from 'vue'
 import { Clock, FolderOpen, Heart, Languages, Maximize2, Music, Search, Video } from 'lucide-vue-next'
 import { applyCoverFallback } from '@/utils/musicCover'
@@ -9,8 +13,11 @@ const props = defineProps<{ p: PulsePlayerApi }>()
 const p = props.p
 const { lyricFlowRef, lyricToneClass, onLyricLineEnter, onLyricLineLeave, onLyricLineClick, markLyricUserScroll } =
   usePulseLyricUi(p)
+// 鼠标是否悬停在舞台演出区（悬停时退出唱片模式，展示文案）
 const stageHot = ref(false)
+// MV 是否停靠在舞台（停靠时封面区被视频替换）
 const stageMv = computed(() => p.mvMode.value === 'stage')
+// 唱片演唱会氛围的启用条件：设置开启 + 有曲目 + 舞台页 + 无舞台 MV
 const stageConcert = computed(
   () =>
     p.stageConcertFx.value &&
@@ -18,7 +25,9 @@ const stageConcert = computed(
     p.view.value === 'stage' &&
     !stageMv.value,
 )
+// live 态 = 唱片氛围且鼠标不在舞台上（离开后封面收成旋转唱片）
 const stageLive = computed(() => stageConcert.value && !stageHot.value)
+// 唱片环形频谱的灯条数量（一圈均匀分布）
 const VINYL_EQ_BARS = 56
 </script>
 
@@ -31,6 +40,7 @@ const VINYL_EQ_BARS = 56
             aria-label="正在播放舞台"
           >
             <div class="stage-grid">
+              <!-- 演出区（封面/视频停靠宿主）：空舞台给快捷入口，有曲目给封面 + 频谱 + 氛围 + 即将播放 -->
               <figure
                 class="panel art-panel"
                 data-stage-art
@@ -71,6 +81,7 @@ const VINYL_EQ_BARS = 56
                   </nav>
 
                   <template v-if="p.currentTrack.value">
+                    <!-- 封面（点击播放/暂停）+ 曲名歌手 + MV 入口 -->
                     <div class="stage-hero">
                       <button
                         class="stage-cover"
@@ -107,6 +118,7 @@ const VINYL_EQ_BARS = 56
                       </div>
                     </div>
 
+                    <!-- 实时频谱：高度来自 analyser 的每档电平 -->
                     <div
                       class="wave-deck wave-deck--live"
                       aria-hidden="true"
@@ -118,6 +130,7 @@ const VINYL_EQ_BARS = 56
                         :style="{ height: `${Math.max(10, Math.round(level * 100))}%` }"
                       />
                     </div>
+                    <!-- 唱片演唱会氛围层：光晕/光斑/轨道/浮尘（纯装饰） -->
                     <div v-if="stageConcert" class="vinyl-atmosphere" aria-hidden="true">
                       <span class="vinyl-wash vinyl-wash--a" />
                       <span class="vinyl-wash vinyl-wash--b" />
@@ -137,6 +150,7 @@ const VINYL_EQ_BARS = 56
                       <span class="vinyl-mote" style="--x:58%;--y:88%;--d:3.9s" />
                       <em class="vinyl-ghost">{{ p.currentTrack.value.title }}</em>
                     </div>
+                    <!-- 环形频谱灯条：56 根绕唱片一圈，--i 供 CSS 做波浪相位 -->
                     <div v-if="stageConcert" class="vinyl-eq" aria-hidden="true">
                       <i
                         v-for="i in VINYL_EQ_BARS"
@@ -195,6 +209,7 @@ const VINYL_EQ_BARS = 56
               </figure>
 
               <div class="context">
+                <!-- 同步歌词面板：按行高亮当前句，行内进度条、点击行 seek；滚轮/触摸视为用户滚动暂停自动跟随 -->
                 <section class="panel lyrics-panel" aria-labelledby="lyricsTitle">
                   <header class="panel-head">
                     <span class="panel-index">02 / LYRICS</span>

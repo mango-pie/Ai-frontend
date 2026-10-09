@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 首页首屏 Hero 区：问候徽标、站点标题、一言纸条、AI 实验室快捷输入卡。
+ * 问候文案与图标随主题（props.theme）切换；实验室输入框可直跳 /lab 并携带 prompt。
+ */
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { siteConfig } from '@/config/site'
@@ -14,14 +18,18 @@ const props = defineProps<{
 const router = useRouter()
 const loginUserStore = useLoginUserStore()
 
+// 实验室快捷输入 + 一言文案（默认占位句，加载成功后替换）
 const labPrompt = ref('')
 const hitokotoText = ref('风把云揉成棉花糖的形状，落在窗台上的光是今天下午茶。')
 const hitokotoFrom = ref('—— 每日一言')
+// 透明度用于一言/徽标切换时的淡出淡入过渡
 const textOpacity = ref(1)
 const badgeOpacity = ref(1)
 
+// 当前主题对应的问候语（图标 + 文案 + 徽标圆点颜色）
 const greeting = computed(() => HOME_GREET[props.theme])
 
+// 主题切换时徽标先淡出再淡入，避免图文瞬间跳变
 watch(
   () => props.theme,
   () => {
@@ -33,6 +41,7 @@ watch(
 )
 
 async function loadHitokoto(force = false) {
+  // 先淡出旧文案，等拿到新句子后再淡入（失败则恢复旧文案显示）
   textOpacity.value = 0
   try {
     const item = await fetchHitokoto(force)
@@ -51,10 +60,12 @@ async function loadHitokoto(force = false) {
   }
 }
 
+// 点击快捷词条：自动拼成「做一个xxx」填入输入框
 const onChip = (chip: string) => {
   labPrompt.value = `做一个${chip}`
 }
 
+// 跳转实验室；未登录先去登录页，有输入则带 prompt 查询参数
 const goLab = () => {
   const prompt = labPrompt.value.trim()
   if (!loginUserStore.loginUser.id) {
@@ -65,6 +76,7 @@ const goLab = () => {
   else router.push('/lab')
 }
 
+// 点击「生成」按钮：先播放水波纹特效再跳转，提升点击反馈
 const onLabGo = (e: MouseEvent) => {
   const btn = e.currentTarget as HTMLElement
   const r = btn.getBoundingClientRect()
@@ -84,6 +96,7 @@ onMounted(() => loadHitokoto(true))
 
 <template>
   <div class="hero">
+    <!-- 问候徽标：随主题切换文案与圆点颜色 -->
     <span
       class="hero-badge anim"
       :style="{
@@ -107,6 +120,7 @@ onMounted(() => loadHitokoto(true))
       {{ siteConfig.siteSubtitle }}
     </p>
 
+    <!-- 一言纸条：胶带贴纸造型，附手动刷新按钮 -->
     <div class="hitokoto anim" style="animation-delay: 0.45s">
       <span class="tape" />
       <button type="button" class="refresh" aria-label="换一句" @click="loadHitokoto(true)">
@@ -118,6 +132,7 @@ onMounted(() => loadHitokoto(true))
       <p class="hitokoto-from">{{ hitokotoFrom }}</p>
     </div>
 
+    <!-- 实验室快捷卡：输入框 + 快捷词条，回车或点「生成」跳转 /lab -->
     <div class="lab-card anim" style="animation-delay: 0.55s">
       <div class="lab-head">
         <span class="lab-title font-display">{{ siteConfig.heroLabTitle }}</span>

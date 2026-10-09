@@ -13,6 +13,7 @@ import {
   type LibraryFile,
 } from '@/api/libraryController'
 import { categoryOfExt, fmtSize } from '@/composables/useLibrary'
+import { sha256HexOfFile } from '@/utils/sha256'
 
 const props = defineProps<{
   open: boolean
@@ -33,6 +34,7 @@ interface UploadItem {
   big: boolean
   realFile?: File
   result?: LibraryFile
+  error?: string
 }
 
 const items = reactive<UploadItem[]>([])
@@ -102,23 +104,38 @@ function removeItem(idx: number) {
   if (items[idx]?.state === 'wait') items.splice(idx, 1)
 }
 
-async function sha256Hex(file: File): Promise<string> {
-  const buf = await file.arrayBuffer()
-  const digest = await crypto.subtle.digest('SHA-256', buf)
-  return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('')
+function libraryFileContentUrl(fileId: number | string) {
+  const base = String(import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '')
+  return `${base}/library/files/${fileId}/content`
 }
 
 function xhrPut(url: string, file: File, onProgress: (p: number) => void): Promise<void> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     xhr.open('PUT', url)
+    xhr.withCredentials = true
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100))
     }
-    xhr.onload = () =>
-      xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`HTTP ${xhr.status}`))
+    xhr.onload = () => {
+      if (xhr.status < 200 || xhr.status >= 300) {
+        reject(new Error(`HTTP ${xhr.status}`))
+        return
+      }
+      const text = xhr.responseText?.trim()
+      if (text) {
+        try {
+          const body = JSON.parse(text) as { code?: number; message?: string }
+          if (typeof body.code === 'number' && body.code !== 0) {
+            reject(new Error(body.message || '上传失败'))
+            return
+          }
+        } catch {
+          /* MinIO 预签名 PUT 可能返回空或非 JSON */
+        }
+      }
+      resolve()
+    }
     xhr.onerror = () => reject(new Error('network error'))
     xhr.send(file)
   })
@@ -156,10 +173,14 @@ async function runItem(item: UploadItem) {
   try {
     item.state = 'hash'
     item.p = 0
-    const sha = await sha256Hex(real)
+    item.error = undefined
+    const sha = await sha256HexOfFile(real)
     const init = await initLibraryUpload({ fileName: real.name, size: real.size, sha256: sha })
-    const payload = init.data?.data
-    if (!payload) throw new Error('upload-init 无返回')
+    const body = init.data
+    if (body?.code !== 0 || !body.data) {
+      throw new Error(body?.message || 'upload-init 失败')
+    }
+    const payload = body.data
     if (payload.mode === 'instant') {
       item.state = 'instant'
       item.result = payload.file
@@ -167,14 +188,18 @@ async function runItem(item: UploadItem) {
     }
     item.state = 'uploading'
     item.p = 3
-    await xhrPut(payload.uploadUrl, real, (p) => (item.p = Math.max(3, p)))
+    // 生产 MinIO 在 127.0.0.1 隧道里，浏览器 PUT 预签名会失败；统一走后端中转。
+    const putUrl = libraryFileContentUrl(payload.fileId)
+    await xhrPut(putUrl, real, (p) => (item.p = Math.max(3, p)))
     const done = await completeLibraryUpload(payload.fileId)
-    if (!done.data?.data) throw new Error('upload-complete 无返回')
-    item.result = done.data.data
+    const completed = done.data?.code === 0 ? done.data.data : undefined
+    // direct 模式下 init 响应不含 file 记录，以 complete 的返回为准；失败时留空交给 start() 兜底合成
+    item.result = completed
     item.p = 100
     item.state = 'done'
   } catch (err) {
     console.warn('[library] 上传失败', item.name, err)
+    item.error = err instanceof Error ? err.message : String(err)
     item.state = 'failed'
   }
 }
@@ -217,7 +242,7 @@ async function start() {
       <div class="libr-modal" role="dialog" aria-modal="true" aria-labelledby="libr-upload-title">
         <h3 id="libr-upload-title">上传到资料库</h3>
         <div class="desc">
-          单文件 ≤ 50MB（大文件预签名直传）· 上传前自动计算 SHA-256，重复文件秒传
+          单文件建议 ≤ 50MB · 上传前自动计算 SHA-256，重复文件秒传
           <span v-if="demo" style="color: var(--c-sun)">（演示模式：使用示例文件）</span>
         </div>
         <div
@@ -250,7 +275,9 @@ async function start() {
               <div class="libr-uprog"><i :style="{ width: it.p + '%' }" /></div>
             </template>
             <span v-else-if="it.state === 'done'" class="libr-done-badge"><Check :size="13" /> 完成</span>
-            <span v-else-if="it.state === 'failed'" class="libr-fail-badge"><Info :size="13" /> 失败</span>
+            <span v-else-if="it.state === 'failed'" class="libr-fail-badge" :title="it.error">
+              <Info :size="13" /> 失败{{ it.error ? ` · ${it.error}` : '' }}
+            </span>
             <span v-else class="us">{{ fmtSize(it.size) }}</span>
             <button
               v-if="it.state === 'wait'"

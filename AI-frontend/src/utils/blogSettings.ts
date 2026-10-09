@@ -1,5 +1,10 @@
+/**
+ * 博客模块 UX 设置（站点设置 blog 分组）：列表分页默认值、摘要长度、点赞/阅读计数开关、
+ * 新建文章默认状态等。读取后端配置并做会话级缓存，失败一律回落默认值。
+ */
 import { getSiteSettingValues } from '@/api/siteSettings'
 
+/** blog 分组设置的前端视图（后端 key 映射为强类型字段） */
 export type BlogUxSettings = {
   pageSizeDefault: number
   summaryMaxLength: number
@@ -22,6 +27,7 @@ const DEFAULTS: BlogUxSettings = {
 let cache: BlogUxSettings | null = null
 let inflight: Promise<BlogUxSettings> | null = null
 
+/** 宽容解析布尔：兼容后端回传的 "true"/"1" 等字符串，非法值回落默认 */
 function toBool(value: unknown, fallback: boolean): boolean {
   if (typeof value === 'boolean') return value
   if (value == null) return fallback
@@ -31,11 +37,13 @@ function toBool(value: unknown, fallback: boolean): boolean {
   return fallback
 }
 
+/** 宽容解析整数：非有限数（空串/乱码）回落默认，取整不四舍五入 */
 function toInt(value: unknown, fallback: number): number {
   const n = Number(value)
   return Number.isFinite(n) ? Math.trunc(n) : fallback
 }
 
+/** 状态字符串 → 数据库状态码；大小写不敏感，未知值一律按草稿（0）处理 */
 export function blogStatusToInt(status: unknown): number {
   const key = String(status || 'DRAFT').trim().toUpperCase()
   if (key === 'PUBLISHED') return 1
@@ -43,6 +51,11 @@ export function blogStatusToInt(status: unknown): number {
   return 0
 }
 
+/**
+ * 读取 blog 分组设置；会话内缓存，并发调用共享同一个在途请求。
+ * @param force 为 true 时绕过缓存强制刷新
+ * @returns 解析后的设置；接口失败或响应异常时返回默认值
+ */
 export async function loadBlogSettings(force = false): Promise<BlogUxSettings> {
   if (!force && cache) return cache
   if (!force && inflight) return inflight
@@ -82,6 +95,7 @@ export async function loadBlogSettings(force = false): Promise<BlogUxSettings> {
   return inflight
 }
 
+/** 清空缓存与在途请求（如管理端改完配置后），下次读取会重新拉取 */
 export function clearBlogSettingsCache() {
   cache = null
   inflight = null
@@ -93,6 +107,7 @@ export function markBlogLikeDisabled() {
   else cache = { ...DEFAULTS, allowLike: false }
 }
 
+/** 阅读计数同理：后端判定关闭后本地降级，避免公开页反复发无效请求 */
 export function markBlogViewDisabled() {
   if (cache) cache = { ...cache, viewCountEnabled: false }
   else cache = { ...DEFAULTS, viewCountEnabled: false }

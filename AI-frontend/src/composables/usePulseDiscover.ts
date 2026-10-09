@@ -1,3 +1,8 @@
+/**
+ * 音乐房「发现页」的数据与交互逻辑：首页聚合（每日推荐/新歌/歌单/新碟/榜单/电台）
+ * 与各类详情面板（歌单、专辑、歌手、榜单、电台节目），详情内可直接接续播放器播放。
+ * 依赖调用方传入播放器适配层（PulseDiscoverPlayer），避免直接耦合引擎实现。
+ */
 import { computed, ref, watch, type Ref } from 'vue'
 import {
   getNewestAlbums,
@@ -26,9 +31,12 @@ import {
 } from '@/integrations/metingMusic'
 import type { PulseTrack, PulseView } from '@/composables/usePulsePlayer'
 
+/** 发现页两个面板：聚合首页 / 集合详情 */
 export type DiscoverPane = 'home' | 'detail'
+/** 详情种类：歌单 / 专辑 / 歌手 / 每日推荐 / 新歌速递 / 榜单 */
 export type DiscoverDetailKind = 'album' | 'playlist' | 'artist' | 'daily' | 'newsong' | 'toplist'
 
+/** 详情面板头部的集合元信息（标题、副标题、封面、曲目数） */
 export interface DiscoverCollection {
   kind: DiscoverDetailKind
   id: string
@@ -38,6 +46,7 @@ export interface DiscoverCollection {
   trackCount: number
 }
 
+/** 播放器适配层：发现页需要的最小播放能力（并入曲库、播放、切视图等） */
 export interface PulseDiscoverPlayer {
   upsertNeteaseTracks: (songs: Song[], opts?: { replaceQueue?: boolean }) => PulseTrack[]
   playTrack: (id: string, autoplay?: boolean) => Promise<void>
@@ -48,6 +57,7 @@ export interface PulseDiscoverPlayer {
   view: Ref<PulseView | string>
 }
 
+/** 单个多平台榜单条目：来源服务、榜单 id/名称、已加载曲目与加载/错误态 */
 export interface ChartEntry {
   server: MetingServer
   id: string
@@ -82,6 +92,7 @@ export function usePulseDiscover(player: PulseDiscoverPlayer) {
   const djRadios = ref<NeteaseDjRadio[]>([])
   const djLoading = ref(false)
 
+  /** Meting 歌曲 → 播放器曲目（id 加平台前缀避免冲突，shortTitle 去掉副标题部分） */
   function metingToTrack(s: import('@/integrations/metingMusic').MetingSong, server: MetingServer): PulseTrack {
     return {
       id: `${server}-tl-${s.id}`,
@@ -99,6 +110,7 @@ export function usePulseDiscover(player: PulseDiscoverPlayer) {
     }
   }
 
+  /** 并行加载全部多平台榜单（各取前 20 首）；单榜失败只标记该榜错误，不影响其余 */
   async function loadCharts(force = false) {
     if (charts.value.length && !force) return
     const defs = METING_TOPLISTS
@@ -116,6 +128,7 @@ export function usePulseDiscover(player: PulseDiscoverPlayer) {
     )
   }
 
+  /** 加载网易云官方排行榜列表（最多 12 个），失败静默为空 */
   async function loadNeteaseCharts(force = false) {
     if (neteaseCharts.value.length && !force) return
     neteaseChartsLoading.value = true
@@ -128,6 +141,7 @@ export function usePulseDiscover(player: PulseDiscoverPlayer) {
     }
   }
 
+  /** 打开网易云榜单详情：先用列表摘要占位头部，再拉榜单曲目填入详情 */
   async function openNeteaseToplist(id: string) {
     pane.value = 'detail'
     detailLoading.value = true
@@ -164,6 +178,7 @@ export function usePulseDiscover(player: PulseDiscoverPlayer) {
     }
   }
 
+  /** 加载热门主播电台列表（最多 10 个），失败静默为空 */
   async function loadDj(force = false) {
     if (djRadios.value.length && !force) return
     djLoading.value = true
@@ -176,6 +191,7 @@ export function usePulseDiscover(player: PulseDiscoverPlayer) {
     }
   }
 
+  /** 打开电台详情：拉取最近 50 期节目作为可播放曲目 */
   async function openDjRadio(id: string) {
     pane.value = 'detail'
     detailLoading.value = true
@@ -228,6 +244,7 @@ export function usePulseDiscover(player: PulseDiscoverPlayer) {
     () => newSongs.value.find((s) => s.coverUrl)?.coverUrl || albums.value[0]?.coverUrl || '',
   )
 
+  /** 首页聚合加载：每日推荐/新歌/推荐歌单（不足时补热门歌单）/新碟并行请求；带 homeLoaded 防重复 */
   async function loadHome(force = false) {
     if (homeLoading.value) return
     if (homeLoaded.value && !force) return
@@ -260,7 +277,7 @@ export function usePulseDiscover(player: PulseDiscoverPlayer) {
       void loadDj()
 
       if (!daily.length && !news.length && !list.length && !newest.length) {
-        homeError.value = '暂无推荐内容，请检查启动器中的 API 窗口，或尝试登录网易云'
+        homeError.value = '推荐内容加载失败：音乐服务未连接，请检查启动器窗口。多平台榜单与场景电台仍可使用。'
       }
     } catch {
       homeError.value = '加载失败，请检查启动器中的音乐服务窗口'
@@ -273,6 +290,7 @@ export function usePulseDiscover(player: PulseDiscoverPlayer) {
     }
   }
 
+  /** 填充详情面板：记录集合信息与曲目并切到 detail；空列表给出「暂无曲目」提示 */
   function setDetail(collection: DiscoverCollection, songs: Song[]) {
     activeCollection.value = collection
     detailSongs.value = songs
@@ -281,6 +299,7 @@ export function usePulseDiscover(player: PulseDiscoverPlayer) {
     else detailError.value = ''
   }
 
+  /** 打开「每日推荐」详情：优先复用首页已拉取的数据，为空才重新请求 */
   async function openDailyRecommend() {
     pane.value = 'detail'
     detailLoading.value = true
@@ -315,6 +334,7 @@ export function usePulseDiscover(player: PulseDiscoverPlayer) {
     }
   }
 
+  /** 打开「新歌速递」详情：同样优先复用首页缓存 */
   async function openNewSongs() {
     pane.value = 'detail'
     detailLoading.value = true
@@ -340,6 +360,7 @@ export function usePulseDiscover(player: PulseDiscoverPlayer) {
     }
   }
 
+  /** 打开歌单详情：先用首页摘要占位，再拉完整曲目列表 */
   async function openPlaylist(id: string) {
     const summary = playlists.value.find((p) => p.id === id) ?? null
     pane.value = 'detail'
@@ -383,6 +404,7 @@ export function usePulseDiscover(player: PulseDiscoverPlayer) {
     }
   }
 
+  /** 打开专辑详情：先用首页新碟摘要占位，再拉专辑曲目 */
   async function openAlbum(id: string) {
     const summary = albums.value.find((a) => a.id === id) ?? null
     pane.value = 'detail'
@@ -426,6 +448,7 @@ export function usePulseDiscover(player: PulseDiscoverPlayer) {
     }
   }
 
+  /** 打开歌手详情：拉取歌手热门歌曲，副标题优先用别名/专辑数 */
   async function openArtist(id: string) {
     pane.value = 'detail'
     detailLoading.value = true
@@ -462,6 +485,7 @@ export function usePulseDiscover(player: PulseDiscoverPlayer) {
     }
   }
 
+  /** 返回发现页首页并清空详情状态 */
   function closeDetail() {
     pane.value = 'home'
     activeCollection.value = null
@@ -469,6 +493,7 @@ export function usePulseDiscover(player: PulseDiscoverPlayer) {
     detailError.value = ''
   }
 
+  /** 播放详情内单曲：并入曲库并播放，goStage 控制是否顺手切到舞台视图 */
   async function playDetailTrack(song: Song, goStage = true) {
     const [track] = player.upsertNeteaseTracks([song])
     if (!track) return
@@ -476,6 +501,7 @@ export function usePulseDiscover(player: PulseDiscoverPlayer) {
     if (goStage) player.switchView('stage')
   }
 
+  /** 播放详情全部曲目：整表替换播放队列后从第一首开始 */
   async function playDetailAll(goStage = true) {
     if (!detailSongs.value.length) return
     const tracks = player.upsertNeteaseTracks(detailSongs.value, { replaceQueue: true })
@@ -485,6 +511,7 @@ export function usePulseDiscover(player: PulseDiscoverPlayer) {
     if (goStage) player.switchView('stage')
   }
 
+  /** 快捷播放每日推荐：有缓存直接整队列播放，否则先打开详情面板 */
   async function playDailyQuick() {
     const songs = dailySongs.value.length ? dailySongs.value : await getDailyRecommendSongs()
     if (!songs.length) {
@@ -520,6 +547,7 @@ export function usePulseDiscover(player: PulseDiscoverPlayer) {
       : null,
   )
 
+  // 首次切到发现页视图时按需加载首页聚合数据
   watch(
     () => player.view.value,
     (v) => {

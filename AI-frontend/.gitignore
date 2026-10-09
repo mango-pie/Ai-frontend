@@ -41,6 +41,7 @@ qa-reports/
 # Vite
 *.timestamp-*-*.mjs
 /dist-music/
+dist.tgz
 
 # Tauri
 /src-tauri/target/

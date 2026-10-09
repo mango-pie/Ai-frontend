@@ -6,8 +6,6 @@
  */
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import '@/assets/styles/home-v3.css'
-import '@/assets/styles/period-atmosphere.css'
 import '@/assets/styles/music-pulse-v1.css'
 import { useHomeStageScale } from '@/composables/useHomeStageScale'
 import { themeByHour, type HomeTheme } from '@/composables/useHomeTheme'

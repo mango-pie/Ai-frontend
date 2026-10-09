@@ -1,3 +1,4 @@
+// moduleGate 模块门控单测：路径到业务模块的映射（最长前缀优先）、隐藏/不可用模块的过滤与跳转决策
 import { describe, expect, it } from 'vitest'
 
 import {

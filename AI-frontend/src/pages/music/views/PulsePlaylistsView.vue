@@ -1,10 +1,15 @@
 <script setup lang="ts">
+/**
+ * 歌单与电台页：左侧收藏脊柱（队列/收藏/最近/本地/云歌单）+ 右侧歌单详情。
+ * 支持本地歌单的编辑模式（多选批量下载/移出、拖拽排序），以及听歌统计面板。
+ */
 import { computed, ref } from 'vue'
 import { BarChart3, ChevronLeft, Download, GripVertical, MoreHorizontal, Pencil, Play, Shuffle, Trash2, X } from 'lucide-vue-next'
 import type { PulsePlayerApi } from '@/pages/music/pulseApi'
 
 const props = defineProps<{ p: PulsePlayerApi }>()
 const p = props.p
+// 新建本地歌单的输入框内容
 const newPlaylistName = ref('')
 
 /** 本地用户歌单的编辑模式（多选 + 拖拽排序） */
@@ -15,9 +20,11 @@ const dragIndex = ref(-1)
 /** 听歌统计面板开合 */
 const showStats = ref(false)
 
+// 当前歌单是否为本地用户歌单（playlistKey 形如 user:<id>）
 const isUserPlaylist = computed(() => p.playlistKey.value.startsWith('user:'))
 const userPlaylistId = computed(() => (isUserPlaylist.value ? p.playlistKey.value.slice(5) : ''))
 
+// 勾选中的曲目集合（编辑模式批量操作用）
 const selectedTracks = computed(() =>
   p.playlistTracks.value.filter((t) => selected.value.has(t.id)),
 )
@@ -41,17 +48,21 @@ function toggleAll() {
   const all = p.playlistTracks.value.map((t) => t.id)
   selected.value = selected.value.size === all.length ? new Set() : new Set(all)
 }
+// 批量移出选中曲目（仅本地歌单）
 function batchRemove() {
   if (!selected.value.size) return
   p.batchRemoveFromUserPlaylist(userPlaylistId.value, [...selected.value])
   selected.value = new Set()
 }
+
+// 批量打开下载弹窗（下载选中曲目）
 function batchDownload() {
   if (!selectedTracks.value.length) return
   p.openDownloadPrompt(selectedTracks.value)
   selected.value = new Set()
 }
 
+// ---- 编辑模式的行拖拽排序 ----
 function onRowDragStart(index: number) {
   if (!editing.value) return
   dragIndex.value = index
@@ -66,6 +77,7 @@ function onRowDragOver(e: DragEvent, index: number) {
 function onRowDrop(index: number) {
   if (!editing.value || dragIndex.value < 0) return
   if (dragIndex.value !== index) {
+    // 交给播放器持久化新的曲目顺序
     p.reorderUserPlaylist(userPlaylistId.value, dragIndex.value, index)
   }
   dragIndex.value = -1
@@ -108,6 +120,7 @@ function onRowDrop(index: number) {
                 </div>
               </header>
 
+              <!-- 听歌统计面板：累计播放/时长/歌曲数 + 热门歌曲/歌手榜 -->
               <div v-if="showStats" class="stats-panel">
                 <header class="panel-head">
                   <span class="panel-index">LISTENING STATS</span><h2>听歌统计</h2>
@@ -151,6 +164,7 @@ function onRowDrop(index: number) {
                 </template>
               </div>
 
+              <!-- 歌单主布局：左侧收藏脊柱（各类集合入口 + 新建本地歌单）+ 右侧歌单详情 -->
               <div v-else-if="!showStats" class="playlist-layout">
                 <section class="content-panel collection-spine">
                   <header class="panel-head">
@@ -230,6 +244,7 @@ function onRowDrop(index: number) {
                   </div>
                 </section>
 
+                <!-- 歌单详情：横幅（封面/描述/播放全部/下载/随机/删除）+ 曲目行列表 -->
                 <section class="content-panel playlist-detail">
                   <div class="playlist-banner">
                     <span class="signal-cover" :data-tone="p.activePlaylist.value.tone || undefined">
@@ -357,6 +372,7 @@ function onRowDrop(index: number) {
                     <p>这个列表还是空的。搜索或导入曲目后会出现在这里。</p>
                     <button class="action-button primary" type="button" @click="p.switchView('search')">去搜索</button>
                   </div>
+                  <!-- 编辑模式的批量操作条：全选/已选计数/批量下载/批量移出 -->
                   <div v-if="editing && isUserPlaylist" class="playlist-batch-bar">
                     <button class="text-button" type="button" @click="toggleAll">
                       {{ selected.size === p.playlistTracks.value.length && p.playlistTracks.value.length ? '全不选' : '全选' }}

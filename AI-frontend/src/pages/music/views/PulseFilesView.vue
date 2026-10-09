@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * 本地文件视图：负责本地音频的导入（文件选择 / 文件夹 / 拖放）、
- * 下载曲库目录管理、失效授权的恢复提醒，以及本地曲目列表的维护（歌词绑定 / 移除）。
+ * 下载曲库目录管理、失效授权的恢复提醒，以及本地曲目列表的维护（歌词绑定 / 移除 / 一键清空本地库）。
  * 具体导入、扫描、授权逻辑都在播放器单例（props.p）中，本组件只做交互入口。
  */
 import { computed, ref } from 'vue'
@@ -27,6 +27,14 @@ const dragOver = ref(false)
 
 /** 需要重新授权（FSA 句柄失效）的曲目数量，用于展示恢复授权提醒条 */
 const pendingCount = computed(() => p.localTracks.value.filter((t) => t.localNeedsPermission).length)
+
+/** 「仅存元数据」开关的双向绑定：读写播放器单例上的 ref */
+const metadataOnly = computed({
+  get: () => p.localMetadataOnly.value,
+  set: (v: boolean) => {
+    p.localMetadataOnly.value = v
+  },
+})
 
 /** 本地文件的持久化状态徽标 */
 function persistBadge(track: PulseTrack) {
@@ -69,6 +77,15 @@ function onDrop(e: DragEvent) {
             <FilePlus :size="14" :stroke-width="2" aria-hidden="true" />
             导入文件
           </button>
+          <button
+            class="action-button"
+            type="button"
+            :disabled="!p.localTracks.value.length"
+            @click="p.clearLocalLibrary()"
+          >
+            <Trash2 :size="14" :stroke-width="2" aria-hidden="true" />
+            清空本地库
+          </button>
         </div>
       </header>
 
@@ -96,6 +113,12 @@ function onDrop(e: DragEvent) {
           </button>
         </div>
       </div>
+
+      <!-- 仅存元数据开关：只写记录不存音频，避免大文件占满 IndexedDB 配额 -->
+      <label class="files-meta-only">
+        <input v-model="metadataOnly" type="checkbox" />
+        <span>仅存元数据：导入只记录标题 / 歌词 / 封面，不把音频写入本地库。刷新后曲目仍在，但需重新导入音频才能播放。</span>
+      </label>
 
       <!-- 导入拖放区 -->
       <div
@@ -180,3 +203,22 @@ function onDrop(e: DragEvent) {
     </div>
   </section>
 </template>
+
+<style scoped>
+.files-meta-only {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 14px;
+  font-size: 12px;
+  opacity: 0.85;
+  cursor: pointer;
+}
+
+.files-meta-only input {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+</style>

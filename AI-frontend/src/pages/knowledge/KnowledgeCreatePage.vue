@@ -1,4 +1,9 @@
 <script setup lang="ts">
+/**
+ * 知识库新建页
+ * 三栏“书房”风格布局：左侧返回入口与书脊预览、中间建库表单（库名/简介/可见性）、
+ * 右侧建库流程提示。提交成功后跳转到新库详情页（无 id 时回列表页）。
+ */
 import { computed, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
@@ -6,21 +11,26 @@ import { createKnowledgeBase } from '@/api/knowledge'
 import KnowledgeRoomShell from '@/components/knowledge/KnowledgeRoomShell.vue'
 
 const router = useRouter()
+// 提交中的加载态（防重复提交、驱动流程指示）
 const submitting = ref(false)
+// 建库表单：名称、简介、可见性（默认私有）
 const form = reactive({
   name: '',
   description: '',
   visibility: 'private',
 })
 
+// 流程指示当前步：0 未填名称 / 1 已填名称 / 2 提交中（创建空库）
 const pipeStep = computed(() => {
   if (submitting.value) return 2
   if (form.name.trim()) return 1
   return 0
 })
 
+// 左侧书脊预览文案：未命名时显示占位“待命名”
 const ghostLabel = computed(() => form.name.trim() || '待命名')
 
+// 提交建库：名称必填；成功后优先跳转新库详情，后端未返回 id 时回知识库列表
 const submit = async () => {
   if (!form.name.trim()) {
     message.warning('请输入知识库名称')
@@ -49,6 +59,7 @@ const submit = async () => {
 <template>
   <KnowledgeRoomShell note-label="Knowledge · 新建书架">
     <div class="shell">
+      <!-- 左栏：返回列表入口 + 接口说明卡 + 书脊实时预览 -->
       <aside class="side side-stack anim" style="animation-delay: 0.08s">
         <button class="back-chip" type="button" @click="router.push('/knowledge')">← 返回列表 · Esc</button>
         <div class="side-card glass">
@@ -68,6 +79,7 @@ const submit = async () => {
         </div>
       </aside>
 
+      <!-- 中栏：建库表单（库名/简介/可见性 + 提交/取消） -->
       <main class="main room-col anim" style="animation-delay: 0.16s; justify-content: center">
         <div class="room-head" style="max-width: 680px; width: 100%; margin: 0 auto 8px">
           <div>
@@ -106,6 +118,7 @@ const submit = async () => {
         </div>
       </main>
 
+      <!-- 右栏：建库流程指示（填库名 → 创建空库 → 上传解析 → 进入问答），前两步随表单/提交态点亮 -->
       <aside class="deck anim" style="animation-delay: 0.24s">
         <div class="panel glass" style="flex: 1; display: flex; flex-direction: column">
           <span class="tape sun" />

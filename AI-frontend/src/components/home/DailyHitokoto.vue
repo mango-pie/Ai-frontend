@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 今日一言卡片：从 hitokoto.cn 拉取随机句子展示，支持手动「换一句」刷新。
+ * variant="plain" 时去掉卡片边框背景，嵌入到其它容器中复用。
+ */
 import { computed, onMounted, ref } from 'vue'
 import { RefreshCw, Quote } from 'lucide-vue-next'
 import {
@@ -17,16 +21,19 @@ withDefaults(
   },
 )
 
+// 加载态区分：首次进入用骨架屏，手动刷新只转图标不打断已展示内容
 const loading = ref(true)
 const refreshing = ref(false)
 const error = ref('')
 const item = ref<HitokotoItem | null>(null)
 
+// 句子类型（动画/文学/哲学等）的中文标签
 const typeLabel = computed(() => {
   if (!item.value) return ''
   return hitokotoTypeLabels[item.value.type] || '一言'
 })
 
+// 出处署名：作者与来源都存在时用「·」拼接
 const attribution = computed(() => {
   if (!item.value) return ''
   const { from, from_who: fromWho } = item.value
@@ -34,6 +41,7 @@ const attribution = computed(() => {
   return from || fromWho || ''
 })
 
+// 点击句子跳转 hitokoto.cn 的句子详情页
 const detailUrl = computed(() =>
   item.value ? getHitokotoDetailUrl(item.value.uuid) : 'https://hitokoto.cn',
 )
@@ -55,12 +63,14 @@ async function loadHitokoto(force = false) {
 }
 
 onMounted(() => {
+  // force=true 绕过集成层的缓存，保证每次进入页面拿到新句子
   loadHitokoto(true)
 })
 </script>
 
 <template>
   <section class="daily-hitokoto" :class="{ 'daily-hitokoto--plain': variant === 'plain' }">
+    <!-- 头部：标签 + 类型徽标 + 刷新按钮 -->
     <div class="daily-hitokoto__header">
       <span class="daily-hitokoto__label">
         <Quote :size="14" class="daily-hitokoto__label-icon" />
@@ -79,6 +89,7 @@ onMounted(() => {
       </button>
     </div>
 
+    <!-- 三种展示态：骨架屏 / 正常内容 / 错误重试 -->
     <a-skeleton v-if="loading" active :paragraph="{ rows: 2 }" />
 
     <template v-else-if="item">

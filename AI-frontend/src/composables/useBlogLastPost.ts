@@ -1,5 +1,10 @@
+/**
+ * 博客「最近阅读」记忆：用 sessionStorage 记住最后一篇正在阅读的文章，
+ * 供导航栏再次进入博客时直接恢复到该文章，而不是每次都落在列表页。
+ */
 const STORAGE_KEY = 'blog-last-post-id'
 
+/** 读取并校验存储的文章 id，非法值统一回退 null */
 function readStoredPostId(): number | null {
   if (typeof sessionStorage === 'undefined') return null
   const raw = sessionStorage.getItem(STORAGE_KEY)

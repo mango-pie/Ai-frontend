@@ -1,13 +1,19 @@
+/**
+ * 学习模块（任务/专注/习惯/统计）的共享类型与 provide/inject 注入 key。
+ * StudyContext 是页面向所有子组件下发的完整契约，子组件 inject 后即可读写状态与调用动作。
+ */
 import type { ComputedRef, InjectionKey, Ref } from 'vue'
 import type { SmartViewKey } from '@/constants/study'
 import type { StudyUxSettings } from '@/utils/studySettings'
 
+/** 当前选中的视图：智能视图（今日/收集箱/已完成等）或某个具体清单 */
 export interface StudySelection {
   view: SmartViewKey
   listId?: number
   listName?: string
 }
 
+/** 学习上下文：状态 refs + 全部动作方法（任务/清单/清单子项/专注/习惯） */
 export interface StudyContext {
   loading: Ref<boolean>
   forbidden: Ref<boolean>
@@ -65,4 +71,5 @@ export interface StudyContext {
   afterMutation: () => Promise<void>
 }
 
+/** provide/inject 的注入 key（Symbol 保证类型安全） */
 export const studyContextKey: InjectionKey<StudyContext> = Symbol('studyContext')

@@ -9,6 +9,7 @@ import { ref } from 'vue'
 import { ChevronLeft, Download, Play, RefreshCw, Search, TrendingUp, Coffee, BookOpen, Moon, Wind } from 'lucide-vue-next'
 import { applyCoverFallback, toCoverDisplayUrl } from '@/utils/musicCover'
 import { songToPulseTrack } from '@/composables/pulse/pulseTypes'
+import { searchMusic } from '@/integrations/neteaseMusic'
 import { searchMeting, type MetingServer, type MetingSong } from '@/integrations/metingMusic'
 import type { PulseTrack } from '@/composables/usePulsePlayer'
 import type { PulseDiscoverApi, PulsePlayerApi } from '@/pages/music/pulseApi'
@@ -48,17 +49,28 @@ function metingToPulse(s: MetingSong): PulseTrack {
   }
 }
 
-/** 播放场景电台：按氛围关键词在指定平台搜索，取前 30 首整队入列并跳转舞台 */
+/** 场景电台搜歌：优先 meting 聚合（QQ/酷狗，来源随曲目标注）；meting 不可达/超时/为空时回退网易云搜索（来源标记「网易云」） */
+async function searchSceneTracks(scene: (typeof scenes)[number]): Promise<PulseTrack[]> {
+  try {
+    const songs = await searchMeting(scene.server, scene.query)
+    if (songs.length) return songs.slice(0, 30).map(metingToPulse)
+  } catch {
+    /* meting 不可达或超时，走网易云回退 */
+  }
+  const page = await searchMusic(scene.query, 30)
+  return p.upsertNeteaseTracks(page.songs)
+}
+
+/** 播放场景电台：按氛围关键词多源搜歌，取前 30 首整队入列并跳转舞台 */
 async function playScene(scene: (typeof scenes)[number]) {
   if (sceneBusy.value) return
   sceneBusy.value = scene.label
   try {
-    const songs = await searchMeting(scene.server, scene.query)
-    if (!songs.length) {
+    const tracks = await searchSceneTracks(scene)
+    if (!tracks.length) {
       p.showToast('该场景暂无匹配曲目，稍后再试')
       return
     }
-    const tracks = songs.slice(0, 30).map(metingToPulse)
     for (const t of tracks) p.ingestTrack?.(t)
     p.playTrack(tracks[0]!.id)
     p.switchView('stage')
@@ -164,14 +176,12 @@ function downloadDiscoverPage() {
                 <div v-if="discover.homeLoading.value && !discover.homeLoaded.value" class="discover-state">
                   正在加载推荐…
                 </div>
-                <div
-                  v-else-if="discover.homeError.value && !discover.playlists.value.length && !discover.dailySongs.value.length"
-                  class="discover-state is-error"
-                >
-                  <p>{{ discover.homeError.value }}</p>
-                  <button class="action-button primary" type="button" @click="discover.loadHome(true)">重试</button>
-                </div>
+                <!-- 局部降级：推荐请求失败只出提示条，榜单/场景电台等仍可用的区块照常渲染，不整页报错 -->
                 <template v-else>
+                  <div v-if="discover.homeError.value" class="discover-state is-error compact">
+                    <p>{{ discover.homeError.value }}</p>
+                    <button class="action-button" type="button" @click="discover.loadHome(true)">重试</button>
+                  </div>
                   <section class="discover-section" aria-labelledby="minePlTitle">
                     <div class="discover-section-head">
                       <h2 id="minePlTitle">我的歌单</h2>

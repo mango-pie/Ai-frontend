@@ -1,6 +1,12 @@
+/**
+ * SSE 分段流式输出的「打字机」呈现层。
+ * 把后端按段推送的文本以逐字打字效果写进聊天气泡或桌宠回复区，
+ * 统一处理节流滚动、中断信号与「替换末条 / 追加新条」等落位策略。
+ */
 import type { Ref } from 'vue'
 import { chatSseLog, revealTextWithTypewriter } from '@/utils/sseChatStream'
 
+/** 打字机选项：逐字间隔、中断信号与每帧进度回调 */
 export type SegmentTypewriterOptions = {
   charDelayMs?: number
   signal?: AbortSignal
@@ -20,6 +26,7 @@ export function createThrottledProgress(onProgress: () => void): () => void {
   }
 }
 
+/** 聊天页单条气泡消息（含流式标记与客户端临时 id） */
 export interface ChatPageBubbleMessage {
   role: 'ai' | 'user'
   content: string
@@ -29,6 +36,11 @@ export interface ChatPageBubbleMessage {
   tools?: unknown[]
 }
 
+/**
+ * 聊天页的分段处理器：面向「消息气泡数组」的打字机落位。
+ * 返回 revealReplace（重打最后一条 AI 气泡）/ revealAppend（新气泡逐字打出）/
+ * revealIntoLast（在最后一条 AI 气泡上继续打）/ replaceLast / append（无动画直写）。
+ */
 export function createChatPageSegmentHandlers(deps: {
   messages: Ref<ChatPageBubbleMessage[]>
   nextClientId: (prefix?: string) => string
@@ -51,6 +63,7 @@ export function createChatPageSegmentHandlers(deps: {
     },
   }
 
+  /** 对单个气泡执行打字机：先露首字再逐帧揭示，结束后关闭流式标记并触发一次滚动 */
   async function typewriteBubble(msg: ChatPageBubbleMessage, text: string) {
     if (!text) return
     msg.isStreaming = true
@@ -70,6 +83,7 @@ export function createChatPageSegmentHandlers(deps: {
     throttledScroll()
   }
 
+  /** 重打最后一条 AI 气泡；末条不是 AI 时先新建一条空 AI 气泡承接 */
   const revealReplace = async (text: string) => {
     const last = deps.messages.value[deps.messages.value.length - 1]
     const msg =
@@ -89,6 +103,7 @@ export function createChatPageSegmentHandlers(deps: {
     await typewriteBubble(msg, text)
   }
 
+  /** 新建一条 AI 气泡并逐字打出（每个流式分段一条气泡） */
   const revealAppend = async (text: string) => {
     const msg: ChatPageBubbleMessage = {
       role: 'ai',
@@ -130,6 +145,10 @@ export function createChatPageSegmentHandlers(deps: {
   return { revealReplace, revealAppend, revealIntoLast, replaceLast, append }
 }
 
+/**
+ * 桌宠的分段处理器：面向「字符串分段数组」的打字机落位（每段独立逐字打出）。
+ * 与聊天页版本同构，只是数据源从消息气泡换成 replySegments 数组。
+ */
 export function createPetSegmentHandlers(deps: {
   replySegments: Ref<string[]>
   options?: SegmentTypewriterOptions
@@ -145,6 +164,7 @@ export function createPetSegmentHandlers(deps: {
     onProgress: throttledProgress,
   }
 
+  /** 对指定下标的分段执行打字机（首字先出，再逐帧揭示剩余文本） */
   async function typewriteSegment(lastIdx: number, text: string) {
     if (!text) return
     if (text.length <= 1) {
@@ -161,6 +181,7 @@ export function createPetSegmentHandlers(deps: {
     throttledProgress?.()
   }
 
+  /** 重打最后一个分段；分段数组为空时先占位一个空串 */
   const revealReplace = async (text: string) => {
     if (!deps.replySegments.value.length) {
       deps.replySegments.value.push('')

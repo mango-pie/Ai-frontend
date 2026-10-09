@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 主页第 03 屏「实验室橱窗」：两个拟物浏览器窗口展示实验室小应用示例。
+ * 左窗是可交互的待办 Demo（真的能勾选），右窗展示第一个推荐应用。
+ */
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { siteConfig } from '@/config/site'
@@ -17,12 +21,14 @@ defineEmits<{
 
 const router = useRouter()
 
+// 待办 Demo 的演示数据：纯前端交互展示，不落库
 const todos = ref([
   { text: '给主页换上新衣服', done: true },
   { text: '写一篇动效笔记', done: false },
   { text: '给薄荷浇水', done: false },
 ])
 
+// 已完成数文案与进度条宽度（百分比）
 const todoCnt = computed(() => {
   const done = todos.value.filter((t) => t.done).length
   return `${done} / ${todos.value.length}`
@@ -32,6 +38,7 @@ const todoBar = computed(() => {
   return `${(done / todos.value.length) * 100}%`
 })
 
+// 右窗展示第一个应用，没有数据时模板用默认示例兜底
 const featuredApp = computed(() => props.shows[0] || null)
 
 const openApp = () => {
@@ -54,6 +61,7 @@ const openApp = () => {
         <button type="button" class="labwin-enter" @click="router.push('/lab')">进入实验室</button>
       </header>
 
+      <!-- 左窗：待办清单 Demo，勾选行可切换完成态并联动进度条 -->
       <div class="labwin-pane labwin-pane--demo">
         <div class="labwin-chrome">
           <i /><i /><i />
@@ -87,6 +95,7 @@ const openApp = () => {
         </div>
       </div>
 
+      <!-- 右窗：第一个推荐应用的仪表盘预览，无数据时用默认示例 -->
       <div class="labwin-pane labwin-pane--app">
         <div class="labwin-chrome">
           <i /><i /><i />

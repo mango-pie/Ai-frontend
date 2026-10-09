@@ -1,3 +1,9 @@
+/**
+ * Music Pulse v1 — 音乐房间（全屏独立播放器）样式总表，挂载根节点 .music-room-root。
+ * 结构顺序：日夜双主题变量 -> 场景背景（设计天空/动漫轮播）-> 应用骨架（rail/workspace/player）
+ * -> 舞台/歌词/发现/搜索/曲库/本地/歌单/均衡器/设置各视图 -> 全局抽屉与迷你播放器
+ * -> MV 图层 -> 全屏剧场 -> 下载弹窗；文件末尾为响应式与「减少动态效果」适配。
+ */
 @import url("https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;600;700;900&display=swap");
 
 /* Music Pulse — fullscreen (no station shell) */
@@ -64,6 +70,7 @@ body.music-room-lock {
   font-family: var(--font-ui);
 }
 
+/* 日间主题变量组：浅紫底 + 深紫字的整体换肤，逐项覆盖夜间同名令牌 */
 .music-room-root[data-mode="day"] {
   --night: #EDE6F4;
   --chrome-rgb: 244 238 252;
@@ -98,6 +105,7 @@ body.music-room-lock {
   --veil: 0.42;
 }
 
+/* 应用骨架：pulse-app 三区网格（左侧 rail + 右上 workspace + 右下 player 播放条） */
 .music-room-root .pulse-app {
   width: 100%;
   height: 100%;
@@ -118,6 +126,7 @@ body.music-room-lock {
   background: transparent;
 }
 
+/* 场景背景层：铺在最底层（设计天空 + 可选动漫轮播图），不拦截指针事件 */
 .music-room-root .pulse-scene {
   position: absolute;
   inset: 0;
@@ -7789,6 +7798,7 @@ body.music-room-lock {
         scroll-behavior: auto !important;
       }
     }
+/* 全局浮层层级与下载弹窗：抽屉/迷你/剧场/Toast 统一 z-index，下载弹窗再高一级 */
 .music-room-root .global-drawer,
 .music-room-root .drawer-scrim,
 .music-room-root .mini-player,

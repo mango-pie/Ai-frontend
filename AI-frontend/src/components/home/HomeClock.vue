@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 首页时钟卡片：支持「文字时钟」与「模拟钟表盘」两种模式切换。
+ * variant 控制嵌入形态：default 独立卡片 / embedded 嵌入侧栏 / plain 无底色。
+ */
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { Type, Clock } from 'lucide-vue-next'
 
@@ -13,6 +17,7 @@ withDefaults(
   },
 )
 
+// 当前展示模式 + 每秒刷新一次的当前时间
 const mode = ref<ClockMode>('analog')
 const now = ref(new Date())
 let timer: number | undefined
@@ -22,6 +27,7 @@ const modeOptions = [
   { label: '钟表', value: 'analog' },
 ]
 
+// ---- 文字模式用的派生文本 ----
 const weekdayText = computed(() => {
   const weekday = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
   return weekday[now.value.getDay()]
@@ -41,6 +47,8 @@ const timeText = computed(() => {
   return `${h}:${m}:${s}`
 })
 
+// ---- 模拟表盘三根指针的角度 ----
+// 时针：每小时 30°，再按分钟补上 0.5°/分，避免跳变
 const hourHandStyle = computed(() => {
   const hour = now.value.getHours() % 12
   const minute = now.value.getMinutes()
@@ -48,6 +56,7 @@ const hourHandStyle = computed(() => {
   return { transform: `translateX(-50%) rotate(${degree}deg)` }
 })
 
+// 分针：每分 6°，按秒平滑补 0.1°/秒
 const minuteHandStyle = computed(() => {
   const minute = now.value.getMinutes()
   const second = now.value.getSeconds()
@@ -60,9 +69,11 @@ const secondHandStyle = computed(() => {
   return { transform: `translateX(-50%) rotate(${second * 6}deg)` }
 })
 
+// 表盘 12 个刻度（每 30° 一个）
 const tickMarks = Array.from({ length: 12 }, (_, index) => index)
 
 onMounted(() => {
+  // 每秒推进 now，所有 computed 随之联动
   timer = window.setInterval(() => {
     now.value = new Date()
   }, 1000)
@@ -94,6 +105,7 @@ onUnmounted(() => {
       </a-segmented>
     </div>
 
+    <!-- 模式切换（文字 / 钟表），切换带淡入淡出 -->
     <transition name="clock-fade" mode="out-in">
       <div v-if="mode === 'text'" key="text" class="text-clock">
         <p class="text-clock__time">{{ timeText }}</p>

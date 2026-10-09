@@ -7,7 +7,7 @@
 
 | 项目 | GitHub | 说明 |
 |------|--------|------|
-| 前端 | https://github.com/mango-pie/Ai-frontend | 静态资源在 `AI-frontend/dist/` |
+| 前端 | https://github.com/mango-pie/Ai-frontend | `dist/` 已出库，上线走 sync-prod.ps1 / ai-update（第 5、8 步） |
 | 后端 | https://github.com/mango-pie/Ai-Backend | JAR：`target/AI-0.0.1-SNAPSHOT.jar` |
 
 ## 变量表（执行前替换）
@@ -231,18 +231,11 @@ curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8123/api/v3/api-docs
 
 ## 第 5 步：部署前端
 
-### 方式 A — 使用 Git 中已构建的 dist（推荐）
+> `AI-frontend/dist/` 已出库（前端仓库 `.gitignore` 不跟踪），**无法**从 Git 拿到构建产物，不要 clone 后 rsync dist。
 
-```bash
-cd /tmp
-git clone https://github.com/mango-pie/Ai-frontend.git
-sudo rsync -a --delete Ai-frontend/AI-frontend/dist/ ${WEB_ROOT}/
-sudo chown -R www-data:www-data ${WEB_ROOT}
-```
+### 方式 A — 本机构建并上传 sync-prod.ps1（推荐）
 
-### 方式 B — 需修改 API 地址时重新构建
-
-在**本地 Windows**：
+需自定义 API 地址时，先在**本地 Windows** 准备 `.env.production`：
 
 ```bash
 cd AI-frontend
@@ -257,10 +250,24 @@ VITE_PREVIEW_BASE_URL=/api/static
 VITE_DEPLOY_BASE_URL=http://121.43.177.236
 ```
 
+在**仓库根**执行（脚本自动 `npm run build-only` → 打包 `dist.tgz` → scp 上传，服务器端 `ai-update frontend-tarball` 解压上线）：
+
 ```bash
-npm ci
-npm run build-only
-scp -r dist/* ${DEPLOY_USER}@${SERVER_IP}:${WEB_ROOT}/
+powershell -File AI-frontend/scripts/sync-prod.ps1
+# 刚构建过加 -SkipBuild；脚本默认取 E:\Quark\新建文件夹\Scene.pem、服务器 IP 写死，
+# 其他环境用 -PemPath 指定私钥或编辑脚本
+```
+
+### 方式 B — 服务器 ai-update frontend（需已 push 且服务器具备 Node 环境）
+
+本机 `git push` 后 SSH 到服务器执行 `ai-update frontend`（见第 8 步）。
+
+> `ai-update`（`/usr/local/bin/ai-update`）源码未入前后端两仓库，方式 A/B 最后一步均在服务器上调用它。全新服务器尚未安装时，手动等价兜底：
+
+```bash
+# 本机：cd AI-frontend && tar -czf dist.tgz -C dist . && scp dist.tgz ${DEPLOY_USER}@${SERVER_IP}:/tmp/
+# 服务器：
+sudo tar -xzf /tmp/dist.tgz -C ${WEB_ROOT} && sudo chown -R www-data:www-data ${WEB_ROOT}
 ```
 
 ---
@@ -298,21 +305,33 @@ sudo systemctl reload nginx
 
 ## 第 8 步：日常更新
 
-### 更新前端
+不要从 Windows 再 SCP 上传 100MB+ 的后端 JAR。服务器已安装 `/usr/local/bin/ai-update`（源码未入前后端两仓库，全新服务器可按第 5 步命令手动兜底，如需脚本化可自行封装）：在机器上 `git pull` 后构建并替换产物。
+
+### 更新前端（推荐）
+
+本机改完并 `git push` 到 `restore-polished-ui` 后，SSH 到服务器：
 
 ```bash
-cd /tmp && rm -rf Ai-frontend && git clone https://github.com/mango-pie/Ai-frontend.git
-sudo rsync -a --delete Ai-frontend/AI-frontend/dist/ ${WEB_ROOT}/
+ai-update frontend
 ```
+
+尚未 push、只想立刻上线本机构建结果时，在**仓库根**执行：
+
+```powershell
+powershell -File AI-frontend/scripts/sync-prod.ps1 -SkipBuild
+```
+
+（会打包 `dist/` 约几十 MB 传到服务器，远小于 JAR。）
 
 ### 更新后端
 
+先 `git push` 到 `feature/module-decoupling`，再 SSH：
+
 ```bash
-# 上传新 JAR 后
-sudo systemctl stop ai-backend
-sudo cp AI-0.0.1-SNAPSHOT.jar ${APP_ROOT}/
-sudo systemctl start ai-backend
+ai-update backend
 ```
+
+服务器会 `mvn -DskipTests package` 并重启 `ai-backend`，无需从本地传 JAR。
 
 ### 数据库增量
 
@@ -367,7 +386,7 @@ sudo certbot --nginx -d your-domain.com
 然后修改：
 
 - `/etc/ai-backend.env`：`APP_DEPLOY_HOST=https://your-domain.com`
-- 前端 `.env.production` 重新 build 并上传
+- 前端 `.env.production` 重新 build 并按第 5 步方式上线（sync-prod.ps1）
 - `systemctl restart ai-backend`
 
 ## 附录 B：不部署 / 可选的功能

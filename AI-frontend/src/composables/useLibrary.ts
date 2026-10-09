@@ -13,7 +13,6 @@ import {
   deleteLibraryCollection,
   deleteLibraryTag,
   deleteLibraryFiles,
-  getLibraryDownloadUrl,
   getLibrarySummary,
   listLibraryCollections,
   listLibraryFiles,
@@ -437,12 +436,8 @@ export function useLibrary() {
     recentFileAt.value = new Date().toISOString().slice(0, 10)
     if (demoMode.value) return null
     markLibraryFileOpened(id).catch(() => undefined)
-    try {
-      const res = unwrap(await getLibraryDownloadUrl(id))
-      return res?.url ?? null
-    } catch {
-      return null
-    }
+    const base = String(import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '')
+    return `${base}/library/files/${id}/content`
   }
 
   /** 转入知识库：排队解析 */

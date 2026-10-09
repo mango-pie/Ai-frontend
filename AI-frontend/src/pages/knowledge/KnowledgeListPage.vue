@@ -1,4 +1,10 @@
 <script setup lang="ts">
+/**
+ * 知识库列表页（书架馆藏总览）
+ * 三栏“书房”布局：左栏知识库目录与馆藏角装饰（索书卡/盖章），中栏书架书脊浏览、
+ * 当前库详情卡（描述/事实/入库流水）与档案柜拖拽玩具，右栏站内统计与解析健康度。
+ * 交互：目录/书脊点选、双击或 Enter 进入馆藏、←→ 切库、编辑与删除（管理员可进设置）。
+ */
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
@@ -126,6 +132,7 @@ const heldFile = computed(() => {
 })
 
 const cabDeskEmpty = computed(() => heldFileId.value == null)
+// 档案柜状态摘要文案：手持/开屉数量一览
 const cabOpenCount = computed(() => openDrawers.value.size)
 const cabOpenLabel = computed(() => {
   if (heldFileId.value) return `手持 1 · 开着 ${cabOpenCount.value} 屉`
@@ -540,6 +547,7 @@ const handleDelete = () => {
   })
 }
 
+// 盖章动效：短暂点亮印章，480ms 后自动复位
 const onSeal = () => {
   sealPop.value = true
   window.setTimeout(() => {

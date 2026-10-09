@@ -343,7 +343,7 @@ async function handleDownload(file: LibraryFile) {
     document.body.appendChild(a)
     a.click()
     a.remove()
-    message.success('已获取预签名下载链接（1 小时内有效）')
+    message.success('开始下载')
   } else {
     message.info('演示数据：预签名下载链接待后端接入')
   }

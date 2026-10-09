@@ -1,4 +1,12 @@
 <script setup lang="ts">
+/**
+ * 知识库详情页（馆藏文档管理）
+ * 通过路由参数 kbId 定位知识库，按 ?upload=1 区分两种形态：
+ * 1) 上传台：拖放/点选文件 → 校验类型 → 上传入库（上传后为 PENDING）；
+ * 2) 馆藏列表：文档行展示解析状态（PENDING/PARSING/SUCCESS/FAILED），
+ *    支持触发解析、失败重试、下载、删除，双击 SUCCESS 文档可预览切块（chunk）。
+ * 解析中的文档以 2.5s 轮询刷新状态直至终态，右侧面板汇总解析健康度。
+ */
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
@@ -24,9 +32,11 @@ import KnowledgeRoomShell from '@/components/knowledge/KnowledgeRoomShell.vue'
 
 const route = useRoute()
 const router = useRouter()
+// 当前知识库 id（路由参数）与是否处于“上传台”形态（?upload=1）
 const kbId = computed(() => String(route.params.kbId ?? ''))
 const showUpload = computed(() => route.query.upload === '1' || route.query.upload === 'true')
 
+// ── 状态区：知识库信息、文档列表、选中行、上传与轮询 ──
 const kbLoading = ref(false)
 const kb = ref<API.KnowledgeBaseVO | null>(null)
 const loading = ref(false)
@@ -34,9 +44,11 @@ const dataSource = ref<API.KnowledgeDocumentVO[]>([])
 const total = ref(0)
 const selectedId = ref<string | number | null>(null)
 const uploading = ref(false)
+// 待上传文件（选好但未提交）与隐藏的文件输入框引用
 const pendingFile = ref<File | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 
+// 文档列表查询参数：默认每页 50 条，支持按文件名/类型/解析状态过滤
 const query = reactive<API.KnowledgeDocumentQueryRequest>({
   pageNum: 1,
   pageSize: 50,
@@ -45,13 +57,17 @@ const query = reactive<API.KnowledgeDocumentQueryRequest>({
   parseStatus: undefined,
 })
 
+// 文档 id -> 轮询定时器 的映射：解析中的文档各自独立轮询
 const pollTimers = new Map<string, ReturnType<typeof setInterval>>()
+// 切块预览抽屉：开关、加载态、切块列表与文档名
 const chunkOpen = ref(false)
 const chunkLoading = ref(false)
 const chunks = ref<API.KnowledgeChunkVO[]>([])
 const chunkDocName = ref('')
+// 正在触发解析的文档 id 集合（用于按钮防抖）
 const parsingIds = ref<Set<string>>(new Set())
 
+// 解析状态归一化为四种契约态：SUCCESS/PARSING/FAILED/PENDING
 const pillStatus = (status?: string) => {
   const u = String(status || '').toUpperCase()
   if (u === 'PARSED' || u === 'SUCCESS') return 'SUCCESS'
@@ -60,6 +76,7 @@ const pillStatus = (status?: string) => {
   return 'PENDING'
 }
 
+// 解析进度条的视觉宽度：完成 100%、解析中 62%、其余 0%（无精确百分比，仅示意）
 const parseBarWidth = (status?: string) => {
   const p = pillStatus(status)
   if (p === 'SUCCESS') return '100%'
@@ -67,6 +84,7 @@ const parseBarWidth = (status?: string) => {
   return '0%'
 }
 
+// 按文件类型/文件名推断文档图标类别（pdf / md / 通用二进制）
 const docIco = (fileType?: string, fileName?: string) => {
   const t = (fileType || fileName || '').toLowerCase()
   if (t.includes('pdf')) return 'pdf'
@@ -75,11 +93,13 @@ const docIco = (fileType?: string, fileName?: string) => {
   return 'bin'
 }
 
+// 当前选中的文档：未显式选中时回退到列表第一行
 const selected = computed(() => {
   if (selectedId.value == null) return dataSource.value[0] ?? null
   return dataSource.value.find((d) => String(d.id) === String(selectedId.value)) ?? dataSource.value[0] ?? null
 })
 
+// 按解析状态统计各类文档数量（供右侧解析进度面板使用）
 const counts = computed(() => {
   const c = { ok: 0, parsing: 0, pending: 0, failed: 0 }
   for (const d of dataSource.value) {
@@ -92,6 +112,7 @@ const counts = computed(() => {
   return c
 })
 
+// 四种状态占文档总数的百分比：驱动健康度堆叠条宽度
 const healthPct = computed(() => {
   const n = dataSource.value.length || 1
   return {
@@ -102,6 +123,8 @@ const healthPct = computed(() => {
   }
 })
 
+// ── 解析轮询 ──
+// 停止指定文档的轮询
 const stopPoll = (id: string) => {
   const t = pollTimers.get(id)
   if (t) {
@@ -110,15 +133,19 @@ const stopPoll = (id: string) => {
   }
 }
 
+// 停止全部轮询（离开页面时清理，避免内存泄漏与无效请求）
 const clearAllPolls = () => {
   for (const id of pollTimers.keys()) stopPoll(id)
 }
 
+// 局部更新列表中某一行的数据（轮询到新状态时避免整表刷新）
 const patchRow = (doc: API.KnowledgeDocumentVO) => {
   const idx = dataSource.value.findIndex((d) => String(d.id) === String(doc.id))
   if (idx >= 0) dataSource.value[idx] = { ...dataSource.value[idx], ...doc }
 }
 
+// 对解析中的文档启动 2.5s 轮询：到达终态（SUCCESS/FAILED）即停止，
+// 成功时提示并刷新知识库概览，失败时展示 errorMessage；请求异常也停止轮询
 const startPoll = (id: number | string) => {
   const key = String(id)
   stopPoll(key)
@@ -144,6 +171,7 @@ const startPoll = (id: number | string) => {
   pollTimers.set(key, timer)
 }
 
+// 加载知识库基本信息：不存在时提示并跳回列表页
 const fetchKb = async () => {
   kbLoading.value = true
   try {
@@ -158,6 +186,7 @@ const fetchKb = async () => {
   }
 }
 
+// 加载文档列表：默认选中第一行，并为所有“解析中”的文档恢复轮询
 const fetchDocs = async () => {
   loading.value = true
   try {
@@ -177,17 +206,21 @@ const fetchDocs = async () => {
   }
 }
 
+// 同时刷新库信息与文档列表
 const refreshAll = async () => {
   await Promise.all([fetchKb(), fetchDocs()])
 }
 
+// 点击行选中文档（双击行为另走切块预览）
 const selectDoc = (row: API.KnowledgeDocumentVO) => {
   if (row.id != null) selectedId.value = row.id
 }
 
+// 进入/退出上传台：用路由 query 切换形态，便于直接分享上传链接
 const goUpload = () => router.replace({ path: `/knowledge/${kbId.value}`, query: { upload: '1' } })
 const leaveUpload = () => router.replace(`/knowledge/${kbId.value}`)
 
+// 点选文件：校验扩展名/大小是否允许上传，不合法则提示并清空选择
 const onPickFile = (e: Event) => {
   const input = e.target as HTMLInputElement
   const file = input.files?.[0]
@@ -201,6 +234,7 @@ const onPickFile = (e: Event) => {
   pendingFile.value = file
 }
 
+// 拖放文件：与点选走同一套校验
 const onDrop = (e: DragEvent) => {
   e.preventDefault()
   const file = e.dataTransfer?.files?.[0]
@@ -213,6 +247,7 @@ const onDrop = (e: DragEvent) => {
   pendingFile.value = file
 }
 
+// 提交上传：成功后清空待传文件、刷新列表并退出上传台
 const submitUpload = async () => {
   if (!pendingFile.value || uploading.value) return
   uploading.value = true
@@ -232,6 +267,8 @@ const submitUpload = async () => {
   }
 }
 
+// 触发解析（默认作用于选中文档）：仅 PENDING/FAILED 状态可解析；
+// 后端若立即进入解析中则挂轮询，若同步完成则直接刷新库信息
 const handleParse = async (row?: API.KnowledgeDocumentVO | null) => {
   const target = row ?? selected.value
   if (!target?.id || !canParseDocument(target.parseStatus)) {
@@ -256,6 +293,7 @@ const handleParse = async (row?: API.KnowledgeDocumentVO | null) => {
   }
 }
 
+// 一键重试所有解析失败的文档
 const retryFailed = async () => {
   const failed = dataSource.value.filter((d) => pillStatus(d.parseStatus) === 'FAILED')
   if (!failed.length) {
@@ -265,6 +303,7 @@ const retryFailed = async () => {
   for (const row of failed) await handleParse(row)
 }
 
+// 下载文档：向后端换取临时下载链接后在新标签打开
 const handleDownload = async (row: API.KnowledgeDocumentVO) => {
   if (row.id == null) return
   const res = await getKnowledgeDocumentDownloadUrl(row.id)
@@ -272,6 +311,7 @@ const handleDownload = async (row: API.KnowledgeDocumentVO) => {
   else message.error(res.data.message || '获取下载链接失败')
 }
 
+// 删除文档：二次确认后先停轮询再删除；若删除的是当前选中行则清空选中
 const handleDelete = (row: API.KnowledgeDocumentVO) => {
   Modal.confirm({
     title: '删除文档',
@@ -290,6 +330,7 @@ const handleDelete = (row: API.KnowledgeDocumentVO) => {
   })
 }
 
+// 打开切块预览抽屉：仅解析 SUCCESS 的文档可看，拉取前 50 条切块内容
 const openChunks = async (row: API.KnowledgeDocumentVO) => {
   if (row.id == null || !isParsedDocument(row.parseStatus)) {
     message.info('仅 SUCCESS 文档可预览切块')
@@ -310,6 +351,7 @@ const openChunks = async (row: API.KnowledgeDocumentVO) => {
   }
 }
 
+// 挂载时加载库信息与文档列表；卸载时清理所有轮询定时器
 onMounted(refreshAll)
 onBeforeUnmount(clearAllPolls)
 </script>
@@ -492,6 +534,8 @@ onBeforeUnmount(clearAllPolls)
           </div>
 
           <div class="detail-body">
+            <!-- 文档列表：单击选中、双击预览切块；行内含图标/元信息/解析进度条与状态徽标，
+                 SUCCESS 且有切块时展示 CHUNK 预览入口，FAILED 时展示错误信息 -->
             <div class="doc-list">
               <button
                 v-for="row in dataSource"
@@ -592,6 +636,7 @@ onBeforeUnmount(clearAllPolls)
       </aside>
     </div>
 
+    <!-- 切块预览抽屉：按序号列出文档切块文本内容 -->
     <a-drawer v-model:open="chunkOpen" :title="`切块 · ${chunkDocName}`" width="480" placement="right">
       <a-spin :spinning="chunkLoading">
         <a-list :data-source="chunks" item-layout="vertical">
